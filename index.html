@@ -1,10 +1,482 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
+  <!-- Google Tag Manager -->
+  <script>(function (w, d, s, l, i) {
+      w[l] = w[l] || []; w[l].push({
+        'gtm.start':
+          new Date().getTime(), event: 'gtm.js'
+      }); var f = d.getElementsByTagName(s)[0],
+        j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : ''; j.async = true; j.src =
+          'https://www.googletagmanager.com/gtm.js?id=' + i + dl; f.parentNode.insertBefore(j, f);
+    })(window, document, 'script', 'dataLayer', 'GTM-NX75SZPR');</script>
+  <!-- End Google Tag Manager -->
+  <!-- Global site tag (gtag.js) - Google Marketing Platform -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=DC-10089018"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() { dataLayer.push(arguments); }
+    gtag('js', new Date());
+    gtag('config', 'DC-10089018');
+  </script>
+
+  <!-- Pixel da Homepage - Dispara automaticamente ao carregar a página -->
+  <script>
+    // Pixel de visita à homepage
+    window.addEventListener('load', function () {
+      gtag('event', 'conversion', {
+        'send_to': 'DC-10089018/invmedia/br_da000+standard',
+        'value': 1.0,
+        'currency': 'BRL'
+      });
+    });
+  </script>
   <meta charset="UTF-8" />
-  <title>Visualizador de exames</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Biodesignlab | Visualizador cirúrgico 3D</title>
+
+  <!-- ✨ SEO essentials: description, canonical, JSON-LD -->
+  <meta name="description"
+    content="Reconstruções 3D de alta fidelidade para planejamento cirúrgico. Receba o visualizador interativo em até 3 dias úteis." />
+
+  <link rel="canonical" href="https://biodesignlab.com.br/" />
+
+  <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://biodesignlab.com.br/#org",
+      "name": "Biodesignlab",
+      "url": "https://biodesignlab.com.br/",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://biodesignlab.com.br/images/og-logo.jpg",
+        "width": 1200,
+        "height": 630
+      },
+      "contactPoint": {
+        "@type": "ContactPoint",
+        "telephone": "+55-21-99311-8288",
+        "contactType": "customer service",
+        "areaServed": "BR"
+      },
+      "sameAs": [
+        "https://www.instagram.com/altadiagnosticos/",
+        "https://www.facebook.com/altadiagnosticos/",
+        "https://br.linkedin.com/showcase/alta-diagnosticos/"
+      ]
+    },
+
+    {
+      "@type": "VideoObject",
+      "@id": "https://biodesignlab.com.br/#viewer-demo",
+      "name": "Visualizador 3D cirúrgico – demonstração",
+      "description": "Demonstração rápida do visualizador 3D interativo para cirurgias complexas.",
+      "thumbnailUrl": "https://biodesignlab.com.br/images/mockups.png",
+      "uploadDate": "2025-05-20",
+      "duration": "PT45S",
+      "contentUrl": "https://biodesignlab.com.br/videoViewer.mp4",
+      "embedUrl": "https://biodesignlab.com.br/#video"
+    }
+  ]
+}
+</script>
+  <!-- /SEO essentials -->
+
+
+  <!-- ↓↓↓ Add from here ↓↓↓ -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://biodesignlab.com.br/" />
+  <meta property="og:title" content="Biodesignlab – Visualizador cirúrgico 3D" />
+  <meta property="og:description"
+    content="Reconstruções 3D de alta fidelidade para planejamento cirúrgico. Receba o visualizador interativo em até 3 dias úteis." />
+  <meta property="og:image" content="https://biodesignlab.com.br/images/og-logo.jpg" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Biodesignlab – Visualizador cirúrgico 3D" />
+  <meta name="twitter:description"
+    content="Reconstruções 3D de alta fidelidade para planejamento cirúrgico. Receba o visualizador interativo em até 3 dias úteis." />
+  <meta name="twitter:image" content="https://biodesignlab.com.br/images/og-logo.jpg" />
+  <!-- ↑↑↑ Add until here ↑↑↑ -->
+
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-  <h1>Visualizador de exames</h1>
+
+
+<body class="bg-white">
+  <!-- Google Tag Manager (noscript) -->
+  <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-NX75SZPR" height="0" width="0"
+      style="display:none;visibility:hidden"></iframe></noscript>
+  <!-- End Google Tag Manager (noscript) -->
+  <div class="container mx-auto px-8 py-12">
+    <header class="flex justify-between items-center py-4 mb-8">
+      <span class="text-xl font-semibold">Biodesignlab 3D viewer</span>
+    </header>
+    <div class="flex flex-col sm:flex-row items-start mb-4 my-8">
+      <h1 class="text-4xl sm:text-5xl lg:text-[64px] font-bold w-full sm:w-1/2 pr-0 sm:pr-2 mb-4 sm:mb-0 break-words">
+        Visualizador 3D cirúrgico </h1>
+      <div class="w-full sm:w-1/2 pl-0 sm:pl-2">
+        <h2 class="text-xl text-gray-600 mb-4">Soluções para planejamento de cirurgias complexas no seu computador ou
+          dispositivo móvel, com possibilidade de navegar em modelos 3D virtuais.</h2>
+        <div class="flex items-center flex-wrap gap-4 sm:gap-6">
+          <img src="images/LogoDasa 1.png" alt="Logo Dasa" class="h-4 sm:h-6">
+          <img src="images/Alta-logo-1.webp" alt="Logo CDPI" class="h-6 sm:h-8">
+          <img src="images/logoCDPI.png" alt="Logo CDPI" class="h-6 sm:h-8">
+          <img src="images/bronsteinLogo.jpg" alt="Logo CDPI" class="h-6 sm:h-8">
+          <img src="images/biodesignlogo.png" alt="Logo Biodesignlab" class="h-8 sm:h-10">
+        </div>
+
+        <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6 mt-6">
+          <button type="button"
+            class="inline-flex items-center gap-2 rounded-full bg-[#E95D4A] px-8 py-3 text-lg font-semibold text-white shadow-lg ring-2 ring-transparent transition hover:bg-[#D04A3A] hover:shadow-xl focus:outline-none focus:ring-[#E95D4A]"
+            onclick="window.open('https://wa.me/5521993118288','_blank','noopener,noreferrer');">
+            Solicitar
+          </button>
+          <a href="https://wa.me/5521993118288" target="_blank" rel="noopener"
+            class="text-blue-500 underline text-xl font-bold">+55 21
+            99311-8288</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- HERO IMAGE — full-bleed on phones, contained on tablet & desktop -->
+    <div class="relative -mx-8 sm:mx-0 overflow-x-hidden mt-16 mb-8">
+      <img src="images/mockups.png" alt="Mock-ups of the 3-D surgical viewer on different devices" class="block object-left max-w-none
+                  w-[110vw]        <!-- tiny phones: 10 % bleed -->
+                  sm:w-full        <!-- tablet & up: normal width, no bleed -->
+                  h-auto">
+    </div>
+    <!-- Passo a passo • Visualizador 3D Interativo -->
+    <section class="relative isolate overflow-hidden bg-white py-20 sm:py-24">
+      <div class="container mx-auto flex flex-col md:flex-row items-start md:items-center gap-12 px-6">
+        <!-- Image (left) -->
+        <!-- <div class="w-full md:w-1/2 flex items-center"> -->
+        <!-- Parent -->
+        <div class="flex items-center justify-center"> <!-- centers child vertically & horizontally -->
+          <img src="images/video_slicer.webp" alt="Annotated CT scan slice with segmented organs" width="768"
+            height="432" loading="lazy" class="rounded-3xl">
+          <!-- </div> -->
+          <!-- 1 rem = 16 px, so rounded-3xl ≈ 24 px radius -->
+
+
+        </div>
+
+
+        <!-- Timeline (right) -->
+        <div class="w-full md:w-1/2">
+          <h2 class="text-3xl font-semibold text-gray-900 mb-10">
+            Passo a passo para solicitar seu exame com<br class="hidden sm:block" />
+            Visualizador 3D Interativo
+          </h2>
+
+          <ol class="relative border-l border-gray-300">
+            <!-- Step 1 -->
+            <li class="mb-10 ml-6">
+              <span
+                class="absolute -left-4 flex items-center justify-center w-8 h-8 text-sm font-medium text-white bg-blue-500 rounded-full ring-8 ring-white">1</span>
+              <h3 class="text-xl font-semibold text-blue-600">
+                Solicitação do exame na unidade
+              </h3>
+              <p class="mt-1 text-gray-700">
+                Entre em contato com a <strong>ALTA Diagnósticos</strong> ou
+                <strong>CDPI</strong> Barra ou Leblon e solicite à concierge a realização do exame de
+                <strong>angiotomografia ou
+                  angiorressonância com pós-processamento no
+                  visualizador 3D</strong>.
+              </p>
+            </li>
+
+            <!-- Step 2 -->
+            <li class="mb-10 ml-6">
+              <span
+                class="absolute -left-4 flex items-center justify-center w-8 h-8 text-sm font-medium text-white bg-blue-500 rounded-full ring-8 ring-white">2</span>
+              <h3 class="text-xl font-semibold text-blue-600">
+                Preparação e processamento do exame
+              </h3>
+              <p class="mt-1 text-gray-700">
+                Após a realização, sua angiotomografia/angiorressonância será
+                processada para visualização interativa em 3D. O resultado estará
+                disponível em até <strong>3 dias úteis</strong>.
+              </p>
+            </li>
+
+            <!-- Step 3 -->
+            <li class="ml-6">
+              <span
+                class="absolute -left-4 flex items-center justify-center w-8 h-8 text-sm font-medium text-white bg-blue-500 rounded-full ring-8 ring-white">3</span>
+              <h3 class="text-xl font-semibold text-blue-600">
+                Entrega online com visualização interativa
+              </h3>
+              <p class="mt-1 text-gray-700">
+                Você receberá acesso facilitado diretamente por um link exclusivo.<br />
+
+              </p>
+            </li>
+          </ol>
+          <p class="mt-6 text-gray-700"></p>
+          <br>
+          <span class="text-lg">Para solicitar agora ou esclarecer dúvidas, você pode clicar no botão
+            abaixo, enviar uma mensagem ou
+            ligar por
+            WhatsApp para a concierge.</span><br><br>
+          <a href="https://wa.me/5521993118288" target="_blank" rel="noopener"
+            class="text-blue-500 underline text-xl font-bold">+55 21
+            99311-8288</a>
+          </p>
+          <!-- Call-to-action button -->
+          <div class="mt-8"></div>
+          <button type="button"
+            class="inline-flex items-center gap-2 rounded-full bg-[#E95D4A] px-8 py-3 text-lg font-semibold text-white shadow-lg ring-2 ring-transparent transition hover:bg-[#D04A3A] hover:shadow-xl focus:outline-none focus:ring-[#E95D4A]"
+            onclick="window.open('https://wa.me/5521993118288','_blank','noopener,noreferrer');">
+            Solicitar
+          </button>
+        </div>
+      </div>
+  </div>
+  </section>
+
+
+  <section class="py-12">
+    <div class="container mx-auto px-8">
+      <div class="flex flex-col md:flex-row gap-8">
+        <div class="w-full md:w-1/2">
+          <h2 class="text-3xl font-bold mb-8 text-left">Avaliação pré-operatória</h2>
+          <p class="text-lg text-gray-700 max-w-4xl text-left">Com reconstruções 3D de alta fidelidade, você visualiza
+            cada detalhe anatômico antes da cirurgia, reduzindo incertezas e aumentando a segurança do paciente.</p>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+            <div class="flex items-center">
+              <div class="h-7 w-5 flex items-center justify-center" style="height: 28px; width: 20px;">
+                <img src="images/checkmark.svg" alt="Checkmark" style="height: 16px; width: 16px;">
+              </div>
+              <span class="text-lg font-normal text-gray-600 ml-4">músculo-esquelético</span>
+            </div>
+
+            <div class="flex items-center">
+              <div class="h-7 w-5 flex items-center justify-center" style="height: 28px; width: 20px;">
+                <img src="images/checkmark.svg" alt="Checkmark" style="height: 16px; width: 16px;">
+              </div>
+              <span class="text-lg font-normal text-gray-600 ml-4">pulmão</span>
+            </div>
+
+            <div class="flex items-center">
+              <div class="h-7 w-5 flex items-center justify-center" style="height: 28px; width: 20px;">
+                <img src="images/checkmark.svg" alt="Checkmark" style="height: 16px; width: 16px;">
+              </div>
+              <span class="text-lg font-normal text-gray-600 ml-4">rim</span>
+            </div>
+
+            <div class="flex items-center">
+              <div class="h-7 w-5 flex items-center justify-center" style="height: 28px; width: 20px;">
+                <img src="images/checkmark.svg" alt="Checkmark" style="height: 16px; width: 16px;">
+              </div>
+              <span class="text-lg font-normal text-gray-600 ml-4">fígado</span>
+            </div>
+
+            <div class="flex items-center">
+              <div class="h-7 w-5 flex items-center justify-center" style="height: 28px; width: 20px;">
+                <img src="images/checkmark.svg" alt="Checkmark" style="height: 16px; width: 16px;">
+              </div>
+              <span class="text-lg font-normal text-gray-600 ml-4">pâncreas</span>
+            </div>
+
+            <div class="flex items-center">
+              <div class="h-7 w-5 flex items-center justify-center" style="height: 28px; width: 20px;">
+                <img src="images/checkmark.svg" alt="Checkmark" style="height: 16px; width: 16px;">
+              </div>
+              <span class="text-lg font-normal text-gray-600 ml-4">bariátrica</span>
+            </div>
+
+          </div>
+          <div class="flex items-center pt-4">
+            <div class="h-7 w-5 flex items-center justify-center" style="height: 28px; width: 20px;">
+              <img src="images/checkmark.svg" alt="Checkmark" style="height: 16px; width: 16px;">
+            </div>
+            <span class="text-lg font-normal text-gray-600 ml-4">Outros segmentos conforme necessidade do caso</span>
+          </div>
+        </div>
+
+        <div class="w-full md:w-1/2 flex items-center justify-center mt-8 md:mt-0 h-full self-center">
+          <!-- Video wrapper -->
+          <div class="relative w-full max-w-[100%] mx-auto aspect-video overflow-hidden rounded-2xl shadow-lg my-auto">
+            <!-- Local video player -->
+            <video class="absolute inset-0 w-full h-full object-cover" autoplay muted loop playsinline
+              disablePictureInPicture src="videoViewer.mp4">
+            </video>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Médicos responsáveis Section -->
+  <section class="py-12 rounded-[24px]" style="background-color: #0C245C;">
+    <div class="container mx-auto px-8">
+      <h2 class="text-3xl font-bold mb-12 text-center text-white">Médicos responsáveis</h2>
+
+      <div class="flex flex-col md:flex-row gap-12 justify-center">
+
+        <!-- Doctor 2 -->
+        <div class="flex flex-col items-center">
+          <img src="images/vitor_photo.jpg" alt="Dr. Vitor Sardemberg"
+            class="w-64 h-64 object-cover rounded-[24px] mb-6">
+          <h3 class="text-xl font-bold text-white">Vitor Sardemberg</h3>
+          <p class="text-gray-300 mt-2">CDPI e Alta Diagnósticos</p>
+          <p class="text-gray-300 mt-1">(21) 98220 4508</p>
+        </div>
+        <!-- Doctor 1 -->
+        <div class="flex flex-col items-center">
+          <img src="images/rvarella.jpg" alt="Dr. Romulo Varella" class="w-64 h-64 object-cover rounded-[24px] mb-6">
+          <h3 class="text-xl font-bold text-white">Romulo Varella</h3>
+          <p class="text-gray-300 mt-2">Hospitais: São Lucas e CHN</p>
+          <p class="text-gray-300 mt-1">(21) 99946 5979</p>
+        </div>
+      </div>
+    </div>
+  </section>
+  </section>
+  <!-- CTA Section – High-contrast Typography -->
+  <section class="relative isolate overflow-hidden bg-gradient-to-br  py-20 sm:py-24">
+    <!-- Decorative glow -->
+    <div class="absolute inset-0 pointer-events-none -z-10">
+      <div class="absolute top-0 left-1/2 w-[600px] -translate-x-1/2 aspect-square rounded-full  opacity-20 blur-3xl">
+      </div>
+    </div>
+
+    <div class="mx-auto max-w-4xl px-6 text-center">
+      <!-- Primary heading: richest color for maximum contrast -->
+      <h2 class="text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl">
+        Potencialize sua estratégia cirúrgica
+      </h2>
+
+      <!-- Supporting sub-head kept bold but slightly lighter tint -->
+      <h3 class="mt-4 text-2xl font-semibold leading-snug text-gray-800">
+        Reconstruções 3D detalhadas e personalizadas para cada paciente.
+      </h3>
+
+      <!-- Body copy: lighter shade & regular weight for hierarchy -->
+      <p class="mt-6 text-lg font-medium text-gray-600">
+        Disponível em até <span class="font-semibold text-gray-800">5 dias úteis</span>.
+        Plataforma intuitiva e acessível via web.
+      </p>
+
+      <p class="mt-2 text-lg text-gray-600">
+        Disponível para cirurgias realizadas nas redes de hospitais
+        <strong class="text-gray-800">Americas</strong>,
+        ou nas redes de diagnóstico por imagem
+        <strong class="text-gray-800">Alta</strong> e <strong class="text-gray-800">CDPI</strong>.
+      </p>
+
+      <div class="mt-10 flex justify-center">
+        <button type="button"
+          class="inline-flex items-center gap-2 rounded-full bg-[#E95D4A] px-8 py-3 text-lg font-semibold text-white shadow-lg ring-2 ring-transparent transition hover:bg-[#D04A3A] hover:shadow-xl focus:outline-none focus:ring-[#E95D4A]"
+          onclick="window.open('https://wa.me/5521993118288','_blank','noopener,noreferrer');">
+          Solicitar
+        </button>
+      </div>
+    </div>
+  </section>
+  <!-- END MAIN CONTENT .............................................. -->
+  </div> <!-- closes: <div class="container mx-auto px-8 py-12"> -->
+
+  <!-- FULL-WIDTH FOOTER ............................................. -->
+  <footer class="bg-[#0C245C] text-white py-10">
+    <div class="max-w-7xl mx-auto px-6 grid gap-8 sm:grid-cols-2 lg:grid-cols-4"> <!-- Alta Diagnósticos -->
+      <div>
+        <h3 class="text-lg font-semibold mb-4">Alta Diagnósticos</h3>
+        <ul class="space-y-2">
+          <li><a href="https://www.instagram.com/altadiagnosticos/" target="_blank"
+              class="hover:underline">Instagram</a></li>
+          <li><a href="https://www.facebook.com/altadiagnosticos/" target="_blank" class="hover:underline">Facebook</a>
+          </li>
+          <li><a href="https://br.linkedin.com/showcase/alta-diagnosticos/" target="_blank"
+              class="hover:underline">LinkedIn</a></li>
+        </ul>
+      </div>
+
+      <!-- CDPI -->
+      <div>
+        <h3 class="text-lg font-semibold mb-4">CDPI</h3>
+        <ul class="space-y-2">
+          <li><a href="https://www.instagram.com/sergiofranco.cdpi/" target="_blank"
+              class="hover:underline">Instagram</a></li>
+          <li><a href="https://www.facebook.com/sf.cdpi/" target="_blank" class="hover:underline">Facebook</a></li>
+          <li><a href="https://cdpi.com.br/" target="_blank" class="hover:underline">Website</a></li>
+        </ul>
+      </div>
+
+      <!-- Bronstein -->
+      <div>
+        <h3 class="text-lg font-semibold mb-4">Bronstein</h3>
+        <ul class="space-y-2">
+          <li>
+            <a href="https://www.instagram.com/laboratoriobronstein/" target="_blank" class="hover:underline">
+              Instagram
+            </a>
+          </li>
+          <li>
+            <a href="https://www.facebook.com/laboratoriobronstein/" target="_blank" class="hover:underline">
+              Facebook
+            </a>
+          </li>
+          <li>
+            <a href="https://bronstein.com.br/" target="_blank" class="hover:underline">
+              Website
+            </a>
+          </li>
+        </ul>
+      </div>
+
+
+      <!-- Contact -->
+      <div>
+        <h3 class="text-lg font-semibold mb-4">Contato</h3>
+        <!-- <p class="mb-2"><span class="font-medium">E-mail:</span> <a href="mailto:contact@example.com" <!--
+            class="hover:underline">contact@example.com</a></p> -->
+        <p class="mb-2"><span class="font-medium">Concierge:</span> <a href="tel:+5521993118288"
+            class="hover:underline">+55&nbsp;21&nbsp;99311-8288</a></p>
+        <p class="mt-4">
+          <span class="font-medium">CDPI Barra endereço:</span><br>
+          Av. das Américas, 4666 – Sala 301 a 326 – Barra da Tijuca,<br>
+          Rio de Janeiro – RJ, 22280-030
+        </p>
+      </div>
+    </div>
+
+    <div class="mt-10 border-t border-white/20 pt-4 text-center text-sm opacity-80">
+      © 2025 Alta Diagnósticos, CDPI & Bronstein. All rights reserved.
+    </div>
+  </footer>
+  </div>
+  <script>
+    // Rastreia QUALQUER clique que abra WhatsApp
+    document.addEventListener('click', function (e) {
+      const elemento = e.target.closest('button, a');
+
+      // Se o elemento abre WhatsApp, dispara o pixel
+      if (elemento &&
+        (elemento.onclick?.toString().includes('wa.me') ||
+          elemento.href?.includes('wa.me'))) {
+
+        gtag('event', 'conversion', {
+          'send_to': 'DC-10089018/invmedia/br_da001+standard'
+        });
+
+        console.log('Pixel disparado - WhatsApp');
+      }
+    });
+
+    // Pixel da Homepage
+    if (window.location.pathname === '/') {
+      gtag('event', 'conversion', {
+        'send_to': 'DC-10089018/invmedia/br_da000+standard'
+      });
+    }
+  </script>
 </body>
+
 </html>

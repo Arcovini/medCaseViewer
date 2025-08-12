@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tailwind Page</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-white">
+    <div class="container mx-auto px-8 py-12">
+        <header class="flex justify-between items-center py-4 mb-8">
+            <span class="text-xl font-semibold">Biodesignlab 3D viewer</span>
+            <button
+              onclick="window.open('https://wa.me/5521993118288', '_blank', 'noopener,noreferrer');"
+              class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+              Solicitar
+            </button>
+        </header>
+        <div class="flex flex-col sm:flex-row items-start mb-4 my-8">
+            <h1 class="text-4xl sm:text-5xl lg:text-[64px] font-bold w-full sm:w-1/2 pr-0 sm:pr-2 mb-4 sm:mb-0 break-words">Visualizador 3D cirúrgico </h1>
+            <div class="w-full sm:w-1/2 pl-0 sm:pl-2">
+                <h2 class="text-xl text-gray-600 mb-4">Soluções para planejamento de cirurgias complexas no seu computador ou dispositivo móvel, com possibilidade de navegar em modelos 3D virtuais.</h2>
+                <div class="flex items-center space-x-6 sm:space-x-8">
+                    <img src="LogoDasa 1.png" alt="Logo Dasa" class="h-4 sm:h-6">
+                    <img src="logoCDPI.png" alt="Logo CDPI" class="h-6 sm:h-8">
+                    <img src="biodesignlogo.png" alt="Logo Biodesignlab" class="h-8 sm:h-10">
+                </div>
+            </div>
+        </div>
+        
+        <div class="relative w-screen overflow-x-visible px-4 mt-16 mb-8 sm:mt-24 sm:my-12 md:my-16 lg:my-20 xl:my-24 sm:w-auto sm:px-0 sm:mx-8 md:mx-12 lg:mx-16 xl:mx-24">
+            <div class="flex justify-center">
+                <img src="mockups.png" alt="Mockups of 3D surgical viewer on different devices" class="block w-[140%] sm:w-auto sm:max-w-full h-auto">
+            </div>
+        </div>
+    </div>
+</body>
+</html>
