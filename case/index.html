@@ -1,47 +1,51 @@
 <head>
-   <!-- Ensure you only reference local files, no leading slashes -->
-   <link rel="stylesheet" href="../style.css" />
-   <!-- Preconnect for faster loading -->
-   <link rel="preconnect" href="https://fonts.googleapis.com">
-   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-   <!-- Nunito Sans with regular (400) and bold (700) weights -->
-   <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;700&display=swap" rel="stylesheet">
-
-   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-   <script src="https://static.sketchfab.com/api/sketchfab-viewer-1.9.0.js" ></script>
-   <meta charset="UTF-8">
-
-
+  <link rel="stylesheet" href="style.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script type="text/javascript" src="https://static.sketchfab.com/api/sketchfab-viewer-1.9.0.js"></script>
 </head>
 <body style="background-color: #272425;">
   <div class="min-height-90vh" style="background-color: #272425 !important; z-index: 10000;">
     <div class="py-1 pb-3 container">
-      <div class="pinned-header" style="display: flex; justify-content: space-between; align-items: center; z-index: 100!important;"> 
-        <div class="Title pb-3" style="color: #eaeaea; z-index: 100; padding-left: 0px;">Visão 3D</div>
-        <button class="btn-outline-primary" id="newMeasure" >
-          <img src="measure-icon.svg" width="24" height="24" alt="Measure" />
-          Medir
-        </button>
-      </div>
-      <div class="row align-items-start mr-md-0"> 
-        <div class="d-flex flex-column col-md-8 skfb-view pinned-view">
-          <div class="top-cover"></div>
+
+      <!-- Botão Medir no canto superior direito -->
+      <button class="btn-outline-primary" id="newMeasure" 
+        style="position: fixed; top: 10px; right: 10px; color: white; background-color: rgb(59, 57, 57); border: 3px solid white; z-index: 9999;">
+        <img id = "imggMedir" src="measure-icon.svg" width="24" height="24" alt="Measure" />
+        Medir
+      </button>
+
+      <!-- Botão Mudar Fundo no canto inferior direito -->
+      <button id="bg-black" 
+        style="position: fixed; bottom: 60px; left: 20px; background: #272425; border: 1px solid white; z-index: 9999;">
+        <img id="icon" src="lua.png" alt="modo escuro" width="24">
+      </button>
+
+      <div class="row" style="padding-top: 70px;"> 
+        <div class="d-flex flex-column col-md-8 skfb-view">
+          <div class="top-cover" id="top"></div>
           <iframe id="api-frame" width="100%" height="70vh"></iframe>
-          <div class="logo-cover"></div>
-          <div class="iframe-overlay-top"></div>
-          <div class="iframe-overlay-bottom"></div> 
+          <div class="logo-cover" id="logo"></div>
+          <div class="iframe-overlay-top" id="overtop"></div>
+          <div class="iframe-overlay-bottom" id="overbottom"></div> 
         </div>
-        <div class="d-flex flex-column col-md-4 mx-auto rounded" style="background-color: rgba(255, 255, 255, 0.92); z-index: 100;">
-          <div style=" max-width: 600px">
-            <label class="Subtitle">Estruturas</label>
+
+
+        <!-- Estruturas mais para baixo -->
+        <div id = "structures" class="d-flex flex-column col-md-4 mx-auto rounded" style="color: white; background-color:rgb(59, 57, 57); margin-top: 20px;"
+        >
+          <div id = "title" style="color: white; background-color: rgb(59, 57, 57); max-width: 600px">
+            <label id = "sub" class="Subtitle" style="color: white; background-color:  rgb(59, 57, 57);">Estruturas</label>
           </div>
           <div class="navTree" id="navTree"></div>
         </div>
       </div>
     </div>
   </div>
-      <script src="main.js" ></script>
-      <script src="measure.js" ></script>
-      <script src="opacity.js" ></script>
-      <script src="laudo.js"></script>
+
+  <script src="main.js"></script>
+  <script src="measure.js"></script>
+  <script src="opacity.js"></script>
+  <script src="laudo.js"></script>
+  <script src="mudaCor.js"></script>
+  <script src="botao_video.js"></script>
 </body>
