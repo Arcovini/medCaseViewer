@@ -11,6 +11,7 @@ document.addEventListener("DOMContentLoaded", function () {
   const nav = document.getElementById("sub");
   const imgMed = document.getElementById("imggMedir");
 
+
   function changeBackground(color) {
     const mainDiv = document.querySelector(".min-height-90vh");
     if (mainDiv) {
@@ -19,6 +20,7 @@ document.addEventListener("DOMContentLoaded", function () {
       document.body.style.setProperty("background-color", color, "important");
     }
   }
+
 
   // --- ajuda: pega o elemento que define o fundo principal
   function getBgElement() {
@@ -88,11 +90,13 @@ document.addEventListener("DOMContentLoaded", function () {
   function applyTheme(isDark) {
     if (isDark) {
       // ==== MODO ESCURO ====
+
       changeBackground("#2f3136");
       document.getElementById("logo").style.backgroundColor = "#2f3136";
       document.getElementById("overtop").style.backgroundColor = "#2f3136";
       document.getElementById("overbottom").style.backgroundColor = "#2f3136";
       document.getElementById("top").style.backgroundColor = "#2f3136";
+
 
       icon.src = "lua.png";
       icon.alt = "modo claro";
@@ -109,11 +113,13 @@ document.addEventListener("DOMContentLoaded", function () {
       whiteMode = false;
     } else {
       // ==== MODO CLARO ====
+
       changeBackground("#f3f5f9");
       document.getElementById("logo").style.backgroundColor = "#f3f5f9";
       document.getElementById("overtop").style.backgroundColor = "#f3f5f9";
       document.getElementById("overbottom").style.backgroundColor = "#f3f5f9";
       document.getElementById("top").style.backgroundColor = "#f3f5f9";
+
 
       icon.src = "sol.png";
       icon.alt = "modo escuro";
@@ -178,4 +184,5 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     });
   }
+
 });
