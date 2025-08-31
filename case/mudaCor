@@ -1,0 +1,38 @@
+document.addEventListener("DOMContentLoaded", function () {
+  const btnBlack = document.getElementById("bg-black");
+  const btnWhite = document.getElementById("bg-white");
+  const btnBlue  = document.getElementById("bg-blue");
+
+  function changeBackground(color) {
+    // Muda o fundo do container principal
+    const mainDiv = document.querySelector(".min-height-90vh");
+    if (mainDiv) {
+      mainDiv.style.setProperty("background-color", color, "important");
+    } else {
+      // fallback: muda o body
+      document.body.style.setProperty("background-color", color, "important");
+    }
+  }
+
+  btnBlack.addEventListener("click", function  () { 
+    changeBackground("#272425")
+    document.getElementById("logo").style.backgroundColor="#272425"
+    document.getElementById("overtop").style.backgroundColor="#272425"
+    document.getElementById("overbottom").style.backgroundColor="#272425"
+    document.getElementById("top").style.backgroundColor="#272425"
+});
+  btnWhite.addEventListener("click", function  () { 
+    changeBackground("#4a90e2")
+    document.getElementById("logo").style.backgroundColor="#e7eaf1"
+    document.getElementById("overtop").style.backgroundColor="#e7eaf1"
+    document.getElementById("overbottom").style.backgroundColor="#e7eaf1"
+    document.getElementById("top").style.backgroundColor="#e7eaf1"
+});
+  btnBlue.addEventListener("click", function  () { 
+    changeBackground("#4a90e2")
+    document.getElementById("logo").style.backgroundColor="#4a90e2"
+    document.getElementById("overtop").style.backgroundColor="#4a90e2"
+    document.getElementById("overbottom").style.backgroundColor="#4a90e2"
+    document.getElementById("top").style.backgroundColor="#4a90e2"
+});
+});
