@@ -1,38 +1,45 @@
 <head>
-   <!-- Ensure you only reference local files, no leading slashes -->
-   <link rel="stylesheet" href="../style.css" />
-   <!-- Preconnect for faster loading -->
-   <link rel="preconnect" href="https://fonts.googleapis.com">
-   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-   <!-- Nunito Sans with regular (400) and bold (700) weights -->
-   <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;700&display=swap" rel="stylesheet">
-
-   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-   <script src="https://static.sketchfab.com/api/sketchfab-viewer-1.9.0.js" ></script>
-   <meta charset="UTF-8">
-
-
+  <link rel="stylesheet" href="style.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script type="text/javascript" src="https://static.sketchfab.com/api/sketchfab-viewer-1.9.0.js"></script>
+  <!-- Your inline styles here -->
 </head>
 <body style="background-color: #272425;">
   <div class="min-height-90vh" style="background-color: #272425 !important; z-index: 10000;">
     <div class="py-1 pb-3 container">
-      <div class="pinned-header" style="display: flex; justify-content: space-between; align-items: center; z-index: 100!important;"> 
-        <div class="Title pb-3" style="color: #eaeaea; z-index: 100; padding-left: 0px;">Visão 3D</div>
+      <div style="display: flex; justify-content: space-between; align-items: center; z-index: 100!important;"> 
+        <div class="Title pb-3" style="color: #eaeaea;">Visão 3D</div>
         <button class="btn-outline-primary" id="newMeasure" >
           <img src="measure-icon.svg" width="24" height="24" alt="Measure" />
           Medir
         </button>
+        <button class="btn-outline-primary" id="bg-black" 
+        style="background-color: #272425; color: #ffffff; padding: 10px 20px; font-size: 14px; line-height: 1.4;">
+  mudar cor de fundo para preto
+</button>
+
+<button class="btn-outline-primary" id="bg-white" 
+        style="background-color: #e7eaf1; color: #000000; padding: 10px 20px; font-size: 14px; line-height: 1.4;">
+  mudar cor de fundo para branco
+</button>
+
+<button class="btn-outline-primary" id="bg-blue" 
+        style="background-color: #4a90e2; color: #ffffff; padding: 10px 20px; font-size: 14px; line-height: 1.4;">
+  mudar cor de fundo para azul
+</button>
+
       </div>
-      <div class="row align-items-start mr-md-0"> 
-        <div class="d-flex flex-column col-md-8 skfb-view pinned-view">
-          <div class="top-cover"></div>
+      <div class="row"> 
+        <div class="d-flex flex-column col-md-8 skfb-view">
+          <div class="top-cover", id="top"></div>
           <iframe id="api-frame" width="100%" height="70vh"></iframe>
-          <div class="logo-cover"></div>
-          <div class="iframe-overlay-top"></div>
-          <div class="iframe-overlay-bottom"></div> 
+          <div class="logo-cover" id="logo"></div>
+          <div class="iframe-overlay-top" id="overtop"></div>
+          <div class="iframe-overlay-bottom" id="overbottom"></div> 
         </div>
-        <div class="d-flex flex-column col-md-4 mx-auto rounded" style="background-color: rgba(255, 255, 255, 0.92); z-index: 100;">
-          <div style=" max-width: 600px">
+        <iframe width="560" height="315" src="https://www.youtube.com/embed/S0tYKJuTKhA?si=WJQzDkM3QWa7gTq1" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen id="video"></iframe>
+        <div class="d-flex flex-column col-md-4 mx-auto rounded" style="background-color: #e7eaf1;">
+          <div style="background-color: #eaeaea; max-width: 600px">
             <label class="Subtitle">Estruturas</label>
           </div>
           <div class="navTree" id="navTree"></div>
@@ -40,8 +47,10 @@
       </div>
     </div>
   </div>
-      <script src="main.js" ></script>
-      <script src="measure.js" ></script>
-      <script src="opacity.js" ></script>
-      <script src="laudo.js"></script>
+  <script src="main.js"></script>
+  <script src="measure.js"></script>
+  <script src="opacity.js"></script>
+  <script src="laudo.js"></script>
+  <script src="botao_video.js"></script>
+  <script src="mudaCor.js"></script>
 </body>
