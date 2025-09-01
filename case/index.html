@@ -1,42 +1,44 @@
 <head>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="../style.css" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <script type="text/javascript" src="https://static.sketchfab.com/api/sketchfab-viewer-1.9.0.js"></script>
 </head>
+
 <body style="background-color: #272425;">
   <div class="min-height-90vh" style="background-color: #272425 !important; z-index: 10000;">
     <div class="py-1 pb-3 container">
 
       <!-- Botão Medir no canto superior direito -->
-      <button class="btn-outline-primary" id="newMeasure" 
+      <button class="btn-outline-primary" id="newMeasure"
         style="position: fixed; top: 10px; right: 10px; color: white; background-color: rgb(59, 57, 57); border: 3px solid white; z-index: 9999;">
-        <img id = "imggMedir" src="measure-icon.svg" width="24" height="24" alt="Measure" />
+        <img id="imggMedir" src="measure-icon.svg" width="24" height="24" alt="Measure" />
         Medir
       </button>
 
       <!-- Botão Mudar Fundo no canto inferior direito -->
-      <button id="bg-black" 
+      <button id="bg-black"
         style="position: fixed; bottom: 60px; left: 20px; background: #272425; border: 1px solid white; z-index: 9999;">
         <img id="icon" src="lua.png" alt="modo escuro" width="24">
       </button>
 
-      <div class="row" style="padding-top: 70px;"> 
+      <div class="row" style="padding-top: 70px;">
         <div class="d-flex flex-column col-md-8 skfb-view">
           <div class="top-cover" id="top"></div>
           <iframe id="api-frame" width="100%" height="70vh"></iframe>
           <div class="logo-cover" id="logo"></div>
           <div class="iframe-overlay-top" id="overtop"></div>
-          <div class="iframe-overlay-bottom" id="overbottom"></div> 
+          <div class="iframe-overlay-bottom" id="overbottom"></div>
         </div>
 
 
 
 
         <!-- Estruturas mais para baixo -->
-        <div id = "structures" class="d-flex flex-column col-md-4 mx-auto rounded" style="color: white; background-color:rgb(59, 57, 57); margin-top: 20px;"
-        >
-          <div id = "title" style="color: white; background-color: rgb(59, 57, 57); max-width: 600px">
-            <label id = "sub" class="Subtitle" style="color: white; background-color:  rgb(59, 57, 57);">Estruturas</label>
+        <div id="structures" class="d-flex flex-column col-md-4 mx-auto rounded"
+          style="color: white; background-color:rgb(59, 57, 57); margin-top: 20px;">
+          <div id="title" style="color: white; background-color: rgb(59, 57, 57); max-width: 600px">
+            <label id="sub" class="Subtitle"
+              style="color: white; background-color:  rgb(59, 57, 57);">Estruturas</label>
           </div>
           <div class="navTree" id="navTree"></div>
         </div>
@@ -52,4 +54,3 @@
 
   <script src="botao_video.js"></script>
 </body>
-
