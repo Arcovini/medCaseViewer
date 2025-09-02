@@ -96,36 +96,36 @@ document.addEventListener("DOMContentLoaded", function () {
     if (isDark) {
       // ==== MODO ESCURO ====
 
-      changeBackground("#2f3136");
-      document.getElementById("logo").style.backgroundColor = "#2f3136";
-      document.getElementById("overtop").style.backgroundColor = "#2f3136";
-      document.getElementById("overbottom").style.backgroundColor = "#2f3136";
-      document.getElementById("top").style.backgroundColor = "#2f3136";
+      changeBackground("#363636");
+      document.getElementById("logo").style.backgroundColor = "#363636";
+      document.getElementById("overtop").style.backgroundColor = "#363636";
+      document.getElementById("overbottom").style.backgroundColor = "#363636";
+      document.getElementById("top").style.backgroundColor = "#363636";
 
       icon.src = "moon.svg";
       icon.alt = "modo claro";
-      icon.backgroundColor = "#2f3136";
-      if (btnblack) btnblack.style.backgroundColor = "#2f3136";
+      icon.backgroundColor = "#363636";
+      if (btnblack) btnblack.style.backgroundColor = "#363636";
 
       if (med) {
-        med.style.color = "#e7eaf1";
-        med.style.backgroundColor = "#3b3939";
+        med.style.color = "#E7E8EF";
+        med.style.backgroundColor = "#454545";
       }
       if (vid) {
-        vid.style.color = "#e7eaf1";
-        vid.style.backgroundColor = "#3b3939";
+        vid.style.color = "#E7E8EF";
+        vid.style.backgroundColor = "#454545";
       }
       if (struct) {
-        struct.style.color = "#e7eaf1";
-        struct.style.backgroundColor = "#3b3939";
+        struct.style.color = "#E7E8EF";
+        struct.style.backgroundColor = "#454545";
       }
       if (title) {
-        title.style.color = "#e7eaf1";
-        title.style.backgroundColor = "#3b3939";
+        title.style.color = "#E7E8EF";
+        title.style.backgroundColor = "#454545";
       }
       if (nav) {
-        nav.style.color = "#e7eaf1";
-        nav.style.backgroundColor = "#3b3939";
+        nav.style.color = "#E7E8EF";
+        nav.style.backgroundColor = "#454545";
       }
 
       blackMode = true;
@@ -133,36 +133,36 @@ document.addEventListener("DOMContentLoaded", function () {
     } else {
       // ==== MODO CLARO ====
 
-      changeBackground("#f3f5f9");
-      document.getElementById("logo").style.backgroundColor = "#f3f5f9";
-      document.getElementById("overtop").style.backgroundColor = "#f3f5f9";
-      document.getElementById("overbottom").style.backgroundColor = "#f3f5f9";
-      document.getElementById("top").style.backgroundColor = "#f3f5f9";
+      changeBackground("#F4F5F9");
+      document.getElementById("logo").style.backgroundColor = "#F4F5F9";
+      document.getElementById("overtop").style.backgroundColor = "#F4F5F9";
+      document.getElementById("overbottom").style.backgroundColor = "#F4F5F9";
+      document.getElementById("top").style.backgroundColor = "#F4F5F9";
 
       icon.src = "sun.svg";
       icon.alt = "modo escuro";
-      icon.backgroundColor = "#f3f5f9";
-      if (btnblack) btnblack.style.backgroundColor = "#f3f5f9";
+      icon.backgroundColor = "#F4F5F9";
+      if (btnblack) btnblack.style.backgroundColor = "#F4F5F9";
 
       if (med) {
         med.style.color = "#2b2e34";
-        med.style.backgroundColor = "#cfd3dc";
+        med.style.backgroundColor = "#E7E8EF";
       }
       if (vid) {
         vid.style.color = "#2b2e34";
-        vid.style.backgroundColor = "#e7eaf1";
+        vid.style.backgroundColor = "#E7E8EF";
       }
       if (struct) {
         struct.style.color = "#2b2e34";
-        struct.style.backgroundColor = "#e7eaf1";
+        struct.style.backgroundColor = "#E7E8EF";
       }
       if (title) {
         title.style.color = "#2b2e34";
-        title.style.backgroundColor = "#e7eaf1";
+        title.style.backgroundColor = "#E7E8EF";
       }
       if (nav) {
         nav.style.color = "#2b2e34";
-        nav.style.backgroundColor = "#e7eaf1";
+        nav.style.backgroundColor = "#E7E8EF";
       }
 
       blackMode = false;
