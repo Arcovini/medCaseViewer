@@ -11,16 +11,13 @@ document.addEventListener("DOMContentLoaded", function () {
   const nav = document.getElementById("sub");
   const imgMed = document.getElementById("imggMedir");
 
-
   function changeBackground(color) {
+    document.body.style.setProperty("background-color", color, "important");
     const mainDiv = document.querySelector(".min-height-90vh");
     if (mainDiv) {
       mainDiv.style.setProperty("background-color", color, "important");
-    } else {
-      document.body.style.setProperty("background-color", color, "important");
     }
   }
-
 
   // --- ajuda: pega o elemento que define o fundo principal
   function getBgElement() {
@@ -32,7 +29,11 @@ document.addEventListener("DOMContentLoaded", function () {
     if (!str) return [39, 36, 37]; // fallback #272425
     if (str.startsWith("#")) {
       let c = str.slice(1);
-      if (c.length === 3) c = c.split("").map(x => x + x).join("");
+      if (c.length === 3)
+        c = c
+          .split("")
+          .map((x) => x + x)
+          .join("");
       const r = parseInt(c.slice(0, 2), 16);
       const g = parseInt(c.slice(2, 4), 16);
       const b = parseInt(c.slice(4, 6), 16);
@@ -49,7 +50,9 @@ document.addEventListener("DOMContentLoaded", function () {
       v /= 255;
       return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
     };
-    const R = toLin(r), G = toLin(g), B = toLin(b);
+    const R = toLin(r),
+      G = toLin(g),
+      B = toLin(b);
     return 0.2126 * R + 0.7152 * G + 0.0722 * B;
   }
 
@@ -73,7 +76,9 @@ document.addEventListener("DOMContentLoaded", function () {
     const byId = document.getElementById("imggEye");
     if (byId) list.push(byId);
     document
-      .querySelectorAll('img[src*="eye_icon.svg"], img[src*="eye_off_icon.svg"]')
+      .querySelectorAll(
+        'img[src*="eye_icon.svg"], img[src*="eye_off_icon.svg"]'
+      )
       .forEach((el) => list.push(el));
     return list;
   }
@@ -97,17 +102,31 @@ document.addEventListener("DOMContentLoaded", function () {
       document.getElementById("overbottom").style.backgroundColor = "#2f3136";
       document.getElementById("top").style.backgroundColor = "#2f3136";
 
-
-      icon.src = "lua.png";
+      icon.src = "moon.svg";
       icon.alt = "modo claro";
       icon.backgroundColor = "#2f3136";
       if (btnblack) btnblack.style.backgroundColor = "#2f3136";
 
-      if (med) { med.style.color = "#e7eaf1"; med.style.backgroundColor = "#3b3939"; }
-      if (vid) { vid.style.color = "#e7eaf1"; vid.style.backgroundColor = "#3b3939"; }
-      if (struct) { struct.style.color = "#e7eaf1"; struct.style.backgroundColor = "#3b3939"; }
-      if (title)  { title.style.color  = "#e7eaf1"; title.style.backgroundColor  = "#3b3939"; }
-      if (nav)    { nav.style.color    = "#e7eaf1"; nav.style.backgroundColor    = "#3b3939"; }
+      if (med) {
+        med.style.color = "#e7eaf1";
+        med.style.backgroundColor = "#3b3939";
+      }
+      if (vid) {
+        vid.style.color = "#e7eaf1";
+        vid.style.backgroundColor = "#3b3939";
+      }
+      if (struct) {
+        struct.style.color = "#e7eaf1";
+        struct.style.backgroundColor = "#3b3939";
+      }
+      if (title) {
+        title.style.color = "#e7eaf1";
+        title.style.backgroundColor = "#3b3939";
+      }
+      if (nav) {
+        nav.style.color = "#e7eaf1";
+        nav.style.backgroundColor = "#3b3939";
+      }
 
       blackMode = true;
       whiteMode = false;
@@ -120,17 +139,31 @@ document.addEventListener("DOMContentLoaded", function () {
       document.getElementById("overbottom").style.backgroundColor = "#f3f5f9";
       document.getElementById("top").style.backgroundColor = "#f3f5f9";
 
-
-      icon.src = "sol.png";
+      icon.src = "sun.svg";
       icon.alt = "modo escuro";
       icon.backgroundColor = "#f3f5f9";
       if (btnblack) btnblack.style.backgroundColor = "#f3f5f9";
 
-      if (med) { med.style.color = "#2b2e34"; med.style.backgroundColor = "#cfd3dc"; }
-      if (vid) { vid.style.color = "#2b2e34"; vid.style.backgroundColor = "#cfd3dc"; }
-      if (struct) { struct.style.color = "#2b2e34"; struct.style.backgroundColor = "#e7eaf1"; }
-      if (title)  { title.style.color  = "#2b2e34"; title.style.backgroundColor  = "#e7eaf1"; }
-      if (nav)    { nav.style.color    = "#2b2e34"; nav.style.backgroundColor    = "#e7eaf1"; }
+      if (med) {
+        med.style.color = "#2b2e34";
+        med.style.backgroundColor = "#cfd3dc";
+      }
+      if (vid) {
+        vid.style.color = "#2b2e34";
+        vid.style.backgroundColor = "#e7eaf1";
+      }
+      if (struct) {
+        struct.style.color = "#2b2e34";
+        struct.style.backgroundColor = "#e7eaf1";
+      }
+      if (title) {
+        title.style.color = "#2b2e34";
+        title.style.backgroundColor = "#e7eaf1";
+      }
+      if (nav) {
+        nav.style.color = "#2b2e34";
+        nav.style.backgroundColor = "#e7eaf1";
+      }
 
       blackMode = false;
       whiteMode = true;
@@ -147,19 +180,28 @@ document.addEventListener("DOMContentLoaded", function () {
 
     const mo = new MutationObserver((mutations) => {
       for (const m of mutations) {
-        if (m.type === "attributes" && (m.attributeName === "style" || m.attributeName === "class")) {
+        if (
+          m.type === "attributes" &&
+          (m.attributeName === "style" || m.attributeName === "class")
+        ) {
           // sempre que o estilo/classe do container mudar, re-sincroniza os olhos
           syncEyeIconsToBackground();
         }
       }
     });
 
-    mo.observe(target, { attributes: true, attributeFilter: ["style", "class"] });
+    mo.observe(target, {
+      attributes: true,
+      attributeFilter: ["style", "class"],
+    });
 
     // fallback: também observa o body caso mude por ele
     if (target !== document.body) {
       const moBody = new MutationObserver(() => syncEyeIconsToBackground());
-      moBody.observe(document.body, { attributes: true, attributeFilter: ["style", "class"] });
+      moBody.observe(document.body, {
+        attributes: true,
+        attributeFilter: ["style", "class"],
+      });
     }
   }
 
@@ -175,7 +217,7 @@ document.addEventListener("DOMContentLoaded", function () {
   if (btnblack) {
     btnblack.addEventListener("click", function () {
       if (whiteMode === true) {
-        applyTheme(true);  // vai para escuro
+        applyTheme(true); // vai para escuro
       } else if (blackMode === true) {
         applyTheme(false); // vai para claro
       } else {
@@ -184,5 +226,4 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     });
   }
-
 });

@@ -4,22 +4,29 @@
   <script type="text/javascript" src="https://static.sketchfab.com/api/sketchfab-viewer-1.9.0.js"></script>
 </head>
 
-<body style="background-color: #272425;">
+<body style="background-color: #111;">
+  <!-- VIDEO button directly in body, not inside any div -->
+  <button id="global_trigger" data-is-hidden="false"
+    style="position: fixed; top: 16px; left: 16px; margin-left: 0px !important; color: white; background-color: rgb(59, 57, 57); border: 1px solid white; z-index: 100; padding: 0px 0px; border-radius: 8px; cursor: pointer; font-size: 16px;">
+    Vídeo
+  </button>
   <div class="min-height-90vh" style="background-color: #272425 !important; z-index: 10000;">
     <div class="py-1 pb-3 container">
 
+
+
       <!-- Botão Medir no canto superior direito -->
       <button class="btn-outline-primary" id="newMeasure"
-        style="position: fixed; top: 10px; right: 10px; color: white; background-color: rgb(59, 57, 57); border: 3px solid white; z-index: 9999;">
+        style="position: fixed; top: 16px; right: 16px; color: white; background-color: rgb(59, 57, 57); border: 1px solid white; z-index: 100;">
         <img id="imggMedir" src="measure-icon.svg" width="24" height="24" alt="Measure" />
         Medir
       </button>
-
-      <!-- Botão Mudar Fundo no canto inferior direito -->
+      <!-- Botão Mudar Fundo no canto inferior esquerdo -->
       <button id="bg-black"
-        style="position: fixed; bottom: 60px; left: 20px; background: #272425; border: 1px solid white; z-index: 9999;">
-        <img id="icon" src="lua.png" alt="modo escuro" width="24">
+        style="position: fixed; bottom: 140px; left: 0px; background: #272425; margin-left: 16px !important; border: 1px solid white; z-index: 100;">
+        <img id="icon" src="moon.svg" alt="modo escuro" width="24">
       </button>
+
 
       <div class="row" style="padding-top: 70px;">
         <div class="d-flex flex-column col-md-8 skfb-view">
@@ -31,11 +38,9 @@
         </div>
 
 
-
-
         <!-- Estruturas mais para baixo -->
         <div id="structures" class="d-flex flex-column col-md-4 mx-auto rounded"
-          style="color: white; background-color:rgb(59, 57, 57); margin-top: 20px;">
+          style="color: white; background-color:rgb(59, 57, 57); margin-top: 20px; z-index: 999;">
           <div id="title" style="color: white; background-color: rgb(59, 57, 57); max-width: 600px">
             <label id="sub" class="Subtitle"
               style="color: white; background-color:  rgb(59, 57, 57);">Estruturas</label>
