@@ -45,7 +45,7 @@ var success = function (passedApi) {
           }
 
           console.log("Node map:", nodes);
-          Object.k  s(nodes).forEach(function (nodeID) {
+          Object.keys(nodes).forEach(function (nodeID) {
             var node = nodes[nodeID];
             console.log("Node ID:", nodeID, "Name:", node.name);
             console.log(node);
