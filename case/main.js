@@ -9,7 +9,9 @@ var myNodesByNameFromMap = {};
 
 var urlParams = new URLSearchParams(window.location.search);
 var autoSpin = parseFloat(urlParams.get("autospin")) || 0.0;
-var uid = urlParams.get("id") || "272a33d42c0a49949a21b6e79169606e";
+// var uid = urlParams.get("id") || "272a33d42c0a49949a21b6e79169606e";
+var uid = urlParams.get("id") || "9ff4c5d9f6354a41b78226681692e597&yt=Rr1W5JcM5lY";
+
 
 var iframe = document.getElementById("api-frame");
 var client = new window.Sketchfab(version, iframe);
@@ -45,7 +47,7 @@ var success = function (passedApi) {
           }
 
           console.log("Node map:", nodes);
-          Object.keys(nodes).forEach(function (nodeID) {
+          Object.k  s(nodes).forEach(function (nodeID) {
             var node = nodes[nodeID];
             console.log("Node ID:", nodeID, "Name:", node.name);
             console.log(node);
