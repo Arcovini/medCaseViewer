@@ -18,6 +18,7 @@
   position: fixed;
   top: 16px;
   right: 16px; /* fallback, will be overridden by JS */
+  width: fit-content; /* Safari fix: prevent flex-column stretch */
   color: white;
   background-color: rgb(59, 57, 57);
   border: 1px solid white;
