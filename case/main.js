@@ -1,6 +1,31 @@
 // main.js
 // Sketchfab Viewer API: Start/Stop the viewer
 var version = "1.12.0";
+
+// Position Medir button aligned with Estruturas panel right edge
+function positionMedirButton() {
+  var button = document.getElementById('newMeasure');
+  var structures = document.getElementById('structures');
+
+  if (!button || !structures) return;
+
+  var rect = structures.getBoundingClientRect();
+  var rightOffset = window.innerWidth - rect.right;
+
+  // Only apply JS positioning on desktop (900px+)
+  if (window.innerWidth >= 900) {
+    button.style.right = rightOffset + 'px';
+  } else {
+    // On mobile, use CSS default (16px)
+    button.style.right = '16px';
+  }
+}
+
+// Run on load and resize
+document.addEventListener('DOMContentLoaded', function() {
+  positionMedirButton();
+  window.addEventListener('resize', positionMedirButton);
+});
 var api;
 var materials = [];
 var nonParentNodes = [];

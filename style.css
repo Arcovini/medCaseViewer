@@ -13,9 +13,16 @@
   z-index: 2000;
 }
 
-/* Medir button - Normal state (not measuring) */
+/* Medir button - Base styles */
 #newMeasure {
-  transition: background-color 0.2s, color 0.2s, border 0.2s;
+  position: fixed;
+  top: 16px;
+  right: 16px; /* fallback, will be overridden by JS */
+  color: white;
+  background-color: rgb(59, 57, 57);
+  border: 1px solid white;
+  z-index: 100;
+  transition: background-color 0.2s, color 0.2s, border 0.2s, right 0.15s ease-out;
 }
 
 #newMeasure img {
@@ -32,6 +39,13 @@
 
 #newMeasure.measure-mode-active img {
   filter: invert(1) !important;
+}
+
+/* Mobile: align with container edge */
+@media (max-width: 899px) {
+  #newMeasure {
+    right: 16px;
+  }
 }
 
 .pinned-view {
