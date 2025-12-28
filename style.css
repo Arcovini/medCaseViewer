@@ -2,26 +2,36 @@
   position: absolute;
   top: 0px;
   left: 4px;
-  /* left: 300px;  */
   color: #131313;
-  font-size: 20px;
-  font-family: Arial, sans-serif, bold;
-  background-color: #272425;
-  padding: 8px;
+  font-size: 16px;
+  font-family: "Open Sans", Arial, sans-serif;
+  font-weight: 400;
+  background-color: rgba(255, 255, 255, 0.85);
+  padding: 10px 14px;
   margin: 12px;
-  background-color: rgba(255, 255, 255, 0.7);
-  border-radius: 5px;
+  border-radius: 8px;
   z-index: 2000;
 }
 
-.measure-mode-active {
-  background-color: #fff !important;
-  color: #222 !important; /* dark gray for readability */
-  border: 2px solid #222 !important;
-  transition: background 0.2s, color 0.2s;
+/* Medir button - Normal state (not measuring) */
+#newMeasure {
+  transition: background-color 0.2s, color 0.2s, border 0.2s;
 }
-.measure-mode-active img {
-  filter: invert(75%) brightness(0.8); 
+
+#newMeasure img {
+  filter: none;
+  transition: filter 0.2s;
+}
+
+/* Medir button - Active state (measuring) */
+#newMeasure.measure-mode-active {
+  background-color: #fff !important;
+  color: #222 !important;
+  border: 2px solid #222 !important;
+}
+
+#newMeasure.measure-mode-active img {
+  filter: invert(1) !important;
 }
 
 .pinned-view {
