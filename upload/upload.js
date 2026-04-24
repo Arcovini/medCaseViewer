@@ -1,7 +1,9 @@
-// Auto-detect backend endpoint. TODO: replace the prod URL after Railway deploy.
+// Backend auto-detection:
+//   localhost / 127.0.0.1 -> local uvicorn on :8000 (dev)
+//   anything else         -> Railway (prod)
 const BACKEND = /^(localhost|127\.0\.0\.1)$/.test(location.hostname)
   ? "http://localhost:8000"
-  : "https://mesh-processor.up.railway.app";
+  : "https://mesh-processor-production-c2ea.up.railway.app";
 
 const MAX_TOTAL_BYTES = 60 * 1024 * 1024;
 const POLL_INTERVAL_MS = 3000;
