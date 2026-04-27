@@ -40,6 +40,9 @@ Chrome debugging is pre-configured in `.vscode/launch.json` for `http://localhos
   - `mudaCor.js` - Light/dark theme switching
   - `laudo.js` / `mainLinhaLaudo.js` - Report/documentation features
   - `botao_video.js` - YouTube video modal integration
+- `/upload/` - Clinician self-service upload page (talks to the `mesh-processor` backend)
+  - `index.html` - Multi-file STL input, 4-state UI (idle / processing / done / error) with Tailwind CDN
+  - `upload.js` - Posts files to `POST /upload`, then polls `GET /status/{uid}` until ready
 
 ### Key Technical Details
 
@@ -53,6 +56,12 @@ Chrome debugging is pre-configured in `.vscode/launch.json` for `http://localhos
 **Theme System**: `mudaCor.js` handles dark/light mode by modifying multiple DOM elements and recalculating text luminance for readability.
 
 **Measurement Tool**: Uses `getWorldToScreenCoordinates` from Sketchfab API to project 3D points to 2D, then draws SVG lines. Measurements auto-clear on camera movement.
+
+**Upload flow (`/upload/`)**: Two-phase to accommodate Sketchfab's async server-side processing:
+1. `POST /upload` with a `FormData` containing each STL under the repeated field name `files` (not `files[]`). Response is immediate and contains `{uid, viewer_url, ...}`.
+2. Poll `GET /status/{uid}` every 3s until `ready: true`; only then present the viewer URL to the clinician.
+
+The backend URL is auto-detected from `window.location.hostname`: `localhost`/`127.0.0.1` → `http://localhost:8000` (dev), anything else → the Railway production URL. One constant at the top of `upload.js`; changing hosts is a one-line edit. Client-side file-size cap is 60MB total (mirrors the server). Error messages are rendered as-is from the backend's `detail` field — the backend writes them in Portuguese for the clinician.
 
 ### Dependencies (CDN-loaded)
 
