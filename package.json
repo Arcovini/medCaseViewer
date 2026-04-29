@@ -1,0 +1,15 @@
+{
+  "name": "medcaseviewer",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Static frontend for biodesignlab — landing, viewer, upload pages.",
+  "scripts": {
+    "test": "playwright test",
+    "test:ui": "playwright test --ui"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.59.1",
+    "http-server": "^14.1.1"
+  }
+}

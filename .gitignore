@@ -38,3 +38,8 @@ node_modules/
 dist/
 build/
 .cache/
+
+# Playwright
+playwright-report/
+test-results/
+/playwright/.cache/
