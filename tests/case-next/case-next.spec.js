@@ -189,3 +189,54 @@ test("getMeshColor retorna string hex válida do material", async ({ page }) => 
   // Guards against silent black-fallback if GLTFLoader ever stops reading baseColorFactor.
   expect(colors.some((c) => c !== "#000000")).toBe(true);
 });
+
+test("painel renderiza um slider em cada estrutura, default 1.0", async ({ page }) => {
+  await page.addInitScript(() => { window.__playwrightTest = true; });
+  await mockGlbRoute(page);
+  await page.goto(`/case-next/?id=${TEST_UID}`);
+
+  await expect(page.locator("#structures-list li")).toHaveCount(4, { timeout: 10_000 });
+  await expect(page.locator(".opacity-slider")).toHaveCount(4);
+
+  const values = await page.locator(".opacity-slider").evaluateAll((els) => els.map((e) => e.value));
+  for (const v of values) expect(v).toBe("1");
+});
+
+test("cada <li> recebe --struct-color batendo com world.getMeshColor", async ({ page }) => {
+  await page.addInitScript(() => { window.__playwrightTest = true; });
+  await mockGlbRoute(page);
+  await page.goto(`/case-next/?id=${TEST_UID}`);
+
+  await expect(page.locator("#structures-list li")).toHaveCount(4, { timeout: 10_000 });
+
+  const items = await page.locator("#structures-list li").evaluateAll((els) =>
+    els.map((e) => ({
+      name: e.querySelector(".eye-toggle")?.dataset.structureName,
+      color: getComputedStyle(e).getPropertyValue("--struct-color").trim().toLowerCase(),
+    })),
+  );
+
+  for (const item of items) {
+    expect(item.name).toBeTruthy();
+    const expected = (await page.evaluate((n) => window.__world.getMeshColor(n), item.name)).toLowerCase();
+    expect(item.color).toBe(expected);
+  }
+});
+
+test("arrastar o slider chama world.setOpacity para aquela estrutura", async ({ page }) => {
+  await page.addInitScript(() => { window.__playwrightTest = true; });
+  await mockGlbRoute(page);
+  await page.goto(`/case-next/?id=${TEST_UID}`);
+
+  await expect(page.locator("#structures-list li")).toHaveCount(4, { timeout: 10_000 });
+
+  const firstLi = page.locator("#structures-list li").first();
+  const name = await firstLi.locator(".eye-toggle").getAttribute("data-structure-name");
+
+  await firstLi.locator(".opacity-slider").evaluate((el) => {
+    el.value = "0.4";
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+
+  expect(await page.evaluate((n) => window.__world.getMeshOpacity(n), name)).toBeCloseTo(0.4, 5);
+});

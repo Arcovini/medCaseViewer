@@ -40,8 +40,14 @@ async function bootstrap() {
   world.mount(root);
   world.frameToScene();
 
-  dom.renderStructures(world.getMeshNames(), (name, visible) => {
-    world.setVisibility(name, visible);
+  const structures = world.getMeshNames().map((name) => ({
+    name,
+    color: world.getMeshColor(name),
+  }));
+
+  dom.renderStructures(structures, {
+    onToggle: (name, visible) => world.setVisibility(name, visible),
+    onOpacityChange: (name, value) => world.setOpacity(name, value),
   });
   dom.showLoading(false);
 }
