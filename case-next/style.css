@@ -23,7 +23,7 @@ html, body {
   position: fixed;
   top: 80px;
   right: 24px;
-  width: 280px;
+  width: clamp(280px, 30vw, 400px);
   max-height: calc(100vh - 100px);
   overflow-y: auto;
   padding: 16px;
@@ -47,16 +47,91 @@ html, body {
 }
 
 .panel li {
-  padding: 10px 0;
+  position: relative;
+  padding: 10px 12px 10px 16px;   /* room para a faixa lateral em 16px */
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  flex-direction: column;
+  gap: 4px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .panel li:last-child {
   border-bottom: none;
+}
+
+.panel li::before {
+  content: "";
+  position: absolute;
+  left: 6px;
+  /* top/bottom devem casar com .panel li padding-top/padding-bottom (10px) */
+  top: 10px;
+  bottom: 10px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--struct-color, transparent);
+}
+
+.structure-row-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.opacity-row {
+  display: block;
+}
+
+/* Slider — neutro, mas touch-friendly */
+.opacity-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 44px;            /* área de toque vertical (WCAG 2.5.8 / spec decision 5) */
+  background: transparent; /* track desenhado nos pseudo-elementos */
+  cursor: pointer;
+  margin: 0;
+  padding: 0;
+}
+
+/* Desktop com mouse: slider menor cabe melhor verticalmente, mantém precisão */
+@media (hover: hover) and (pointer: fine) {
+  .opacity-slider {
+    height: 32px;
+  }
+}
+
+.opacity-slider::-webkit-slider-runnable-track {
+  height: 6px;
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 3px;
+}
+.opacity-slider::-moz-range-track {
+  height: 6px;
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 3px;
+}
+
+.opacity-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  border: none;
+  margin-top: -9px;        /* (track 6px - thumb 24px) / 2 */
+  cursor: pointer;
+}
+.opacity-slider::-moz-range-thumb {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  border: none;
+  cursor: pointer;
 }
 
 .structure-name {

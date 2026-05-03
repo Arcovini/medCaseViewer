@@ -65,6 +65,12 @@ export function mount(rootObject) {
       // Clone material per-mesh so opacity changes on one mesh cannot
       // bleed into sibling meshes that share the same material in the GLB.
       child.material = child.material.clone();
+      // Permanent transparent + depthWrite avoids visual hitches when the
+      // slider crosses the 1.0 → 0.99 boundary. Toggling these per-frame
+      // caused depth buffer to abruptly stop writing, making the mesh look
+      // like ghost glass at 99%. Now `opacity` is the only knob that moves.
+      child.material.transparent = true;
+      child.material.depthWrite = true;
       namedMeshes.set(child.name, child);
     }
   });
@@ -72,8 +78,6 @@ export function mount(rootObject) {
 
 function applyMaterialOpacity(mat, value) {
   mat.opacity = value;
-  mat.transparent = value < 1;
-  mat.depthWrite = value >= 0.99;
 }
 
 export function setVisibility(name, visible) {
