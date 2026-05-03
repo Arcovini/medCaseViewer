@@ -62,6 +62,7 @@ async function bootstrap() {
     },
   });
   dom.showLoading(false);
+  dom.initBottomSheet();
 }
 
 bootstrap();

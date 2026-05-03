@@ -180,3 +180,72 @@ html, body {
 .overlay.error {
   border: 1px solid #BD0006;
 }
+
+/* === Mobile bottom sheet (≤768px) === */
+@media (max-width: 768px) {
+  .panel {
+    top: auto;
+    right: 0;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    max-width: 100%;
+    height: var(--panel-height, 30vh);
+    max-height: 90vh;
+    border-radius: 12px 12px 0 0;
+    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.4);
+    transition: height 0.25s ease-out;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;   /* sobrescreve overflow-y: auto do desktop */
+    /* Semitransparente + blur para deixar o canvas 3D visível por trás */
+    background-color: rgba(59, 57, 57, 0.78);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);   /* iOS Safari */
+  }
+
+  .panel.is-dragging {
+    transition: none;   /* drag em tempo real, sem easing */
+  }
+
+  .panel-handle {
+    flex: 0 0 auto;
+    height: 22px;
+    margin: -16px -16px 8px -16px;   /* alcança as bordas da panel (que tem padding 16px) */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: grab;
+    touch-action: none;   /* impede scroll da página enquanto arrasta o handle */
+    user-select: none;
+  }
+
+  .panel-handle:active {
+    cursor: grabbing;
+  }
+
+  .panel-handle::before {
+    content: "";
+    width: 40px;
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.3);
+  }
+
+  .panel-title {
+    flex: 0 0 auto;
+  }
+
+  .panel ul {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+}
+
+/* Desktop: handle não aparece */
+@media (min-width: 769px) {
+  .panel-handle {
+    display: none;
+  }
+}
