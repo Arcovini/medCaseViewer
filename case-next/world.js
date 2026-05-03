@@ -70,9 +70,24 @@ export function mount(rootObject) {
   });
 }
 
+function applyMaterialOpacity(mat, value) {
+  mat.opacity = value;
+  mat.transparent = value < 1;
+  mat.depthWrite = value >= 0.99;
+}
+
 export function setVisibility(name, visible) {
   const mesh = namedMeshes.get(name);
-  if (mesh) mesh.visible = visible;
+  if (!mesh) return;
+  if (visible) {
+    const v = lastOpacity.get(name) ?? 1;
+    applyMaterialOpacity(mesh.material, v);
+    mesh.visible = true;
+  } else {
+    // Only hide the mesh; do not touch material.opacity — the slider
+    // should keep displaying the value the user last set.
+    mesh.visible = false;
+  }
 }
 
 export function frameToScene() {
@@ -95,10 +110,7 @@ export function frameToScene() {
 export function setOpacity(name, value) {
   const mesh = namedMeshes.get(name);
   if (!mesh) return;
-  const mat = mesh.material;
-  mat.opacity = value;
-  mat.transparent = value < 1;
-  mat.depthWrite = value >= 0.99;
+  applyMaterialOpacity(mesh.material, value);
   mesh.visible = value > 0;
   if (value > 0) lastOpacity.set(name, value);   // só lembra valor não-zero
 }

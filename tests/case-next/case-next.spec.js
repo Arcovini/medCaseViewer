@@ -132,3 +132,42 @@ test("setOpacity numa estrutura não afeta opacity das outras (clone defensivo)"
   expect(await page.evaluate((n) => window.__world.getMeshOpacity(n), names[0])).toBe(0.5);
   expect(await page.evaluate((n) => window.__world.getMeshOpacity(n), names[1])).toBe(1);
 });
+
+test("setVisibility(name,true) restaura último opacity não-zero após drag→0", async ({ page }) => {
+  await page.addInitScript(() => { window.__playwrightTest = true; });
+  await mockGlbRoute(page);
+  await page.goto(`/case-next/?id=${TEST_UID}`);
+
+  await expect(page.locator("#structures-list li")).toHaveCount(4, { timeout: 10_000 });
+  const names = await page.evaluate(() => window.__world.getMeshNames());
+  const target = names[0];
+
+  // Definir opacity em 0.7 — vira "último valor não-zero"
+  await page.evaluate(([n]) => window.__world.setOpacity(n, 0.7), [target]);
+  expect(await page.evaluate((n) => window.__world.getMeshOpacity(n), target)).toBe(0.7);
+
+  // Drag até 0 — mesh some (visible=false), mas lastOpacity preservado em 0.7
+  await page.evaluate(([n]) => window.__world.setOpacity(n, 0), [target]);
+  expect(await page.evaluate((n) => window.__world.getMeshVisibility(n), target)).toBe(false);
+
+  // Re-acender via setVisibility(true) — opacity deve voltar pra 0.7, não pra 1.0
+  await page.evaluate(([n]) => window.__world.setVisibility(n, true), [target]);
+  expect(await page.evaluate((n) => window.__world.getMeshVisibility(n), target)).toBe(true);
+  expect(await page.evaluate((n) => window.__world.getMeshOpacity(n), target)).toBe(0.7);
+});
+
+test("setVisibility(name,true) usa default 1.0 quando lastOpacity nunca foi setado", async ({ page }) => {
+  await page.addInitScript(() => { window.__playwrightTest = true; });
+  await mockGlbRoute(page);
+  await page.goto(`/case-next/?id=${TEST_UID}`);
+
+  await expect(page.locator("#structures-list li")).toHaveCount(4, { timeout: 10_000 });
+  const names = await page.evaluate(() => window.__world.getMeshNames());
+  const target = names[0];
+
+  // Sem nunca chamar setOpacity, esconder e religar — opacity deve ser 1.0
+  await page.evaluate(([n]) => window.__world.setVisibility(n, false), [target]);
+  await page.evaluate(([n]) => window.__world.setVisibility(n, true), [target]);
+  expect(await page.evaluate((n) => window.__world.getMeshVisibility(n), target)).toBe(true);
+  expect(await page.evaluate((n) => window.__world.getMeshOpacity(n), target)).toBe(1);
+});
