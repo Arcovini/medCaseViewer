@@ -171,3 +171,21 @@ test("setVisibility(name,true) usa default 1.0 quando lastOpacity nunca foi seta
   expect(await page.evaluate((n) => window.__world.getMeshVisibility(n), target)).toBe(true);
   expect(await page.evaluate((n) => window.__world.getMeshOpacity(n), target)).toBe(1);
 });
+
+test("getMeshColor retorna string hex válida do material", async ({ page }) => {
+  await page.addInitScript(() => { window.__playwrightTest = true; });
+  await mockGlbRoute(page);
+  await page.goto(`/case-next/?id=${TEST_UID}`);
+
+  await expect(page.locator("#structures-list li")).toHaveCount(4, { timeout: 10_000 });
+
+  const names = await page.evaluate(() => window.__world.getMeshNames());
+  const colors = [];
+  for (const name of names) {
+    const color = await page.evaluate((n) => window.__world.getMeshColor(n), name);
+    expect(color).toMatch(/^#[0-9a-f]{6}$/i);
+    colors.push(color);
+  }
+  // Guards against silent black-fallback if GLTFLoader ever stops reading baseColorFactor.
+  expect(colors.some((c) => c !== "#000000")).toBe(true);
+});

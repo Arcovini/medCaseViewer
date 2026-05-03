@@ -120,6 +120,12 @@ export function getMeshOpacity(name) {
   return mesh ? (mesh.material.opacity ?? null) : null;
 }
 
+export function getMeshColor(name) {
+  const mesh = namedMeshes.get(name);
+  if (!mesh || !mesh.material.color) return null;
+  return "#" + mesh.material.color.getHexString();
+}
+
 export function getMeshNames() {
   return Array.from(namedMeshes.keys());
 }
