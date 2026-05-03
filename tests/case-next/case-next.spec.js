@@ -110,3 +110,25 @@ test("UID inexistente (404 do R2) mostra mensagem de erro", async ({ page }) => 
   await expect(errorEl).toContainText("Caso não encontrado");
   await expect(errorEl).toContainText(TEST_UID);
 });
+
+test("setOpacity numa estrutura não afeta opacity das outras (clone defensivo)", async ({ page }) => {
+  await page.addInitScript(() => { window.__playwrightTest = true; });
+  await mockGlbRoute(page);
+  await page.goto(`/case-next/?id=${TEST_UID}`);
+
+  await expect(page.locator("#structures-list li")).toHaveCount(4, { timeout: 10_000 });
+
+  const names = await page.evaluate(() => window.__world.getMeshNames());
+  expect(names.length).toBeGreaterThanOrEqual(2);
+
+  // Default: ambos em 1.0
+  const before = await page.evaluate((ns) => ns.map((n) => window.__world.getMeshOpacity(n)), names);
+  for (const v of before) expect(v).toBe(1);
+
+  // Mudar opacity só do primeiro
+  await page.evaluate(([n, v]) => window.__world.setOpacity(n, v), [names[0], 0.5]);
+
+  // Primeiro reflete; o segundo não deve ter mudado
+  expect(await page.evaluate((n) => window.__world.getMeshOpacity(n), names[0])).toBe(0.5);
+  expect(await page.evaluate((n) => window.__world.getMeshOpacity(n), names[1])).toBe(1);
+});

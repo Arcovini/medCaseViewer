@@ -8,6 +8,7 @@ import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 let renderer, scene, camera, controls;
 let pmremGenerator;
 const namedMeshes = new Map();
+const lastOpacity = new Map();   // name -> último valor não-zero (default fallback é 1.0)
 let mountedRoot = null;
 
 export function init(canvasEl) {
@@ -58,8 +59,12 @@ export function mount(rootObject) {
   scene.add(rootObject);
 
   namedMeshes.clear();
+  lastOpacity.clear();
   rootObject.traverse((child) => {
     if (child.isMesh && child.name) {
+      // Clone material per-mesh so opacity changes on one mesh cannot
+      // bleed into sibling meshes that share the same material in the GLB.
+      child.material = child.material.clone();
       namedMeshes.set(child.name, child);
     }
   });
@@ -85,6 +90,22 @@ export function frameToScene() {
 
   controls.target.copy(center);
   controls.update();
+}
+
+export function setOpacity(name, value) {
+  const mesh = namedMeshes.get(name);
+  if (!mesh) return;
+  const mat = mesh.material;
+  mat.opacity = value;
+  mat.transparent = value < 1;
+  mat.depthWrite = value >= 0.99;
+  mesh.visible = value > 0;
+  if (value > 0) lastOpacity.set(name, value);   // só lembra valor não-zero
+}
+
+export function getMeshOpacity(name) {
+  const mesh = namedMeshes.get(name);
+  return mesh ? (mesh.material.opacity ?? null) : null;
 }
 
 export function getMeshNames() {
