@@ -55,7 +55,8 @@ async function bootstrap() {
 bootstrap();
 
 // Test hook: when Playwright sets window.__playwrightTest before page load,
-// expose `world` module so tests can inspect scene state. No-op in production.
+// expose `world` and `dom` modules so tests can inspect/mutate state. No-op in production.
 if (window.__playwrightTest) {
   window.__world = world;
+  window.__dom = dom;
 }

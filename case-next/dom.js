@@ -86,3 +86,22 @@ export function renderStructures(structures, callbacks) {
     list.appendChild(li);
   }
 }
+
+export function setEyeState(name, visible) {
+  const btn = list.querySelector(`.eye-toggle[data-structure-name="${CSS.escape(name)}"]`);
+  if (!btn) return;
+  btn.dataset.visible = String(visible);
+  const img = btn.querySelector("img");
+  if (img) {
+    img.src = visible ? EYE_ON : EYE_OFF;
+    img.alt = visible ? "Visível" : "Oculto";
+  }
+}
+
+export function setSliderValue(name, value) {
+  const slider = list.querySelector(`.opacity-slider[data-structure-name="${CSS.escape(name)}"]`);
+  if (!slider) return;
+  slider.value = String(value);
+  // Não disparamos `input` event intencionalmente. Esta função é chamada pelo caller
+  // quando ele já atualizou world.setOpacity — disparar o evento causaria um loop de callback.
+}

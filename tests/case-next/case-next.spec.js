@@ -240,3 +240,57 @@ test("arrastar o slider chama world.setOpacity para aquela estrutura", async ({ 
 
   expect(await page.evaluate((n) => window.__world.getMeshOpacity(n), name)).toBeCloseTo(0.4, 5);
 });
+
+test("dom.setEyeState atualiza DOM sem disparar onToggle", async ({ page }) => {
+  await page.addInitScript(() => { window.__playwrightTest = true; });
+  await mockGlbRoute(page);
+  await page.goto(`/case-next/?id=${TEST_UID}`);
+
+  await expect(page.locator("#structures-list li")).toHaveCount(4, { timeout: 10_000 });
+  const firstLi = page.locator("#structures-list li").first();
+  const name = await firstLi.locator(".eye-toggle").getAttribute("data-structure-name");
+
+  // Spy: contar quantas vezes world.setVisibility foi chamado via onToggle (caminho que setEyeState NÃO deve invocar)
+  await page.evaluate(() => { window.__setVisibilityCallCount = 0; });
+  await page.evaluate((n) => {
+    const original = window.__world.setVisibility;
+    window.__world.setVisibility = (name, vis) => {
+      if (name === n) window.__setVisibilityCallCount++;
+      return original.call(window.__world, name, vis);
+    };
+  }, name);
+
+  // Estado inicial: olho ON
+  await expect(firstLi.locator(".eye-toggle")).toHaveAttribute("data-visible", "true");
+
+  // Chamar setEyeState diretamente — DOM muda mas onToggle NÃO dispara
+  await page.evaluate((n) => window.__dom.setEyeState(n, false), name);
+  await expect(firstLi.locator(".eye-toggle")).toHaveAttribute("data-visible", "false");
+  expect(await page.evaluate(() => window.__setVisibilityCallCount)).toBe(0);
+});
+
+test("dom.setSliderValue atualiza value sem disparar onOpacityChange", async ({ page }) => {
+  await page.addInitScript(() => { window.__playwrightTest = true; });
+  await mockGlbRoute(page);
+  await page.goto(`/case-next/?id=${TEST_UID}`);
+
+  await expect(page.locator("#structures-list li")).toHaveCount(4, { timeout: 10_000 });
+  const firstLi = page.locator("#structures-list li").first();
+  const name = await firstLi.locator(".eye-toggle").getAttribute("data-structure-name");
+
+  // Spy: contar quantas vezes setOpacity foi chamado
+  await page.evaluate(() => { window.__opacityCallCount = 0; });
+  await page.evaluate(() => {
+    const original = window.__world.setOpacity;
+    window.__world.setOpacity = (n, v) => {
+      window.__opacityCallCount++;
+      return original.call(window.__world, n, v);
+    };
+  });
+
+  // Chamar setSliderValue diretamente — value muda mas onOpacityChange NÃO dispara
+  await page.evaluate((n) => window.__dom.setSliderValue(n, 0.3), name);
+  const sliderVal = await firstLi.locator(".opacity-slider").evaluate((el) => el.value);
+  expect(parseFloat(sliderVal)).toBeCloseTo(0.3, 5);
+  expect(await page.evaluate(() => window.__opacityCallCount)).toBe(0);
+});
