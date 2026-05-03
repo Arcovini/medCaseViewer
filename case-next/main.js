@@ -46,8 +46,20 @@ async function bootstrap() {
   }));
 
   dom.renderStructures(structures, {
-    onToggle: (name, visible) => world.setVisibility(name, visible),
-    onOpacityChange: (name, value) => world.setOpacity(name, value),
+    onToggle: (name, visible) => {
+      // setVisibility(true) re-applies the restored opacity to material; must precede getMeshOpacity.
+      world.setVisibility(name, visible);
+      if (visible) {
+        const last = world.getMeshOpacity(name) ?? 1;
+        dom.setSliderValue(name, last);
+      } else {
+        dom.setSliderValue(name, 0);
+      }
+    },
+    onOpacityChange: (name, value) => {
+      world.setOpacity(name, value);
+      dom.setEyeState(name, value > 0);
+    },
   });
   dom.showLoading(false);
 }

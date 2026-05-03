@@ -294,3 +294,73 @@ test("dom.setSliderValue atualiza value sem disparar onOpacityChange", async ({ 
   expect(parseFloat(sliderVal)).toBeCloseTo(0.3, 5);
   expect(await page.evaluate(() => window.__opacityCallCount)).toBe(0);
 });
+
+test("slider em 0 esconde o mesh e marca o olho como OFF", async ({ page }) => {
+  await page.addInitScript(() => { window.__playwrightTest = true; });
+  await mockGlbRoute(page);
+  await page.goto(`/case-next/?id=${TEST_UID}`);
+
+  await expect(page.locator("#structures-list li")).toHaveCount(4, { timeout: 10_000 });
+  const firstLi = page.locator("#structures-list li").first();
+  const name = await firstLi.locator(".eye-toggle").getAttribute("data-structure-name");
+
+  await firstLi.locator(".opacity-slider").evaluate((el) => {
+    el.value = "0";
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+
+  expect(await page.evaluate((n) => window.__world.getMeshVisibility(n), name)).toBe(false);
+  await expect(firstLi.locator(".eye-toggle")).toHaveAttribute("data-visible", "false");
+});
+
+test("religar olho após slider→0 restaura último opacity não-zero (não 1.0)", async ({ page }) => {
+  await page.addInitScript(() => { window.__playwrightTest = true; });
+  await mockGlbRoute(page);
+  await page.goto(`/case-next/?id=${TEST_UID}`);
+
+  await expect(page.locator("#structures-list li")).toHaveCount(4, { timeout: 10_000 });
+  const firstLi = page.locator("#structures-list li").first();
+  const name = await firstLi.locator(".eye-toggle").getAttribute("data-structure-name");
+
+  // Drag até 0.5
+  await firstLi.locator(".opacity-slider").evaluate((el) => {
+    el.value = "0.5";
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  // Drag até 0
+  await firstLi.locator(".opacity-slider").evaluate((el) => {
+    el.value = "0";
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+
+  // Religar via click no olho
+  await firstLi.locator(".eye-toggle").click();
+
+  // Opacity volta pra 0.5 e slider acompanha
+  expect(await page.evaluate((n) => window.__world.getMeshOpacity(n), name)).toBeCloseTo(0.5, 5);
+  const sliderVal = await firstLi.locator(".opacity-slider").evaluate((el) => parseFloat(el.value));
+  expect(sliderVal).toBeCloseTo(0.5, 5);
+});
+
+test("desligar olho via click direto leva slider visualmente a 0", async ({ page }) => {
+  await page.addInitScript(() => { window.__playwrightTest = true; });
+  await mockGlbRoute(page);
+  await page.goto(`/case-next/?id=${TEST_UID}`);
+
+  await expect(page.locator("#structures-list li")).toHaveCount(4, { timeout: 10_000 });
+  const firstLi = page.locator("#structures-list li").first();
+
+  // Slider começa em 1
+  let sliderVal = await firstLi.locator(".opacity-slider").evaluate((el) => parseFloat(el.value));
+  expect(sliderVal).toBeCloseTo(1, 5);
+
+  // Click no olho — deve ir pra 0
+  await firstLi.locator(".eye-toggle").click();
+  sliderVal = await firstLi.locator(".opacity-slider").evaluate((el) => parseFloat(el.value));
+  expect(sliderVal).toBeCloseTo(0, 5);
+
+  // Click novamente — deve voltar pra 1 (default, nunca foi mexido)
+  await firstLi.locator(".eye-toggle").click();
+  sliderVal = await firstLi.locator(".opacity-slider").evaluate((el) => parseFloat(el.value));
+  expect(sliderVal).toBeCloseTo(1, 5);
+});
