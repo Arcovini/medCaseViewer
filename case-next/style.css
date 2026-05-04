@@ -249,3 +249,250 @@ html, body {
     display: none;
   }
 }
+
+/* ===========================================================================
+   Sprint 3b.2 — Medição linear
+   =========================================================================== */
+
+/* Pílula do valor (CSS2DObject) */
+.measurement-pill {
+  background: #00d4ff;
+  color: #1a1818;
+  font-family: "Open Sans", sans-serif;
+  font-weight: 700;
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 10px;
+  white-space: nowrap;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+  user-select: none;
+  transform: translate(-50%, -50%);
+  position: relative;
+}
+
+/* Label P1/P2 ancorada a um endpoint (CSS2DObject).
+   Mantém referência clara mesmo quando a esfera ciano é pequena ou
+   está atrás de outra estrutura — texto sempre visível por cima do canvas. */
+.measurement-endpoint-label {
+  background: rgba(0, 0, 0, 0.85);
+  color: #00d4ff;
+  font-family: "Open Sans", sans-serif;
+  font-weight: 700;
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: 8px;
+  border: 1px solid #00d4ff;
+  white-space: nowrap;
+  pointer-events: none;
+  user-select: none;
+  /* Desloca o label diagonalmente acima/à direita do ponto pra não cobrir o sphere */
+  transform: translate(8px, calc(-100% - 4px));
+}
+
+/* FAB de entrada/saida do modo de medição (top-right) */
+.measure-fab {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  height: 48px;
+  min-width: 48px;
+  padding: 0 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(40, 38, 38, 0.85);
+  color: #00d4ff;
+  border: 1px solid rgba(0, 212, 255, 0.4);
+  border-radius: 24px;
+  font-family: "Nunito Sans", sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  z-index: 50;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+
+.measure-fab[data-state="cancel"] {
+  background: #ff8a7a;
+  color: #1a1818;
+  border-color: #ff8a7a;
+}
+
+.measure-fab svg {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.measure-fab[hidden] { display: none; }
+
+@media (max-width: 768px) {
+  .measure-fab {
+    width: 56px;
+    height: 56px;
+    min-width: 56px;
+    padding: 0;
+    justify-content: center;
+  }
+  .measure-fab .label { display: none; }
+}
+
+/* Hint banner (top-center, States 2 e 3) */
+.measure-hint {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.75);
+  color: #fff;
+  font-family: "Nunito Sans", sans-serif;
+  font-weight: 600;
+  font-size: 13px;
+  padding: 6px 14px;
+  border-radius: 14px;
+  pointer-events: none;
+  z-index: 49;
+  white-space: nowrap;
+}
+.measure-hint[hidden] { display: none; }
+
+/* Mini-toolbar (bottom-center: confirm row ou result row).
+   Z-index 1000 fica acima do .panel (999) — necessário em mobile pra não ser
+   coberto pelo bottom sheet. Em mobile, posição vertical sai do bottom-edge
+   pra cima da altura padrão do bottom sheet (30vh). */
+.measure-toolbar {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  z-index: 1000;
+}
+.measure-toolbar[hidden] { display: none; }
+
+@media (max-width: 768px) {
+  /* Em mobile/tablet: toolbar ocupa quase a largura total, com 8px de margem
+     em cada lado e cap em 480px pra tablets não terem botões gigantes. */
+  .measure-toolbar {
+    bottom: calc(30vh + 16px);
+    width: calc(100% - 16px);
+    max-width: 480px;
+  }
+  .measure-toolbar button {
+    flex: 1;                   /* divide horizontal igualmente entre os botões */
+    justify-content: center;
+  }
+}
+
+.measure-toolbar button {
+  height: 36px;
+  padding: 0 16px;
+  border-radius: 18px;
+  font-family: "Nunito Sans", sans-serif;
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;          /* impede quebra de "✓ Confirmar P1" em phone */
+}
+
+.measure-toolbar .btn-primary {
+  background: #00d4ff;
+  color: #1a1818;
+  border: none;
+}
+
+/* Secundário: fundo sólido na cor do body com outline branco contrastando.
+   Antes era ghost (transparent) — clínico tinha dificuldade de ler. */
+.measure-toolbar .btn-secondary {
+  background: #272425;
+  color: #fff;
+  border: 1px solid #fff;
+}
+
+/* Lupa (DOM wrapper circular sobre o canvas dedicado da lupa) */
+.measure-loupe {
+  position: fixed;
+  width: 100px;
+  height: 100px;
+  pointer-events: none;
+  z-index: 52;
+  transform: translate(-50%, -100%);
+  display: none;
+}
+.measure-loupe[data-visible="true"] { display: block; }
+
+.measure-loupe[data-flip="below"] {
+  transform: translate(-50%, 0);
+}
+
+.measure-loupe-frame {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  overflow: hidden;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6);
+  background: #272425;
+  position: relative;
+}
+
+.measure-loupe-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.measure-loupe-crosshair {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 24px;
+  height: 24px;
+  transform: translate(-50%, -50%);
+}
+.measure-loupe-crosshair::before,
+.measure-loupe-crosshair::after {
+  content: "";
+  position: absolute;
+  background: #00d4ff;
+}
+.measure-loupe-crosshair::before { left: 50%; top: 0; width: 1.5px; height: 100%; transform: translateX(-50%); }
+.measure-loupe-crosshair::after  { top: 50%; left: 0; height: 1.5px; width: 100%; transform: translateY(-50%); }
+
+.measure-loupe-tail {
+  position: absolute;
+  width: 0;
+  height: 0;
+  left: 50%;
+  bottom: -16px;
+  transform: translateX(-50%);
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-top: 16px solid #fff;
+}
+.measure-loupe[data-flip="below"] .measure-loupe-tail {
+  bottom: auto;
+  top: -16px;
+  border-top: none;
+  border-bottom: 16px solid #fff;
+}
+
+.measure-loupe-label {
+  position: absolute;
+  bottom: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.8);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+.measure-loupe-label[hidden] { display: none; }

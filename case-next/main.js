@@ -4,8 +4,11 @@
 import * as world from "./world.js";
 import * as loader from "./loader.js";
 import * as dom from "./dom.js";
+import * as measurement from "./measurement.js";
 
 const R2_PUBLIC_BASE = "https://pub-050dac4cd7f7403782e209433488636d.r2.dev";
+
+let measurementApi = null;
 
 async function bootstrap() {
   const params = new URLSearchParams(window.location.search);
@@ -40,6 +43,10 @@ async function bootstrap() {
   world.mount(root);
   world.frameToScene();
 
+  // Inicializa measurement antes de renderizar o painel pra que o callback onToggle
+  // possa avisar sobre malha-âncora ocultada via measurementApi.onMeshVisibilityChange.
+  measurementApi = measurement.init({ world, dom });
+
   const structures = world.getMeshNames().map((name) => ({
     name,
     color: world.getMeshColor(name),
@@ -55,6 +62,7 @@ async function bootstrap() {
       } else {
         dom.setSliderValue(name, 0);
       }
+      measurementApi.onMeshVisibilityChange(name, visible);
     },
     onOpacityChange: (name, value) => {
       world.setOpacity(name, value);
@@ -68,8 +76,14 @@ async function bootstrap() {
 bootstrap();
 
 // Test hook: when Playwright sets window.__playwrightTest before page load,
-// expose `world` and `dom` modules so tests can inspect/mutate state. No-op in production.
+// expose `world`, `dom`, and `measurement` modules so tests can inspect/mutate state.
+// No-op in production.
 if (window.__playwrightTest) {
   window.__world = world;
   window.__dom = dom;
+  // measurementApi vira disponível apenas após bootstrap() resolver.
+  // Tests que dependem dele já esperam pelo painel renderizar (sinal que main.js terminou).
+  Object.defineProperty(window, "__measurement", {
+    get: () => measurementApi,
+  });
 }

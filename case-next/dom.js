@@ -184,3 +184,144 @@ function _onDragEnd() {
   document.removeEventListener("mouseup", _onDragEnd);
   document.removeEventListener("touchcancel", _onDragEnd);
 }
+
+// ===========================================================================
+// Sprint 3b.2 — Medição linear (DOM primitives)
+// ===========================================================================
+
+const _FAB_ICON_RULER = `<path d="M3 12 L7 8 L21 8 L21 16 L7 16 Z"/><path d="M9 8 L9 12 M13 8 L13 12 M17 8 L17 12"/>`;
+const _FAB_ICON_X = `<path d="M6 6 L18 18 M18 6 L6 18"/>`;
+
+export function mountMeasurementFAB({ onStart, onCancel }) {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "measure-fab";
+  btn.dataset.state = "idle";
+  btn.dataset.testid = "measure-fab";
+  btn.hidden = true;
+  btn.innerHTML = `
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${_FAB_ICON_RULER}</svg>
+    <span class="label">Medir</span>
+  `;
+  btn.addEventListener("click", () => {
+    if (btn.dataset.state === "idle") onStart();
+    else onCancel();
+  });
+  document.body.appendChild(btn);
+
+  return {
+    setState(state) {
+      btn.dataset.state = state;
+      const label = btn.querySelector(".label");
+      const svg = btn.querySelector("svg");
+      if (state === "cancel") {
+        label.textContent = "Cancelar";
+        svg.innerHTML = _FAB_ICON_X;
+      } else {
+        label.textContent = "Medir";
+        svg.innerHTML = _FAB_ICON_RULER;
+      }
+    },
+    setVisible(visible) { btn.hidden = !visible; },
+  };
+}
+
+export function mountHintBanner() {
+  const el = document.createElement("div");
+  el.className = "measure-hint";
+  el.dataset.testid = "measure-hint";
+  el.hidden = true;
+  document.body.appendChild(el);
+
+  return {
+    setText(text) {
+      el.textContent = text;
+      el.hidden = false;
+    },
+    clear() {
+      el.textContent = "";
+      el.hidden = true;
+    },
+  };
+}
+
+export function mountMiniToolbar({ onConfirm, onCancel, onClear, onNew }) {
+  const el = document.createElement("div");
+  el.className = "measure-toolbar";
+  el.dataset.testid = "measure-toolbar";
+  el.hidden = true;
+  document.body.appendChild(el);
+
+  function makeBtn(label, klass, onClick, testid) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = klass;
+    b.textContent = label;
+    b.dataset.testid = testid;
+    b.addEventListener("click", onClick);
+    return b;
+  }
+
+  return {
+    showConfirmRow(label) {
+      // "Tentar de novo" foi removido: re-tocar em outra posição já substitui
+      // o candidato. "✕ Cancelar" no toolbar substitui o FAB-cancel do top-right
+      // pra liberar a área do hint banner em mobile.
+      el.innerHTML = "";
+      el.appendChild(makeBtn("✕ Cancelar", "btn-secondary", onCancel, "btn-cancel"));
+      el.appendChild(makeBtn(`✓ Confirmar ${label}`, "btn-primary", onConfirm, "btn-confirm"));
+      el.hidden = false;
+    },
+    showResultRow() {
+      el.innerHTML = "";
+      el.appendChild(makeBtn("✕ Limpar", "btn-secondary", onClear, "btn-clear"));
+      el.appendChild(makeBtn("+ Nova", "btn-primary", onNew, "btn-new"));
+      el.hidden = false;
+    },
+    hide() {
+      el.innerHTML = "";
+      el.hidden = true;
+    },
+  };
+}
+
+export function mountLoupe() {
+  const wrapper = document.createElement("div");
+  wrapper.className = "measure-loupe";
+  wrapper.dataset.testid = "measure-loupe";
+  wrapper.dataset.visible = "false";
+  wrapper.innerHTML = `
+    <div class="measure-loupe-frame">
+      <canvas class="measure-loupe-canvas" width="100" height="100"></canvas>
+      <div class="measure-loupe-crosshair"></div>
+      <div class="measure-loupe-label" hidden></div>
+    </div>
+    <div class="measure-loupe-tail"></div>
+  `;
+  document.body.appendChild(wrapper);
+
+  const canvas = wrapper.querySelector(".measure-loupe-canvas");
+  const labelEl = wrapper.querySelector(".measure-loupe-label");
+
+  return {
+    canvas,
+    setPosition(x, y) {
+      // Lupa fica acima do candidato por padrão; se < 120px do topo, flipa pra baixo.
+      const flip = y < 120;
+      wrapper.dataset.flip = flip ? "below" : "above";
+      wrapper.style.left = `${x}px`;
+      wrapper.style.top = `${flip ? y + 16 : y - 16}px`;
+    },
+    setLabel(text) {
+      if (text) {
+        labelEl.textContent = text;
+        labelEl.hidden = false;
+      } else {
+        labelEl.hidden = true;
+      }
+    },
+    setVisible(visible) {
+      wrapper.dataset.visible = String(visible);
+    },
+  };
+}
