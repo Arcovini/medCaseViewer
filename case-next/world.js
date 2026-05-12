@@ -220,6 +220,13 @@ export function getMeshNames() {
   return Array.from(namedMeshes.keys());
 }
 
+// Retorna a raiz do GLB atualmente montado (Three.js Object3D) ou null
+// se nenhum modelo foi montado ainda. Usado pelo módulo `ar.js` para passar
+// a cena ao USDZExporter.
+export function getMountedRoot() {
+  return mountedRoot;
+}
+
 export function getMeshVisibility(name) {
   const mesh = namedMeshes.get(name);
   return mesh ? mesh.visible : null;

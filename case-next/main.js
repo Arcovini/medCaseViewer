@@ -5,8 +5,7 @@ import * as world from "./world.js";
 import * as loader from "./loader.js";
 import * as dom from "./dom.js";
 import * as measurement from "./measurement.js";
-
-const R2_PUBLIC_BASE = "https://pub-050dac4cd7f7403782e209433488636d.r2.dev";
+import * as ar from "./ar.js";
 
 let measurementApi = null;
 
@@ -23,7 +22,7 @@ async function bootstrap() {
   }
 
   dom.showLoading(true);
-  const url = `${R2_PUBLIC_BASE}/cases/${uid}.glb`;
+  const url = loader.buildGlbUrl(uid);
 
   let root;
   try {
@@ -71,6 +70,12 @@ async function bootstrap() {
   });
   dom.showLoading(false);
   dom.initBottomSheet();
+
+  // Inicializa o módulo AR depois do GLB já estar montado: ar.js precisa
+  // da cena do world.js pra geração on-demand do USDZ no iOS, e do uid pra
+  // construir a URL do GLB no <model-viewer>. Falhas em ar.init são
+  // tratadas internamente — não devem bloquear o resto do viewer.
+  ar.init({ world, dom, uid });
 }
 
 bootstrap();
@@ -81,6 +86,7 @@ bootstrap();
 if (window.__playwrightTest) {
   window.__world = world;
   window.__dom = dom;
+  window.__ar = ar;
   // measurementApi vira disponível apenas após bootstrap() resolver.
   // Tests que dependem dele já esperam pelo painel renderizar (sinal que main.js terminou).
   Object.defineProperty(window, "__measurement", {

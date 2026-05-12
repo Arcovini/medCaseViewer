@@ -5,6 +5,12 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
 const loader = new GLTFLoader();
 
+const R2_PUBLIC_BASE = "https://pub-050dac4cd7f7403782e209433488636d.r2.dev";
+
+export function buildGlbUrl(uid) {
+  return `${R2_PUBLIC_BASE}/cases/${uid}.glb`;
+}
+
 export async function loadGlb(url) {
   const response = await fetch(url);
 

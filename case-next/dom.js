@@ -285,6 +285,83 @@ export function mountMiniToolbar({ onConfirm, onCancel, onClear, onNew }) {
   };
 }
 
+// ===========================================================================
+// AR — botão pill + modal QR
+// ===========================================================================
+
+export function mountARButton({ onClick }) {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "ar-button";
+  btn.dataset.visible = "false";
+  btn.dataset.loading = "false";
+  btn.dataset.testid = "ar-button";
+  btn.setAttribute("aria-label", "Ver em AR");
+  btn.textContent = "AR";
+  btn.addEventListener("click", () => {
+    if (btn.dataset.loading === "true") return;   // ignora clique duplo enquanto gera USDZ
+    onClick();
+  });
+  document.body.appendChild(btn);
+
+  return {
+    setVisible(v) { btn.dataset.visible = v ? "true" : "false"; },
+    setLoading(v) { btn.dataset.loading = v ? "true" : "false"; },
+  };
+}
+
+export function mountARModal({ onClose } = {}) {
+  const modal = document.createElement("div");
+  modal.className = "ar-modal";
+  modal.dataset.visible = "false";
+  modal.dataset.testid = "ar-modal";
+  modal.setAttribute("role", "dialog");
+  modal.setAttribute("aria-modal", "true");
+  modal.setAttribute("aria-labelledby", "ar-modal-title");
+
+  modal.innerHTML = `
+    <div class="ar-modal-content">
+      <button class="ar-modal-close" type="button" aria-label="Fechar" data-testid="ar-modal-close">×</button>
+      <div class="ar-modal-qr"><img alt="QR code para abrir o caso no celular" /></div>
+      <p id="ar-modal-title">Aponte a câmera do celular para o código.</p>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  const imgEl = modal.querySelector(".ar-modal-qr img");
+  const closeBtn = modal.querySelector(".ar-modal-close");
+
+  let _previousFocus = null;
+
+  function show(qrDataUrl) {
+    _previousFocus = document.activeElement;
+    imgEl.src = qrDataUrl;
+    modal.dataset.visible = "true";
+    closeBtn.focus();
+  }
+
+  function hide() {
+    if (modal.dataset.visible !== "true") return;
+    modal.dataset.visible = "false";
+    if (_previousFocus && typeof _previousFocus.focus === "function") {
+      _previousFocus.focus();
+    }
+    if (onClose) onClose();
+  }
+
+  closeBtn.addEventListener("click", hide);
+  modal.addEventListener("click", (e) => { if (e.target === modal) hide(); });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && modal.dataset.visible === "true") hide();
+  });
+
+  return {
+    showWithQR: show,
+    hide,
+  };
+}
+
 export function mountLoupe() {
   const wrapper = document.createElement("div");
   wrapper.className = "measure-loupe";
