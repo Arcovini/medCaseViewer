@@ -1,0 +1,198 @@
+/* ============================================================
+   Medcase — marketing site styles
+   Extracted from ui_kits/site/index_v2.html (Claude Design handoff,
+   2026-05-12) with --pp-* tokens rewritten to canonical ones in
+   colors_and_type.css. Do not redeclare tokens here.
+   ============================================================ */
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--base); color: var(--fg-1); }
+img { max-width: 100%; display: block; }
+
+/* ---------- LAYOUT WRAP ---------- */
+.wrap { max-width: 1280px; margin: 0 auto; padding: 0 var(--space-7); }
+@media (max-width: 900px) { .wrap { padding: 0 var(--space-5); } }
+
+/* ============================================================
+   Marketing — HEADER
+   ============================================================ */
+.hdr { position: sticky; top: 0; z-index: 50; background: rgba(255,255,255,0.92); backdrop-filter: blur(14px); border-bottom: 1px solid var(--rule); }
+.hdr-row { display: flex; align-items: center; justify-content: space-between; padding: var(--space-4) 0; gap: var(--space-5); }
+
+.brand-lockup { display: inline-flex; align-items: center; gap: 12px; text-decoration: none; }
+.lockup-text { display: flex; flex-direction: column; line-height: 1.05; }
+.lockup-brand { font-family: var(--font-display); font-weight: 600; font-size: 16px; letter-spacing: -0.02em; color: var(--fg-1); }
+.lockup-product { font-family: var(--font-mono); font-size: 10px; font-weight: 500; letter-spacing: 0.10em; text-transform: uppercase; color: var(--fg-3); margin-top: 3px; }
+
+.nav { display: flex; align-items: center; gap: var(--space-6); }
+.nav a { font-size: 14px; color: var(--fg-2); text-decoration: none; font-weight: 500; }
+.nav a:hover { color: var(--fg-1); }
+@media (max-width: 900px) {
+  .nav a:not(.btn-primary) { display: none; }
+  .lockup-brand { font-size: 15px; }
+}
+
+.hdr-tel { display: inline-flex; align-items: center; gap: 8px; font-family: var(--font-mono); font-size: 12px; font-weight: 600; letter-spacing: 0.02em; color: var(--fg-1); text-decoration: none; padding: 8px 14px; border: 1px solid var(--rule); border-radius: 999px; transition: border-color 180ms; }
+.hdr-tel:hover { border-color: var(--fg-1); }
+.hdr-tel svg { width: 13px; height: 13px; }
+@media (max-width: 1100px) { .hdr-tel { display: none; } }
+
+/* ============================================================
+   Marketing — BUTTONS (used in header, hero, CTA card)
+   ============================================================ */
+.btn-primary { display: inline-flex; align-items: center; gap: 8px; padding: 14px 26px; background: var(--fg-1); color: #FBF7F0 !important; border-radius: 999px; font-weight: 600; font-size: 14px; text-decoration: none !important; border: none; cursor: pointer; font-family: inherit; transition: transform 180ms, background 180ms; }
+.btn-primary:hover { background: #000; transform: translateY(-1px); }
+.btn-primary.coral { background: var(--accent); }
+.btn-primary.coral:hover { background: var(--accent-hover); }
+
+.btn-ghost { display: inline-flex; align-items: center; gap: 8px; padding: 14px 24px; background: transparent; color: var(--fg-1); border: 1.5px solid var(--fg-1); border-radius: 999px; font-weight: 600; font-size: 14px; text-decoration: none; cursor: pointer; font-family: inherit; }
+.btn-ghost:hover { background: var(--fg-1); color: #FBF7F0; }
+
+.cta-hint { font-size: 13px; color: var(--fg-2); margin: 14px 0 0; }
+.cta-hint a { color: var(--fg-1); font-weight: 600; text-decoration: none; border-bottom: 1px solid var(--rule); transition: border-color 180ms; }
+.cta-hint a:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ============================================================
+   Marketing — HERO
+   ============================================================ */
+.hero { padding: var(--space-8) 0 var(--space-9); }
+.hero-grid { display: grid; grid-template-columns: 1.05fr 1fr; gap: var(--space-8); align-items: center; }
+@media (max-width: 900px) { .hero-grid { grid-template-columns: 1fr; } }
+
+.headline { font-family: var(--font-display); font-weight: 500; font-size: clamp(2.75rem, 5.5vw + 1rem, 5.75rem); line-height: 1.0; letter-spacing: -0.035em; margin: 18px 0 var(--space-5); text-wrap: balance; color: var(--fg-1); }
+.headline em { font-style: normal; color: var(--accent); font-weight: 500; }
+.headline .scribble { position: relative; display: inline-block; }
+.headline .scribble svg { position: absolute; left: -4px; right: -4px; bottom: -10px; width: calc(100% + 8px); height: 18px; color: var(--accent); }
+.scribble svg path { fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round; }
+
+.lede { font-size: 18px; line-height: 1.55; color: var(--fg-2); max-width: 46ch; margin: 0 0 var(--space-6); }
+.cta-row { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+
+.hero-vis { position: relative; aspect-ratio: 5/5; }
+.hero-vis-pad { position: absolute; inset: 0; background: var(--surface-mute-2); border-radius: 24px; padding: 28px; overflow: hidden; }
+.hero-vis-pad::before { content: ""; position: absolute; inset: 0; background: radial-gradient(circle at 30% 20%, rgba(255,255,255,0.5), transparent 60%); pointer-events: none; }
+.hero-canvas { position: relative; width: 100%; height: 100%; border-radius: 14px; overflow: hidden; background: #0E1114; box-shadow: 0 24px 60px -20px rgba(26,24,21,0.35), 0 8px 20px -8px rgba(26,24,21,0.18); }
+.hero-canvas video { width: 100%; height: 100%; object-fit: cover; }
+.hero-canvas .tag { position: absolute; top: 14px; left: 14px; background: rgba(11,14,17,0.72); backdrop-filter: blur(10px); color: #FBF7F0; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; padding: 6px 10px; border-radius: 999px; }
+.hero-canvas .tag.r { left: auto; right: 14px; }
+
+.chip { position: absolute; background: var(--paper); border-radius: 14px; padding: 14px 16px; box-shadow: 0 12px 24px -10px rgba(26,24,21,0.18); display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 500; color: var(--fg-1); }
+.chip .dot { width: 8px; height: 8px; border-radius: 999px; background: var(--accent); }
+.chip-1 { top: 18px; right: -14px; }
+.chip-2 { bottom: 30px; left: -18px; }
+.chip-2 .num { font-family: var(--font-display); font-weight: 500; font-size: 22px; letter-spacing: -0.02em; }
+.chip .meta { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--fg-3); font-weight: 500; }
+
+/* ============================================================
+   Marketing — TRUST (partners)
+   ============================================================ */
+.trust { padding: var(--space-9) 0; background: var(--paper); border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
+.trust-head { display: grid; grid-template-columns: auto 1fr; gap: var(--space-6); align-items: end; margin-bottom: var(--space-7); }
+@media (max-width: 900px) { .trust-head { grid-template-columns: 1fr; } }
+.trust-title { font-family: var(--font-display); font-weight: 500; font-size: clamp(1.75rem, 2vw + 1rem, 2.5rem); line-height: 1.05; letter-spacing: -0.025em; color: var(--fg-1); margin: 8px 0 0; text-wrap: balance; max-width: 18ch; }
+.trust-title em { font-style: normal; color: var(--accent); }
+.trust-sub { font-size: 15px; line-height: 1.55; color: var(--fg-2); max-width: 46ch; justify-self: end; }
+@media (max-width: 900px) { .trust-sub { justify-self: start; } }
+
+.partners { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; align-items: center; border-top: 1px solid var(--rule); }
+@media (max-width: 900px) { .partners { grid-template-columns: repeat(2, 1fr); } }
+.partners .cell { display: grid; place-items: center; padding: var(--space-7) var(--space-5); border-right: 1px solid var(--rule); min-height: 120px; }
+.partners .cell:last-child { border-right: none; }
+@media (max-width: 900px) {
+  .partners .cell { border-right: none; border-bottom: 1px solid var(--rule); }
+  .partners .cell:nth-child(2n) { border-right: none; }
+  .partners .cell:nth-last-child(-n+2) { border-bottom: none; }
+}
+.partners img { max-height: 42px; max-width: 160px; width: auto; height: auto; display: block; filter: none; opacity: 1; }
+
+/* ============================================================
+   Marketing — SECTIONS BASE
+   ============================================================ */
+.section { padding: var(--space-10) 0; }
+.section.soft { background: var(--paper); }
+.section.cream { background: var(--surface-mute); }
+
+.eyebrow { font-family: var(--font-mono); font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--fg-3); }
+
+.h2 { font-family: var(--font-display); font-weight: 500; font-size: clamp(2.25rem, 3.2vw + 1rem, 4rem); line-height: 1.02; letter-spacing: -0.03em; margin: 8px 0 0; text-wrap: balance; color: var(--fg-1); }
+.h2 em { font-style: normal; color: var(--accent); }
+
+/* ============================================================
+   Marketing — COMO FUNCIONA (3 step cards)
+   ============================================================ */
+.how-head { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-8); align-items: end; margin-bottom: var(--space-8); }
+@media (max-width: 900px) { .how-head { grid-template-columns: 1fr; } }
+.how-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-5); }
+@media (max-width: 900px) { .how-grid { grid-template-columns: 1fr; } }
+.step { background: var(--paper); border: 1px solid var(--rule); border-radius: 20px; padding: var(--space-6); min-height: 340px; display: flex; flex-direction: column; justify-content: space-between; position: relative; overflow: hidden; }
+.step .num { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--fg-3); background: transparent; display: block; font-weight: 500; }
+.step .ill { align-self: flex-end; width: 100%; display: grid; place-items: center; padding: var(--space-5) 0; }
+.step .ill svg { width: 120px; height: 120px; color: var(--fg-1); }
+.step h3 { font-family: var(--font-display); font-weight: 500; font-size: 24px; letter-spacing: -0.02em; margin: 0 0 8px; color: var(--fg-1); }
+.step p { font-size: 14px; line-height: 1.55; color: var(--fg-2); margin: 0; max-width: 32ch; }
+
+/* ============================================================
+   Marketing — PRODUCT MOMENT (video / devices + feature list)
+   ============================================================ */
+.product { display: grid; grid-template-columns: 1fr 1.4fr; gap: var(--space-8); align-items: center; }
+@media (max-width: 1100px) { .product { grid-template-columns: 1fr; } }
+.product-shot { position: relative; background: var(--surface-mute-2); border-radius: 20px; padding: 24px; box-shadow: 0 20px 60px -24px rgba(26,24,21,0.25); }
+.product-shot video, .product-shot img { width: 100%; border-radius: 10px; display: block; background: #0E1114; }
+.product-shot.devices { background: transparent; padding: 0; box-shadow: none; }
+.product-shot.devices img { background: transparent; border-radius: 0; }
+.feat-list { list-style: none; padding: 0; margin: var(--space-5) 0 0; }
+.feat-list li { display: grid; grid-template-columns: 44px 1fr; gap: var(--space-4); padding: var(--space-5) 0; border-top: 1px solid var(--rule); }
+.feat-list li:last-child { border-bottom: 1px solid var(--rule); }
+.feat-list .ic { width: 44px; height: 44px; border-radius: 999px; background: var(--surface-mute-2); display: grid; place-items: center; color: var(--fg-1); }
+.feat-list .ic svg { width: 20px; height: 20px; }
+.feat-list h4 { font-family: var(--font-display); font-weight: 500; font-size: 18px; letter-spacing: -0.01em; margin: 0 0 4px; color: var(--fg-1); }
+.feat-list p { margin: 0; font-size: 14px; color: var(--fg-2); line-height: 1.55; }
+
+/* ============================================================
+   Marketing — MÉDICOS (KOL doctor cards)
+   ============================================================ */
+.doctors { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-5); margin-top: var(--space-7); }
+@media (max-width: 900px) { .doctors { grid-template-columns: 1fr; } }
+.doc { background: var(--paper); border: 1px solid var(--rule); border-radius: 20px; padding: var(--space-6); display: grid; grid-template-columns: 120px 1fr; gap: var(--space-5); align-items: center; }
+@media (max-width: 560px) { .doc { grid-template-columns: 88px 1fr; padding: var(--space-5); } }
+.doc-photo { width: 120px; height: 120px; border-radius: 999px; overflow: hidden; background: var(--surface-mute-2); }
+.doc-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+@media (max-width: 560px) { .doc-photo, .doc-photo img { width: 88px; height: 88px; } }
+.doc-eyebrow { font-family: var(--font-mono); font-size: 10px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--fg-3); margin-bottom: 6px; }
+.doc-name { font-family: var(--font-display); font-weight: 500; font-size: 24px; letter-spacing: -0.02em; line-height: 1.1; color: var(--fg-1); margin: 0 0 4px; }
+.doc-aff { font-size: 13px; color: var(--fg-2); line-height: 1.45; margin: 0 0 12px; }
+.doc-tel { display: inline-flex; align-items: center; gap: 8px; font-family: var(--font-mono); font-size: 12px; font-weight: 600; letter-spacing: 0.04em; color: var(--fg-1); text-decoration: none; padding: 6px 10px; border: 1px solid var(--rule); border-radius: 999px; transition: border-color 180ms, color 180ms; }
+.doc-tel:hover { border-color: var(--fg-1); color: var(--accent); }
+.doc-tel svg { width: 12px; height: 12px; }
+
+/* ============================================================
+   Marketing — CTA CARD (dark editorial)
+   ============================================================ */
+.cta-card { background: var(--fg-1); color: #FBF7F0; border-radius: 28px; padding: var(--space-9) var(--space-8); display: grid; grid-template-columns: 1.2fr 1fr; gap: var(--space-8); position: relative; overflow: hidden; }
+.cta-card::before { content: ""; position: absolute; width: 520px; height: 520px; border-radius: 999px; background: radial-gradient(circle, rgba(232,116,90,0.35), transparent 70%); top: -200px; right: -180px; pointer-events: none; }
+@media (max-width: 1000px) { .cta-card { grid-template-columns: 1fr; } }
+.cta-card > * { position: relative; }
+.cta-card h2 { font-family: var(--font-display); font-weight: 500; font-size: clamp(2.25rem, 3vw + 1rem, 3.75rem); letter-spacing: -0.03em; line-height: 1.02; margin: 14px 0 var(--space-5); color: #FBF7F0; }
+.cta-card .lede { color: #A8B0B6; max-width: 42ch; margin: 0; }
+.cta-card .btn-ghost-dark { display: inline-flex; align-items: center; gap: 8px; padding: 14px 24px; background: transparent; color: #FBF7F0; border: 1.5px solid rgba(251,247,240,0.30); border-radius: 999px; font-weight: 600; font-size: 14px; text-decoration: none; font-family: inherit; }
+.cta-card .btn-ghost-dark:hover { border-color: #FBF7F0; }
+.cta-card .btn-ghost-dark svg { flex: none; }
+.cta-right { display: flex; flex-direction: column; gap: var(--space-4); align-self: center; }
+.cta-tick { display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: center; padding: 14px 16px; border: 1px solid rgba(251,247,240,0.12); border-radius: 14px; background: rgba(251,247,240,0.04); }
+.cta-tick .k { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.04em; color: var(--accent); font-weight: 600; }
+.cta-tick b { display: block; font-size: 14px; color: #FBF7F0; font-weight: 600; margin-bottom: 2px; }
+.cta-tick span:not(.k) { display: block; font-size: 12px; color: #A8B0B6; line-height: 1.4; }
+
+/* ============================================================
+   Marketing — FOOTER
+   ============================================================ */
+.ftr { background: var(--fg-1); color: #A8B0B6; padding: var(--space-9) 0 var(--space-6); }
+.ftr-grid { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: var(--space-7); }
+@media (max-width: 900px) { .ftr-grid { grid-template-columns: 1fr 1fr; } }
+.ftr h4 { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: #5E6770; font-weight: 500; margin: 0 0 var(--space-4); }
+.ftr ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
+.ftr a { color: #A8B0B6; text-decoration: none; font-size: 14px; }
+.ftr a:hover { color: #FBF7F0; }
+.ftr-foot { border-top: 1px solid rgba(242,243,244,0.10); padding-top: var(--space-5); margin-top: var(--space-7); font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.04em; color: #5E6770; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.ftr .wm { color: #FBF7F0; display: inline-flex; margin-bottom: var(--space-4); font-family: var(--font-display); font-weight: 500; font-size: 22px; letter-spacing: -0.02em; text-decoration: none; }
+.ftr .wm em { font-style: normal; color: var(--accent); }

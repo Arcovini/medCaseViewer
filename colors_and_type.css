@@ -1,0 +1,275 @@
+/* ============================================================
+   Biodesignlab — colors & type
+   CLINICAL LIGHT system. Pure white base, hairline rules, contained
+   coral signal. Aligned with viewer v3 — modern medical-imaging UI:
+   bright, neutral, technical. Inspired by Function Health admin,
+   Materialise's lighter surfaces, Vesalius3D web.
+   ============================================================ */
+
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap");
+
+:root {
+  /* ---------- BASE — pure white -----------------------------------------
+     Pure white as the foundation. Surfaces step DOWN to a near-imperceptible
+     warm gray for canvas / recessed wells. No cream. No tint.            */
+  --base:           #FFFFFF;   /* page */
+  --base-tint:      #FAFAFA;   /* hover, zebra */
+  --paper:          #FFFFFF;   /* card (no lift, just hairlines) */
+
+  /* ---------- SURFACE — light side --------------------------------------- */
+  --surface-1:      #FFFFFF;   /* card */
+  --surface-2:      #FFFFFF;   /* page */
+  --surface-3:      #F5F5F5;   /* recessed wells, button bg */
+  --surface-canvas: #EDEFF2;   /* 3D canvas — barely-there gray to seat dark models */
+  --surface-mute:   #F2F3F5;   /* marketing page band — cool gray, "cream" register */
+  --surface-mute-2: #E6E8EC;   /* recessed pad for media (video frame, photo circle, kol bg) */
+
+  /* ---------- ILLUSTRATION PALETTE -- decorative pastels used inside the
+     "how it works" SVGs on the marketing site. Off-system on purpose: these
+     are illustration tints, not UI tokens. Do not promote into UI states. */
+  --illus-coral-bright: #E8745A;
+  --illus-mint:         #CFDCD2;
+  --illus-sky:          #BFD0D9;
+  --illus-butter:       #EBD9A8;
+
+  /* ---------- SURFACE — dark / instrument side ---------------------------
+     Kept for the optional dark viewer variant only. Default chrome is light. */
+  --surface-ink-1:  #14181C;
+  --surface-ink-2:  #0B0E11;
+  --surface-ink-3:  #1F2429;
+
+  /* ---------- TEXT — light ----------------------------------------------- */
+  --fg-1:           #15171A;   /* clinical near-black, slightly cool */
+  --fg-2:           #5A6068;   /* body */
+  --fg-3:           #8A8F95;   /* meta, labels */
+
+  /* ---------- TEXT — dark (for dark viewer) ------------------------------ */
+  --fg-ink-1:       #F2F3F4;
+  --fg-ink-2:       #A8B0B6;
+  --fg-ink-3:       #5E6770;
+
+  /* ---------- ACCENT — coral, contained ----------------------------------
+     Reserved for: critical anatomy (tumor), measurement live state,
+     active row/note strip, brand wordmark dot. NOT for primary CTAs
+     (those are ink black) or generic icons.                              */
+  --accent:         #C8412C;
+  --accent-hover:   #A8341F;
+  --accent-active:  #8E2A18;
+  --accent-soft:    #FFF5F2;   /* tint for active row backgrounds */
+  --accent-ink:     #FFFFFF;
+
+  /* ---------- ANATOMY PALETTE -------------------------------------------- */
+  --anat-tissue:        #C4A78A;
+  --anat-tissue-a:      rgba(196, 167, 138, 0.55);
+  --anat-vessel-art:    #A83B3B;
+  --anat-vessel-vein:   #3B6DA8;
+  --anat-bone:          #DDE2E6;
+  --anat-bone-a:        rgba(221, 226, 230, 0.55);
+  --anat-organ:         #9A6B5C;
+  --anat-lesion:        #C8412C;
+  --anat-overlay:       rgba(21, 23, 26, 0.50);
+  --anat-mesh-line:     rgba(21, 23, 26, 0.10);
+
+  /* ---------- SEMANTIC --------------------------------------------------- */
+  --signal-ok:      #2E7D5B;
+  --signal-warn:    #C68A2C;
+  --signal-err:     #8E2A18;
+
+  /* ---------- HAIRLINES — the load-bearing element of this system -------
+     The system reads as "medical instrument" by separating sections with
+     1px hairlines instead of cards/shadows. Two strengths:                */
+  --rule:           rgba(21, 23, 26, 0.08);
+  --rule-strong:    rgba(21, 23, 26, 0.16);
+  --rule-ink:       rgba(242, 243, 244, 0.12);
+
+  /* ---------- TYPOGRAPHY — industrial sans --------------------------------
+     Three families, all sans:
+     - Display: Archivo Narrow — geometric condensed grotesque. Fills the
+       Söhne Breit / NB Architekt slot. Weight 600/700 only — display
+       earns its presence through condensation + weight, not size alone.
+     - UI/Text: Inter — neutral grotesque, the imaging-software default.
+     - Mono: JetBrains Mono — measurements, IDs, technical labels.        */
+  /* Display: Plus Jakarta Sans — humanist geometric, soft curves. PillPack-light
+     register at weight 300/400. Sentence case, slightly negative tracking.
+     Text: Inter for body. Mono: JetBrains for telemetry. */
+  --font-display:   "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-text:      "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono:      "JetBrains Mono", SFMono-Regular, Menlo, monospace;
+
+  /* Fluid scale */
+  --type-display-xl: clamp(3.5rem, 7vw + 1rem, 7.5rem);
+  --type-display-l:  clamp(2.75rem, 4.5vw + 1rem, 5.25rem);
+  --type-display-m:  clamp(2rem, 2.5vw + 1rem, 3.5rem);
+  --type-h1:         clamp(2rem, 2vw + 1rem, 3rem);
+  --type-h2:         clamp(1.5rem, 1.2vw + 0.9rem, 2.125rem);
+  --type-h3:         clamp(1.25rem, 0.6vw + 1rem, 1.5rem);
+  --type-body-l:     clamp(1.0625rem, 0.3vw + 1rem, 1.25rem);
+  --type-body:       1rem;
+  --type-small:      0.875rem;
+  --type-meta:       0.75rem;
+
+  /* Weights — display goes HEAVY (condensed sans rule), text stays mid */
+  --w-regular:      400;
+  --w-medium:       500;
+  --w-semibold:     600;
+  --w-bold:         700;
+
+  /* Line heights */
+  --lh-display:     1.02;   /* generous — light humanist needs air */
+  --lh-h:           1.12;
+  --lh-body:        1.55;
+  --lh-meta:        1.4;
+
+  /* Letter spacing — industrial register: display goes negative AND
+     the case is generally UPPERCASE for display headlines, mono labels
+     stay positive-tracked.                                               */
+  --ls-display:     -0.025em;
+  --ls-display-up:  0.005em;   /* uppercase display compensation */
+  --ls-h:           -0.005em;
+  --ls-body:        0;
+  --ls-meta:        0.08em;
+
+  /* ---------- SPACING ---------------------------------------------------- */
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  24px;
+  --space-6:  32px;
+  --space-7:  48px;
+  --space-8:  64px;
+  --space-9:  96px;
+  --space-10: 128px;
+
+  /* ---------- RADIUS ----------------------------------------------------- */
+  /* Pulled in tighter — industrial register favors hard edges. The 14px
+     pillow drops to 6px (frame, not card).                               */
+  --radius-0:       0;
+  --radius-xs:      2px;
+  --radius-sm:      4px;
+  --radius-card:    6px;
+  --radius-pill:    999px;
+
+  /* ---------- SHADOW — used sparingly. Hairlines are primary. ----------
+     Shadows reserved for floating chips ON canvas (compass, toolset,
+     legend) and for the hover/elevation hint on KOL cards. Static page
+     content uses hairlines, not shadows.                                 */
+  --shadow-1:
+    0 1px 2px rgba(21, 23, 26, 0.04);
+  --shadow-2:
+    0 4px 12px -4px rgba(21, 23, 26, 0.10),
+    0 1px 2px rgba(21, 23, 26, 0.04);
+  --shadow-3:
+    0 16px 32px -12px rgba(21, 23, 26, 0.14),
+    0 4px 8px -2px rgba(21, 23, 26, 0.06);
+  --shadow-ink:
+    0 24px 80px -16px rgba(0, 0, 0, 0.65);
+
+  /* ---------- MOTION ----------------------------------------------------- */
+  --dur-instant:    80ms;
+  --dur-micro:      180ms;
+  --dur-macro:      420ms;
+  --dur-cinematic:  900ms;
+  --ease-standard:  cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-entrance:  cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-exit:      cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-clinical:  cubic-bezier(0.6, 0.01, 0.05, 0.95);
+
+  /* ---------- BREAKPOINTS ----------------------------------------------- */
+  --bp-sm:  560px;
+  --bp-md:  900px;
+  --bp-lg:  1280px;
+  --bp-xl:  1640px;
+
+  /* ---------- BACKDROP / FX --------------------------------------------- */
+  --grain-opacity:  0.03;
+  --vignette-ink:   radial-gradient(120% 80% at 50% 0%,
+                      rgba(242,243,244,0) 0%,
+                      rgba(0,0,0,0.55) 100%);
+}
+
+/* ============================================================
+   SEMANTIC ELEMENT STYLES
+   ============================================================ */
+
+html, body {
+  background: var(--base);
+  color: var(--fg-1);
+  font-family: var(--font-text);
+  font-size: var(--type-body);
+  line-height: var(--lh-body);
+  letter-spacing: var(--ls-body);
+  font-weight: var(--w-regular);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Display = Archivo Narrow, heavy. The industrial register: condensed,
+   bold, often uppercase. No italics — they don't exist in this register. */
+.display-xl, .display-l, .display-m,
+h1.editorial, h2.editorial, h3.editorial {
+  font-family: var(--font-display);
+  font-weight: 300;
+  line-height: var(--lh-display);
+  letter-spacing: -0.02em;
+  color: var(--fg-1);
+  text-wrap: pretty;
+}
+
+.display-xl { font-size: var(--type-display-xl); }
+.display-l  { font-size: var(--type-display-l); }
+.display-m  { font-size: var(--type-display-m); }
+
+/* Uppercase display variant — industrial signage register */
+.display-up {
+  text-transform: uppercase;
+  letter-spacing: var(--ls-display-up);
+}
+
+/* Utility headings = Inter, semibold */
+h1, h2, h3, h4 {
+  font-family: var(--font-text);
+  font-weight: var(--w-semibold);
+  line-height: var(--lh-h);
+  letter-spacing: var(--ls-h);
+  margin: 0;
+  color: var(--fg-1);
+}
+h1 { font-size: var(--type-h1); }
+h2 { font-size: var(--type-h2); }
+h3 { font-size: var(--type-h3); }
+h4 { font-size: var(--type-body-l); }
+
+p, li {
+  font-size: var(--type-body);
+  line-height: var(--lh-body);
+  color: var(--fg-2);
+  text-wrap: pretty;
+}
+
+.lead, p.lead {
+  font-size: var(--type-body-l);
+  color: var(--fg-1);
+  font-weight: var(--w-regular);
+  line-height: 1.5;
+}
+
+small, .meta { font-size: var(--type-small); color: var(--fg-3); }
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: var(--type-meta);
+  font-weight: var(--w-medium);
+  letter-spacing: var(--ls-meta);
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+
+code, kbd, samp, .mono { font-family: var(--font-mono); font-size: 0.92em; }
+
+a { color: var(--fg-1); text-decoration: underline; text-underline-offset: 0.18em; text-decoration-thickness: 1px; transition: color var(--dur-instant) var(--ease-standard); }
+a:hover { color: var(--accent); }
+
+hr { border: 0; border-top: 1px solid var(--rule); margin: var(--space-7) 0; }
+
+::selection { background: var(--accent); color: var(--accent-ink); }
