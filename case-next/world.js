@@ -22,6 +22,7 @@ const namedMeshes = new Map();
 const lastOpacity = new Map();   // name -> último valor não-zero (default fallback é 1.0)
 const lineMaterials = new Set(); // pra atualizar resolution no resize (Line2 precisa disso)
 let mountedRoot = null;
+let _initialCameraDistance = null;
 
 const raycaster = new THREE.Raycaster();
 const ndc = new THREE.Vector2();
@@ -31,7 +32,7 @@ const ndc = new THREE.Vector2();
 const measurementObjects = new Map();
 let nextMeasurementId = 1;
 
-const COLOR_CYAN = 0x00d4ff;
+const COLOR_ACCENT = 0xC8412C;
 
 // Estado da lupa (segundo WebGLRenderer em canvas dedicado).
 let loupeRenderer = null;
@@ -43,13 +44,19 @@ const LOUPE_ZOOM = 3.0;
 export function init(canvasEl) {
   renderer = new THREE.WebGLRenderer({ canvas: canvasEl, antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  // Canvas size comes from its CSS layout (parent .vw-stage in the new shell, or
+  // the full viewport when canvas is body-level). Fall back to window size if the
+  // rect is zero (e.g., parent not laid out yet on very early frames).
+  const _r0 = canvasEl.getBoundingClientRect();
+  const _w0 = _r0.width || window.innerWidth;
+  const _h0 = _r0.height || window.innerHeight;
+  renderer.setSize(_w0, _h0, false);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.0;
 
   scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x272425);
+  scene.background = new THREE.Color(0xEDEFF2);
 
   pmremGenerator = new THREE.PMREMGenerator(renderer);
   scene.environment = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
@@ -65,7 +72,7 @@ export function init(canvasEl) {
   scene.add(ambientLight);
   scene.add(dirLight);
 
-  camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+  camera = new THREE.PerspectiveCamera(45, _w0 / _h0, 0.1, 1000);
   camera.position.set(0, 0, 3);
 
   controls = new OrbitControls(camera, renderer.domElement);
@@ -74,7 +81,7 @@ export function init(canvasEl) {
 
   // CSS2DRenderer: HTML overlay alinhado a coordenadas 3D (usado pela pílula da medição).
   css2dRenderer = new CSS2DRenderer();
-  css2dRenderer.setSize(window.innerWidth, window.innerHeight);
+  css2dRenderer.setSize(_w0, _h0);
   css2dRenderer.domElement.style.position = "absolute";
   css2dRenderer.domElement.style.top = "0";
   css2dRenderer.domElement.style.left = "0";
@@ -87,7 +94,7 @@ export function init(canvasEl) {
   composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
   outlinePass = new OutlinePass(
-    new THREE.Vector2(window.innerWidth, window.innerHeight),
+    new THREE.Vector2(_w0, _h0),
     scene,
     camera,
   );
@@ -95,8 +102,8 @@ export function init(canvasEl) {
   outlinePass.edgeGlow = 0.3;
   outlinePass.edgeThickness = 2;
   outlinePass.pulsePeriod = 0;       // sem pulse (já temos pulse no candidato)
-  outlinePass.visibleEdgeColor.setHex(COLOR_CYAN);
-  outlinePass.hiddenEdgeColor.setHex(COLOR_CYAN);
+  outlinePass.visibleEdgeColor.setHex(COLOR_ACCENT);
+  outlinePass.hiddenEdgeColor.setHex(COLOR_ACCENT);
   composer.addPass(outlinePass);
   composer.addPass(new OutputPass());
 
@@ -106,9 +113,10 @@ export function init(canvasEl) {
 }
 
 function onResize() {
-  const w = window.innerWidth;
-  const h = window.innerHeight;
-  renderer.setSize(w, h);
+  const rect = renderer.domElement.getBoundingClientRect();
+  const w = rect.width || window.innerWidth;
+  const h = rect.height || window.innerHeight;
+  renderer.setSize(w, h, false);
   css2dRenderer.setSize(w, h);
   if (composer) composer.setSize(w, h);
   if (outlinePass) outlinePass.setSize(w, h);
@@ -197,6 +205,8 @@ export function frameToScene() {
 
   controls.target.copy(center);
   controls.update();
+
+  _initialCameraDistance = camera.position.distanceTo(controls.target);
 }
 
 export function setOpacity(name, value) {
@@ -290,7 +300,7 @@ export function onCameraChange(callback) {
 export function addEndpoint(point3D, label) {
   const id = nextMeasurementId++;
   const geom = new THREE.SphereGeometry(1.5, 24, 24);
-  const mat = new THREE.MeshBasicMaterial({ color: COLOR_CYAN, depthTest: false });
+  const mat = new THREE.MeshBasicMaterial({ color: COLOR_ACCENT, depthTest: false });
   const mesh = new THREE.Mesh(geom, mat);
   mesh.position.copy(point3D);
   mesh.renderOrder = 999;
@@ -343,7 +353,7 @@ export function addCandidate(point3D) {
   const ringGeom = new THREE.BufferGeometry();
   ringGeom.setAttribute("position", new THREE.Float32BufferAttribute(ringPositions, 3));
   const ringMat = new THREE.LineDashedMaterial({
-    color: COLOR_CYAN,
+    color: COLOR_ACCENT,
     dashSize: 0.5,
     gapSize: 0.35,
     depthTest: false,
@@ -401,7 +411,7 @@ const LINE_GAP_SIZE = 4;
 
 function _makeLineMaterial(provisional) {
   const mat = new LineMaterial({
-    color: COLOR_CYAN,
+    color: COLOR_ACCENT,
     linewidth: LINE_WIDTH_PX,
     transparent: true,
     depthTest: false,           // linha sempre na frente das estruturas
@@ -410,7 +420,8 @@ function _makeLineMaterial(provisional) {
     gapSize: LINE_GAP_SIZE,
     dashScale: 1,
   });
-  mat.resolution.set(window.innerWidth, window.innerHeight);
+  const _r = renderer.domElement.getBoundingClientRect();
+  mat.resolution.set(_r.width || window.innerWidth, _r.height || window.innerHeight);
   lineMaterials.add(mat);
   return mat;
 }
@@ -570,4 +581,26 @@ export function setMeasurementVisibility(ids, visible) {
     entry.object3D.visible = visible;
     if (entry.labelObj) entry.labelObj.visible = visible;
   }
+}
+
+// --- Zoom helpers (used by the floating zoom chip in case-next/index.html) ---
+// zoomBy(factor): dolly the camera by a multiplicative factor toward (factor>1)
+// or away from (factor<1) the orbit target. factor=1.2 ≈ dollyIn equivalent.
+
+export function zoomBy(factor) {
+  if (!controls || !camera) return;
+  const offset = new THREE.Vector3().subVectors(camera.position, controls.target);
+  offset.multiplyScalar(1 / factor);
+  camera.position.copy(controls.target).add(offset);
+  controls.update();
+}
+
+// getZoomPercentage(): integer percent relative to the initial framed distance.
+// 100% = at the frame-to-scene distance; >100% = zoomed in; <100% = zoomed out.
+
+export function getZoomPercentage() {
+  if (!controls || !camera || _initialCameraDistance === null) return 100;
+  const current = camera.position.distanceTo(controls.target);
+  if (current === 0) return 100;
+  return Math.round((_initialCameraDistance / current) * 100);
 }

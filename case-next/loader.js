@@ -37,5 +37,5 @@ export async function loadGlb(url) {
     throw err;
   }
 
-  return { root: gltf.scene };
+  return { root: gltf.scene, byteLength: buffer.byteLength };
 }

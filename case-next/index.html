@@ -3,11 +3,9 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>biodesignlab — viewer</title>
+    <title>Medcase — visualizador 3D</title>
 
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;600;700&family=Open+Sans:wght@400;600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../colors_and_type.css" />
     <link rel="stylesheet" href="./style.css" />
 
     <script type="importmap">
@@ -20,16 +18,79 @@
     </script>
   </head>
   <body>
-    <canvas id="canvas"></canvas>
 
-    <aside id="structures-panel" class="panel">
-      <div class="panel-handle"></div>
-      <div class="panel-title">Estruturas</div>
-      <ul id="structures-list"></ul>
-    </aside>
+    <div class="viewer">
 
-    <div id="loading" class="overlay" hidden>Carregando...</div>
-    <div id="error" class="overlay error" hidden></div>
+      <header class="vw-top">
+        <div class="vw-top-left">
+          <span class="vw-brand" aria-label="Medcase">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18M5.5 5.5l13 13M18.5 5.5l-13 13"/></svg>
+            Medcase<em>.</em><span class="vw-sep">/</span><span class="vw-case-id">caso <span data-bind="uid-short">—</span></span>
+          </span>
+        </div>
+        <div class="vw-crumb" data-bind="crumb"></div>
+        <div class="vw-top-right">
+          <button class="vw-icon-btn" data-action="reset-camera" title="Resetar câmera" aria-label="Resetar câmera">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
+          </button>
+          <button class="vw-icon-btn" data-action="fullscreen" title="Tela cheia" aria-label="Tela cheia">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+          </button>
+          <button class="vw-share" data-action="share" title="Copiar link" aria-label="Compartilhar">Compartilhar</button>
+        </div>
+      </header>
+
+      <aside class="vw-left">
+        <aside id="structures-panel" class="panel">
+          <div class="panel-handle"></div>
+          <div class="panel-title">Estruturas <span class="panel-count" data-bind="structure-count">—</span></div>
+          <ul id="structures-list"></ul>
+        </aside>
+      </aside>
+
+      <main class="vw-stage">
+        <canvas id="canvas"></canvas>
+
+        <div class="vw-zoom" aria-label="Zoom">
+          <button class="vw-zoom-btn" data-action="zoom-out" aria-label="Diminuir">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/></svg>
+          </button>
+          <span class="vw-zoom-value" data-bind="zoom-pct">100%</span>
+          <button class="vw-zoom-btn" data-action="zoom-in" aria-label="Aumentar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+        </div>
+
+        <div class="vw-legend" aria-label="Legenda de estruturas">
+          <div class="vw-legend-ttl">Estruturas</div>
+          <div class="vw-legend-rows" data-bind="legend-rows"></div>
+        </div>
+
+        <div id="loading" class="overlay" hidden>Carregando...</div>
+        <div id="error" class="overlay error" hidden></div>
+      </main>
+
+      <aside class="vw-right" data-show="false">
+        <div class="vw-case-head">
+          <div class="vw-case-eyebrow">Caso</div>
+          <h2 class="vw-case-title" data-bind="case-title">—</h2>
+          <div class="vw-case-pid" data-bind="case-pid">—</div>
+        </div>
+        <dl class="vw-kv">
+          <dt>Estruturas</dt><dd data-bind="kv-count">—</dd>
+        </dl>
+        <div class="vw-notes" hidden>
+          <!-- placeholder pra notas — Sprint 4+ -->
+        </div>
+      </aside>
+
+      <footer class="vw-foot">
+        <div class="vw-foot-stat"><span class="vw-dot-ok"></span>Segmentação <b>validada</b></div>
+        <div class="vw-foot-stat">Render · <b>WebGL2</b> · <span data-bind="foot-count">—</span> camadas · <span data-bind="foot-size">—</span></div>
+        <div class="vw-foot-stat">v1 · Medcase / Dasa</div>
+      </footer>
+
+    </div>
 
     <div id="ar-root" class="ar-root" aria-hidden="true"></div>
 

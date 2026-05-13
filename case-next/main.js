@@ -24,9 +24,9 @@ async function bootstrap() {
   dom.showLoading(true);
   const url = loader.buildGlbUrl(uid);
 
-  let root;
+  let root, byteLength;
   try {
-    ({ root } = await loader.loadGlb(url));
+    ({ root, byteLength } = await loader.loadGlb(url));
   } catch (e) {
     dom.showLoading(false);
     if (e.code === "NOT_FOUND") {
@@ -71,6 +71,8 @@ async function bootstrap() {
   dom.showLoading(false);
   dom.initBottomSheet();
 
+  bindRedesignChrome(structures, uid, byteLength);
+
   // Inicializa o módulo AR depois do GLB já estar montado: ar.js precisa
   // da cena do world.js pra geração on-demand do USDZ no iOS, e do uid pra
   // construir a URL do GLB no <model-viewer>. Falhas em ar.init são
@@ -79,6 +81,105 @@ async function bootstrap() {
 }
 
 bootstrap();
+
+// ============================================================
+// REDESIGN CHROME — populates the new viewer chrome (top bar / zoom /
+// legend / case-head / foot strip) and wires the handlers. Pure DOM,
+// reads from world/dom/loader results.
+// ============================================================
+
+function bindRedesignChrome(structures, uid, byteLength) {
+  const uidShort = uid.slice(0, 8);
+  setBind("uid-short", uidShort);
+  setBind("case-title", `Caso ${uidShort}`);
+  setBind("case-pid", `ID ${uid}`);
+  setBind("kv-count", `${structures.length} camadas`);
+  setBind("structure-count", `${structures.length} ${structures.length === 1 ? "camada" : "camadas"}`);
+  setBind("foot-count", String(structures.length));
+  setBind("foot-size", byteLength ? `${(byteLength / (1024 * 1024)).toFixed(1)} MB` : "—");
+
+  const crumbEl = document.querySelector('[data-bind="crumb"]');
+  if (crumbEl && structures.length >= 2) {
+    const a = humanizeName(structures[0].name);
+    const b = humanizeName(structures[1].name);
+    crumbEl.innerHTML = `Reconstrução · <b>${escapeHtml(a)} + ${escapeHtml(b)}</b>`;
+  }
+
+  const legendRows = document.querySelector('[data-bind="legend-rows"]');
+  if (legendRows) {
+    legendRows.innerHTML = "";
+    for (const { name, color } of structures) {
+      const row = document.createElement("div");
+      row.className = "vw-legend-row";
+      const dot = document.createElement("span");
+      dot.className = "vw-legend-dot";
+      if (color) dot.style.background = color;
+      const label = document.createElement("span");
+      label.textContent = humanizeName(name);
+      row.appendChild(dot);
+      row.appendChild(label);
+      legendRows.appendChild(row);
+    }
+  }
+
+  wireAction("reset-camera", () => world.frameToScene());
+  wireAction("fullscreen", toggleFullscreen);
+  wireAction("share", shareCurrentUrl);
+
+  wireAction("zoom-in", () => { world.zoomBy(1.2); updateZoomPct(); });
+  wireAction("zoom-out", () => { world.zoomBy(1 / 1.2); updateZoomPct(); });
+  world.onCameraChange(updateZoomPct);
+  updateZoomPct();
+}
+
+function setBind(name, text) {
+  document.querySelectorAll(`[data-bind="${name}"]`).forEach((el) => {
+    el.textContent = text;
+  });
+}
+
+function wireAction(name, handler) {
+  document.querySelectorAll(`[data-action="${name}"]`).forEach((el) => {
+    el.addEventListener("click", handler);
+  });
+}
+
+function updateZoomPct() {
+  const pct = world.getZoomPercentage();
+  setBind("zoom-pct", `${pct}%`);
+}
+
+function toggleFullscreen() {
+  if (document.fullscreenElement) {
+    document.exitFullscreen?.();
+  } else {
+    document.body.requestFullscreen?.();
+  }
+}
+
+async function shareCurrentUrl() {
+  const url = window.location.href;
+  try {
+    await navigator.clipboard?.writeText(url);
+  } catch {
+    const ta = document.createElement("textarea");
+    ta.value = url;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand("copy"); } catch {}
+    document.body.removeChild(ta);
+  }
+}
+
+function humanizeName(name) {
+  return String(name).replace(/_/g, " ");
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
 
 // Test hook: when Playwright sets window.__playwrightTest before page load,
 // expose `world`, `dom`, and `measurement` modules so tests can inspect/mutate state.
