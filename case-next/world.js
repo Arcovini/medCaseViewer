@@ -42,12 +42,7 @@ let loupeOpen = false;
 const LOUPE_ZOOM = 3.0;
 
 export function init(canvasEl) {
-  // alpha: true keeps the canvas transparent so the .vw-stage CSS background
-  // (driven by --w-canvas-bg, which flips with html[data-theme]) shows
-  // through. The scene's own .background is left null, otherwise it would
-  // paint over the transparent canvas every frame.
-  renderer = new THREE.WebGLRenderer({ canvas: canvasEl, antialias: true, alpha: true });
-  renderer.setClearColor(0x000000, 0);
+  renderer = new THREE.WebGLRenderer({ canvas: canvasEl, antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   // Canvas size comes from its CSS layout (parent .vw-stage in the new shell, or
   // the full viewport when canvas is body-level). Fall back to window size if the
@@ -61,7 +56,13 @@ export function init(canvasEl) {
   renderer.toneMappingExposure = 1.0;
 
   scene = new THREE.Scene();
-  scene.background = null;   // canvas is transparent — .vw-stage paints the bg
+  // Opaque background — required for the transparent-mesh fix
+  // (commit d20a0cd: depthWrite condicional ao opacity). With alpha:true
+  // the renderer composites against a zero-alpha clear color which
+  // breaks blending order on overlapping translucent meshes. Theme
+  // changes are handled via setSceneBackground() below; main.js wires it
+  // to the CSS var --w-canvas-bg whenever the theme flips.
+  scene.background = new THREE.Color(0xEDEFF2);
 
   pmremGenerator = new THREE.PMREMGenerator(renderer);
   scene.environment = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
@@ -694,4 +695,21 @@ export function getMeshCentroid(name) {
 // monkey-patch externo não funcionaria.
 export function __testInjectVolumeCache(name, value) {
   _volumeCache.set(name, value);
+}
+
+// Updates the scene's clear-color background to the given hex string
+// (e.g. "#EDEFF2", "#000000"). Main.js calls this when the theme flips
+// — keeps Three.js opaque (so transparency blending stays correct) while
+// still letting the 3D backdrop follow html[data-theme="dark"].
+export function setSceneBackground(hex) {
+  if (!scene || !hex) return;
+  try {
+    if (scene.background && scene.background.isColor) {
+      scene.background.set(hex);
+    } else {
+      scene.background = new THREE.Color(hex);
+    }
+  } catch (_) {
+    // invalid color string — leave previous bg alone.
+  }
 }

@@ -192,6 +192,15 @@ function toggleTheme() {
 function setTheme(theme) {
   document.documentElement.setAttribute("data-theme", theme);
   // Icon swap (sun ↔ moon) lives in CSS — keyed off html[data-theme="dark"].
+  // Three.js can't react to CSS vars on its own, so we read --w-canvas-bg
+  // (which the CSS variables block updates per html[data-theme]) and push
+  // that hex into the scene's clear color. Keeping the renderer opaque
+  // (rather than transparent) preserves correct blending for translucent
+  // meshes — see commit d20a0cd.
+  const cssBg = getComputedStyle(document.documentElement)
+    .getPropertyValue("--w-canvas-bg")
+    .trim();
+  if (cssBg) world.setSceneBackground(cssBg);
 }
 
 // Mobile overflow popover — hamburger pill opens a menu with theme + share.

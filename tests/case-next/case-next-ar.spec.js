@@ -112,6 +112,7 @@ async function setupARFakes(page, opts = {}) {
     // Mock USDZExporter — não baixa o módulo Three.js do unpkg (lento + ruidoso
     // em CI). Retorna bytes mínimos válidos pra Blob.
     window.__lastExportedSceneScale = null;
+    window.__lastExportedMaxCoord = null;
     window.__mockUSDZExporterImport = () => Promise.resolve({
       USDZExporter: class FakeUSDZExporter {
         async parseAsync(scene) {
@@ -119,6 +120,25 @@ async function setupARFakes(page, opts = {}) {
           window.__lastExportedSceneScale = scene?.scale
             ? { x: scene.scale.x, y: scene.scale.y, z: scene.scale.z }
             : null;
+          // Max absolute component of any vertex position in the exported scene.
+          // The 0.001 mm→m factor is baked into each BufferGeometry (the root
+          // group's scale stays at 1), so this measures whether the bake
+          // actually happened in geometry space.
+          let maxCoord = 0;
+          scene.traverse((obj) => {
+            if (obj.isMesh && obj.geometry?.attributes?.position) {
+              const p = obj.geometry.attributes.position;
+              for (let i = 0; i < p.count; i++) {
+                const x = Math.abs(p.getX(i));
+                const y = Math.abs(p.getY(i));
+                const z = Math.abs(p.getZ(i));
+                if (x > maxCoord) maxCoord = x;
+                if (y > maxCoord) maxCoord = y;
+                if (z > maxCoord) maxCoord = z;
+              }
+            }
+          });
+          window.__lastExportedMaxCoord = maxCoord;
           if (usdzDelay > 0) {
             await new Promise((r) => setTimeout(r, usdzDelay));
           }
@@ -354,23 +374,54 @@ test("iOS: clicar gera USDZ e dispara activateAR com ios-src=blob:", async ({ pa
   expect(exportCount).toBe(1);
 });
 
-test("iOS: scene exportada pro USDZ tem escala 0.001 (mm → m)", async ({ page }) => {
+test("iOS: USDZ exportado em escala metro (mm bake 0.001 em geometry, scene.scale = 1)", async ({ page }) => {
   // GLBs do mesh-processor vêm em milímetros e o Quick Look interpreta
   // USDZ como metros. Sem o reescalonamento, o modelo aparece 1000x maior
-  // no AR. Este teste fixa esse comportamento.
+  // no AR ("room-size complaint").
+  //
+  // O Three.js USDZExporter NÃO emite Xform pra nós sem geometria, então
+  // setar scale só no Group raiz é silenciosamente descartado no export.
+  // O fix: bake da escala 0.001 em cada BufferGeometry e zerar a scale
+  // do Group raiz. Este teste valida ambas as metades do contrato.
   await setupARFakes(page, { canActivateAR: true, ua: UA_IOS });
   await page.goto(`/case-next/?id=${TEST_UID}`);
   await waitForGlbLoaded(page);
   await waitForArReady(page);
 
+  // Mede o maior valor absoluto de vértice antes do bake (referência).
+  const originalMax = await page.evaluate(() => {
+    let m = 0;
+    window.__world.getMountedRoot().traverse((obj) => {
+      if (obj.isMesh && obj.geometry?.attributes?.position) {
+        const p = obj.geometry.attributes.position;
+        for (let i = 0; i < p.count; i++) {
+          const x = Math.abs(p.getX(i));
+          const y = Math.abs(p.getY(i));
+          const z = Math.abs(p.getZ(i));
+          if (x > m) m = x; if (y > m) m = y; if (z > m) m = z;
+        }
+      }
+    });
+    return m;
+  });
+
   await page.locator(".ar-button").click();
   await page.waitForFunction(() => window.__activateARCalled === 1, null, { timeout: 5_000 });
 
-  const scale = await page.evaluate(() => window.__lastExportedSceneScale);
-  expect(scale).not.toBeNull();
-  expect(scale.x).toBeCloseTo(0.001, 5);
-  expect(scale.y).toBeCloseTo(0.001, 5);
-  expect(scale.z).toBeCloseTo(0.001, 5);
+  const exportedScale = await page.evaluate(() => window.__lastExportedSceneScale);
+  const exportedMax   = await page.evaluate(() => window.__lastExportedMaxCoord);
+
+  // Group raiz zerado pós-bake: nada de Xform sobrando que o exporter dropparia.
+  expect(exportedScale).not.toBeNull();
+  expect(exportedScale.x).toBeCloseTo(1, 5);
+  expect(exportedScale.y).toBeCloseTo(1, 5);
+  expect(exportedScale.z).toBeCloseTo(1, 5);
+
+  // Bake aconteceu nas geometrias — vértices encolheram por ~1000.
+  expect(exportedMax).toBeGreaterThan(0);
+  if (originalMax > 0) {
+    expect(exportedMax).toBeLessThan(originalMax / 100);
+  }
 });
 
 test("iOS: USDZ é memoizado — segundo clique reusa o mesmo blob URL", async ({ page }) => {

@@ -8,6 +8,7 @@
 // world (3D, via getMountedRoot), dom (DOM helpers). Não toca direto em
 // document.* exceto pelo container #ar-root reservado em index.html.
 
+import * as THREE from "three";
 import { buildGlbUrl } from "./loader.js";
 import { getMountedRoot } from "./world.js";
 import { mountARButton, mountARModal, showError } from "./dom.js";
@@ -62,17 +63,27 @@ function _mountModelViewer() {
   const el = document.createElement("model-viewer");
   el.setAttribute("src", buildGlbUrl(_uid));
   el.setAttribute("ar", "");
-  el.setAttribute("ar-modes", "webxr scene-viewer quick-look");
+  // Unit fix: mesh-processor outputs GLBs where 1 Three.js unit = 1 mm
+  // (see measurement.js — distanceTo() is treated as mm directly), so
+  // glTF/WebXR treating 1 unit as 1 m turns a 10 cm kidney into a 100 m
+  // model ("room-size").
+  //
+  // - iOS Quick Look uses our pre-scaled USDZ via ios-src (the 0.001
+  //   factor lives in _generateUSDZBlobUrl), so it ships at the right
+  //   scale regardless of this attribute.
+  // - WebXR uses model-viewer's own renderer, which honours the
+  //   `scale` attribute below — so the on-device AR placement is in
+  //   real-world centimetres, not metres.
+  // - Android Scene Viewer (the standalone Google AR app) **ignores**
+  //   the `scale` attribute (documented model-viewer limitation —
+  //   the GLB has to be authored at physical scale). Without a
+  //   server-side rescale of the GLB there's no client-side fix, so
+  //   we drop scene-viewer from the AR mode list and fall back to
+  //   WebXR on Android. On devices without WebXR support the AR
+  //   button simply won't activate — better than a wrong-scale model.
+  el.setAttribute("ar-modes", "webxr quick-look");
   el.setAttribute("ar-scale", "auto");
   el.setAttribute("ar-placement", "floor");
-  // Unit fix: mesh-processor outputs GLBs where 1 Three.js unit = 1 mm
-  // (see measurement.js — distanceTo() is treated as mm directly). glTF
-  // and Scene Viewer / WebXR treat 1 unit as 1 m by default, so without
-  // scale a 10 cm kidney shows up as a 10 cm × 1000 = 100 m model in AR
-  // ("room-size" complaint). The same factor lives in _generateUSDZBlobUrl
-  // for the iOS USDZ path; model-viewer applies this attribute to its
-  // WebXR in-page render and bakes it into the model bundle that ships
-  // to Scene Viewer on Android.
   el.setAttribute("scale", "0.001 0.001 0.001");
   // reveal=manual evita que o model-viewer renderize visivelmente / faça
   // sua própria UI de poster/loading (não é o motor visível — Three.js é).
@@ -121,7 +132,31 @@ async function _generateUSDZBlobUrl() {
   // vêm em milímetros (1 unidade Three.js = 1 mm — ver measurement.js, que
   // usa distanceTo() direto como mm). Sem este reescalonamento o modelo
   // aparece 1000x maior do esperado no AR do iPhone.
-  sceneClone.scale.multiplyScalar(0.001);
+  //
+  // O Three.js USDZExporter NÃO emite Xform para nós sem geometria (Group,
+  // Object3D), então `sceneClone.scale.multiplyScalar(0.001)` é silenciosamente
+  // descartado durante o export — por isso a versão antiga ainda saía huge.
+  // Bake da escala diretamente em cada `BufferGeometry`: combinamos o
+  // matrixWorld de cada mesh com o scale 0.001 e aplicamos esse matrix nos
+  // vértices, depois zeramos a transform local pra evitar double-scale.
+  const USDZ_SCALE = 0.001;
+  const scaleM = new THREE.Matrix4().makeScale(USDZ_SCALE, USDZ_SCALE, USDZ_SCALE);
+  sceneClone.updateMatrixWorld(true);
+  const meshes = [];
+  sceneClone.traverse((obj) => { if (obj.isMesh && obj.geometry) meshes.push(obj); });
+  for (const mesh of meshes) {
+    const baked = new THREE.Matrix4().multiplyMatrices(scaleM, mesh.matrixWorld);
+    mesh.geometry = mesh.geometry.clone();
+    mesh.geometry.applyMatrix4(baked);
+    mesh.position.set(0, 0, 0);
+    mesh.quaternion.set(0, 0, 0, 1);
+    mesh.scale.set(1, 1, 1);
+    mesh.updateMatrix();
+  }
+  sceneClone.position.set(0, 0, 0);
+  sceneClone.quaternion.set(0, 0, 0, 1);
+  sceneClone.scale.set(1, 1, 1);
+  sceneClone.updateMatrixWorld(true);
 
   const exporterModule = (typeof window !== "undefined" && window.__mockUSDZExporterImport)
     ? await window.__mockUSDZExporterImport()
