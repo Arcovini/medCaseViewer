@@ -190,10 +190,7 @@ function toggleTheme() {
 
 function setTheme(theme) {
   document.documentElement.setAttribute("data-theme", theme);
-  const sun = document.querySelector(".ic-sun");
-  const moon = document.querySelector(".ic-moon");
-  if (sun)  { theme === "dark" ? sun.setAttribute("hidden", "")  : sun.removeAttribute("hidden"); }
-  if (moon) { theme === "dark" ? moon.removeAttribute("hidden") : moon.setAttribute("hidden", ""); }
+  // Icon swap (sun ↔ moon) lives in CSS — keyed off html[data-theme="dark"].
 }
 
 function openShareModal() {

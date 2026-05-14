@@ -140,6 +140,18 @@ html, body {
   .vw-brand-company { display: none; }
 }
 
+/* Mobile top bar (<768px): pills collapse to icon-only so the four
+   chrome actions (AR / Medir / Theme / Share) fit a 390px viewport. */
+@media (max-width: 768px) {
+  .vw-top { padding: 0 var(--space-4); }
+  .vw-top-right { gap: 8px; }
+  .pill { padding: 0; width: 36px; }
+  .pill.primary { padding: 0; width: 36px; }
+  .pill .label { display: none; }
+  .pill .label,
+  .pill > span.label { display: none; }
+}
+
 /* ============================================================
    PILL SYSTEM — used by AR / Medir / Theme / Compartilhar
    All four chrome controls share this primitive. 36px floor.
@@ -166,6 +178,12 @@ html, body {
 .pill[hidden] { display: none; }
 .pill svg { width: 17px; height: 17px; flex-shrink: 0; }
 .pill.icon-only { padding: 0; width: 36px; }
+
+/* Theme-toggle icon swap — pure CSS, no JS needed. Sun shows in light,
+   moon in dark. Avoids the "both icons render briefly" overlap glitch. */
+.theme-toggle .ic-moon { display: none; }
+html[data-theme="dark"] .theme-toggle .ic-sun { display: none; }
+html[data-theme="dark"] .theme-toggle .ic-moon { display: inline-block; }
 .pill:hover { background: var(--w-soft); }
 .pill.active,
 .pill[aria-expanded="true"] {

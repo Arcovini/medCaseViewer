@@ -65,6 +65,15 @@ function _mountModelViewer() {
   el.setAttribute("ar-modes", "webxr scene-viewer quick-look");
   el.setAttribute("ar-scale", "auto");
   el.setAttribute("ar-placement", "floor");
+  // Unit fix: mesh-processor outputs GLBs where 1 Three.js unit = 1 mm
+  // (see measurement.js — distanceTo() is treated as mm directly). glTF
+  // and Scene Viewer / WebXR treat 1 unit as 1 m by default, so without
+  // scale a 10 cm kidney shows up as a 10 cm × 1000 = 100 m model in AR
+  // ("room-size" complaint). The same factor lives in _generateUSDZBlobUrl
+  // for the iOS USDZ path; model-viewer applies this attribute to its
+  // WebXR in-page render and bakes it into the model bundle that ships
+  // to Scene Viewer on Android.
+  el.setAttribute("scale", "0.001 0.001 0.001");
   // reveal=manual evita que o model-viewer renderize visivelmente / faça
   // sua própria UI de poster/loading (não é o motor visível — Three.js é).
   el.setAttribute("reveal", "manual");
