@@ -42,7 +42,12 @@ let loupeOpen = false;
 const LOUPE_ZOOM = 3.0;
 
 export function init(canvasEl) {
-  renderer = new THREE.WebGLRenderer({ canvas: canvasEl, antialias: true });
+  // alpha: true keeps the canvas transparent so the .vw-stage CSS background
+  // (driven by --w-canvas-bg, which flips with html[data-theme]) shows
+  // through. The scene's own .background is left null, otherwise it would
+  // paint over the transparent canvas every frame.
+  renderer = new THREE.WebGLRenderer({ canvas: canvasEl, antialias: true, alpha: true });
+  renderer.setClearColor(0x000000, 0);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   // Canvas size comes from its CSS layout (parent .vw-stage in the new shell, or
   // the full viewport when canvas is body-level). Fall back to window size if the
@@ -56,7 +61,7 @@ export function init(canvasEl) {
   renderer.toneMappingExposure = 1.0;
 
   scene = new THREE.Scene();
-  scene.background = new THREE.Color(0xEDEFF2);
+  scene.background = null;   // canvas is transparent — .vw-stage paints the bg
 
   pmremGenerator = new THREE.PMREMGenerator(renderer);
   scene.environment = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;

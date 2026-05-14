@@ -22,7 +22,17 @@
     <div class="viewer">
 
       <header class="vw-top">
-        <div class="vw-top-left">
+        <!-- Mobile: hamburger occupies the leftmost slot (per mobile_v2 handoff). -->
+        <button class="pill icon-only vw-mobile-only vw-top-overflow"
+                data-action="overflow-toggle"
+                data-testid="overflow-toggle"
+                aria-label="Menu"
+                aria-haspopup="menu"
+                aria-expanded="false">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        </button>
+
+        <div class="vw-top-left vw-desktop-only">
           <span class="vw-brand" aria-label="Medcase por Biodesignlab">
             <span class="vw-brand-stack">
               <span class="vw-brand-product">Medcase</span>
@@ -64,16 +74,6 @@
             <span class="label">Compartilhar</span>
           </button>
 
-          <!-- Mobile chrome: a single hamburger pill that opens a popover
-               with the theme toggle and Compartilhar. Per mobile_v2 handoff. -->
-          <button class="pill icon-only vw-mobile-only"
-                  data-action="overflow-toggle"
-                  data-testid="overflow-toggle"
-                  aria-label="Menu"
-                  aria-haspopup="menu"
-                  aria-expanded="false">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
-          </button>
         </div>
 
         <!-- Mobile overflow popover, anchored to the hamburger pill on open. -->
