@@ -191,25 +191,35 @@ function _onDragEnd() {
 
 const _FAB_ICON_RULER = `<path d="M3 12 L7 8 L21 8 L21 16 L7 16 Z"/><path d="M9 8 L9 12 M13 8 L13 12 M17 8 L17 12"/>`;
 
-// FAB único compartilhado entre Linear e Volume. O click abre o popover do menu
-// (main.js cuida disso). Cancelamento de modo ativo é feito pelo toolbar inferior,
-// não pelo FAB — durante modo ativo, FAB fica escondido.
+// FAB único compartilhado entre Linear e Volume. Pós-v5 o FAB vive como pill
+// no top bar (`.pill.measure-fab` com `data-testid="measure-fab"`), montado
+// no markup estático. Esta função primeiro tenta encontrá-lo; só cria um
+// flutuante de fallback se não existir (cobre o /case/ legado caso reuse).
+// O click abre o popover do menu (main.js cuida disso). Cancelamento de modo
+// ativo é feito pelo toolbar inferior — durante modo ativo, FAB fica escondido.
 export function mountMeasurementFAB({ onClick }) {
-  const btn = document.createElement("button");
-  btn.type = "button";
-  btn.className = "measure-fab";
-  btn.dataset.state = "idle";
-  btn.dataset.testid = "measure-fab";
-  btn.hidden = true;
-  btn.innerHTML = `
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${_FAB_ICON_RULER}</svg>
-    <span class="label">Medir</span>
-  `;
+  let btn = document.querySelector('[data-testid="measure-fab"]');
+  const created = !btn;
+  if (created) {
+    btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "measure-fab";
+    btn.dataset.state = "idle";
+    btn.dataset.testid = "measure-fab";
+    btn.hidden = true;
+    btn.innerHTML = `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${_FAB_ICON_RULER}</svg>
+      <span class="label">Medir</span>
+    `;
+    document.body.appendChild(btn);
+  }
   btn.addEventListener("click", onClick);
-  document.body.appendChild(btn);
 
   return {
-    setVisible(visible) { btn.hidden = !visible; },
+    setVisible(visible) {
+      if (visible) btn.removeAttribute("hidden");
+      else btn.setAttribute("hidden", "");
+    },
     getElement() { return btn; },
   };
 }
@@ -224,41 +234,71 @@ export function mountMeasurementMenu({ anchorEl, onPickLinear, onPickVolume }) {
   wrapper.dataset.testid = "measure-menu";
   wrapper.innerHTML = `
     <button type="button" class="measure-menu-item" data-tool="linear" data-testid="menu-linear">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${_MENU_ICON_RULER}</svg>
-      <span>Linear</span>
+      <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${_MENU_ICON_RULER}</svg></span>
+      <span class="lbl"><span class="l1">Linear</span><span class="l2">2 pontos · mm</span></span>
     </button>
     <button type="button" class="measure-menu-item" data-tool="volume" data-testid="menu-volume">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${_MENU_ICON_CUBE}</svg>
-      <span>Volume</span>
+      <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${_MENU_ICON_CUBE}</svg></span>
+      <span class="lbl"><span class="l1">Volume</span><span class="l2">3D · cm³</span></span>
     </button>
   `;
   document.body.appendChild(wrapper);
 
-  // Outside-click fecha popover. anchorEl (o FAB) é tratado como "inside" porque
-  // o handler de click do FAB chama toggle() — sem essa exceção, abrir e fechar
-  // aconteceriam no mesmo gesto.
+  function positionMenu() {
+    if (!anchorEl) return;
+    const r = anchorEl.getBoundingClientRect();
+    // Align the menu's right edge to the anchor's right edge, 8px below.
+    // Fallback to top:72/right:16 if the anchor isn't laid out yet.
+    if (r.width === 0 && r.height === 0) {
+      wrapper.style.top = "72px";
+      wrapper.style.right = "16px";
+      wrapper.style.left = "auto";
+      return;
+    }
+    wrapper.style.top = (r.bottom + 8) + "px";
+    wrapper.style.left = (r.right - wrapper.offsetWidth) + "px";
+    wrapper.style.right = "auto";
+  }
+  window.addEventListener("resize", () => {
+    if (wrapper.dataset.open === "true") positionMenu();
+  });
+
   document.addEventListener("pointerdown", (e) => {
     if (wrapper.dataset.open !== "true") return;
     if (wrapper.contains(e.target)) return;
     if (anchorEl && anchorEl.contains(e.target)) return;
     wrapper.dataset.open = "false";
+    _syncAnchorExpanded(anchorEl, false);
   });
 
   wrapper.querySelector('[data-tool="linear"]').addEventListener("click", () => {
     wrapper.dataset.open = "false";
+    _syncAnchorExpanded(anchorEl, false);
     onPickLinear();
   });
   wrapper.querySelector('[data-tool="volume"]').addEventListener("click", () => {
     wrapper.dataset.open = "false";
+    _syncAnchorExpanded(anchorEl, false);
     onPickVolume();
   });
 
   return {
-    open()   { wrapper.dataset.open = "true";  },
-    close()  { wrapper.dataset.open = "false"; },
-    toggle() { wrapper.dataset.open = wrapper.dataset.open === "true" ? "false" : "true"; },
+    open()   { wrapper.dataset.open = "true";  _syncAnchorExpanded(anchorEl, true); positionMenu(); },
+    close()  { wrapper.dataset.open = "false"; _syncAnchorExpanded(anchorEl, false); },
+    toggle() {
+      const next = wrapper.dataset.open !== "true";
+      wrapper.dataset.open = next ? "true" : "false";
+      _syncAnchorExpanded(anchorEl, next);
+      if (next) positionMenu();
+    },
     isOpen() { return wrapper.dataset.open === "true"; },
   };
+}
+
+function _syncAnchorExpanded(el, open) {
+  if (el && el.hasAttribute("aria-haspopup")) {
+    el.setAttribute("aria-expanded", String(open));
+  }
 }
 
 export function mountHintBanner() {
@@ -325,19 +365,26 @@ export function mountMiniToolbar({ onConfirm, onCancel, onClear, onNew }) {
 // ===========================================================================
 
 export function mountARButton({ onClick }) {
-  const btn = document.createElement("button");
-  btn.type = "button";
-  btn.className = "ar-button";
-  btn.dataset.visible = "false";
-  btn.dataset.loading = "false";
-  btn.dataset.testid = "ar-button";
-  btn.setAttribute("aria-label", "Ver em AR");
-  btn.textContent = "AR";
+  // Pós-v5 o AR pill vive como `.pill.ar-button` no top bar do markup
+  // estático (com `data-testid="ar-button"`). Reusa-o se existir; senão
+  // cria um botão flutuante (cobre /case/ legado e ambientes de teste
+  // que carregam ar.js sem o shell completo).
+  let btn = document.querySelector('[data-testid="ar-button"]');
+  if (!btn) {
+    btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "ar-button";
+    btn.dataset.visible = "false";
+    btn.dataset.loading = "false";
+    btn.dataset.testid = "ar-button";
+    btn.setAttribute("aria-label", "Ver em AR");
+    btn.textContent = "AR";
+    document.body.appendChild(btn);
+  }
   btn.addEventListener("click", () => {
-    if (btn.dataset.loading === "true") return;   // ignora clique duplo enquanto gera USDZ
+    if (btn.dataset.loading === "true") return;
     onClick();
   });
-  document.body.appendChild(btn);
 
   return {
     setVisible(v) { btn.dataset.visible = v ? "true" : "false"; },

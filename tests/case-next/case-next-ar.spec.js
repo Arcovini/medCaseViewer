@@ -479,11 +479,12 @@ test("botão AR não existe no DOM antes do GLB carregar", async ({ page }) => {
 
   await page.goto(`/case-next/?id=${TEST_UID}`);
 
-  // Janela de loading: nada do AR existe ainda. Loading overlay está visível,
-  // panel não foi renderizado, e o botão AR ainda não foi montado.
+  // Janela de loading: o pill AR existe no markup estático do shell v5, mas
+  // continua oculto (data-visible="false") porque ar.init() ainda não rodou
+  // — só depois do GLB e renderStructures que main.js chama ar.init.
   await page.waitForTimeout(800);
   await expect(page.locator("#loading")).toBeVisible();
-  expect(await page.locator(".ar-button").count()).toBe(0);
+  await expect(page.locator(".ar-button")).toHaveAttribute("data-visible", "false");
 
   // Após GLB carregar e ar.init terminar, botão aparece
   await waitForGlbLoaded(page);

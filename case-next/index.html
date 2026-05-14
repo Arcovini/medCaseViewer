@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-theme="light">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -23,30 +23,45 @@
 
       <header class="vw-top">
         <div class="vw-top-left">
-          <span class="vw-brand" aria-label="Medcase">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18M5.5 5.5l13 13M18.5 5.5l-13 13"/></svg>
-            Medcase<em>.</em><span class="vw-sep">/</span><span class="vw-case-id">caso <span data-bind="uid-short">—</span></span>
+          <span class="vw-brand" aria-label="Medcase por Biodesignlab">
+            <span class="vw-brand-stack">
+              <span class="vw-brand-product">Medcase</span>
+              <span class="vw-brand-company">por Biodesignlab</span>
+            </span>
           </span>
+          <span class="vw-sep">/</span>
+          <span class="vw-case-id">Caso <b data-bind="uid-short">—</b></span>
         </div>
-        <div class="vw-crumb" data-bind="crumb"></div>
+
         <div class="vw-top-right">
-          <button class="vw-icon-btn" data-action="reset-camera" title="Resetar câmera" aria-label="Resetar câmera">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
+          <button class="pill ar-button"
+                  data-testid="ar-button"
+                  data-visible="false"
+                  data-loading="false"
+                  aria-label="Ver em AR">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V5a1 1 0 0 1 1-1h2"/><path d="M17 4h2a1 1 0 0 1 1 1v2"/><path d="M20 17v2a1 1 0 0 1-1 1h-2"/><path d="M7 20H5a1 1 0 0 1-1-1v-2"/><path d="M12 8l5 3v6l-5 3-5-3v-6z"/><path d="M12 8v6"/><path d="M17 11l-5 3-5-3"/></svg>
+            <span class="label">AR</span>
           </button>
-          <button class="vw-icon-btn" data-action="fullscreen" title="Tela cheia" aria-label="Tela cheia">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+
+          <button class="pill measure-fab"
+                  data-testid="measure-fab"
+                  data-state="idle"
+                  aria-label="Medir"
+                  aria-haspopup="menu"
+                  aria-expanded="false"
+                  hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17L17 3l4 4L7 21z"/><path d="M7 13l2 2M11 9l2 2M15 5l2 2"/></svg>
+            <span class="label">Medir</span>
           </button>
-          <button class="vw-share" data-action="share" title="Copiar link" aria-label="Compartilhar">Compartilhar</button>
+
+          <button class="pill icon-only" data-action="theme-toggle" aria-label="Alternar tema">
+            <svg class="ic-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+            <svg class="ic-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" hidden><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+          </button>
+
+          <button class="pill primary" data-action="share">Compartilhar</button>
         </div>
       </header>
-
-      <aside class="vw-left">
-        <aside id="structures-panel" class="panel">
-          <div class="panel-handle"></div>
-          <div class="panel-title">Estruturas <span class="panel-count" data-bind="structure-count">—</span></div>
-          <ul id="structures-list"></ul>
-        </aside>
-      </aside>
 
       <main class="vw-stage">
         <canvas id="canvas"></canvas>
@@ -61,35 +76,45 @@
           </button>
         </div>
 
-        <div class="vw-legend" aria-label="Legenda de estruturas">
-          <div class="vw-legend-ttl">Estruturas</div>
-          <div class="vw-legend-rows" data-bind="legend-rows"></div>
-        </div>
-
         <div id="loading" class="overlay" hidden>Carregando...</div>
         <div id="error" class="overlay error" hidden></div>
       </main>
 
-      <aside class="vw-right" data-show="false">
-        <div class="vw-case-head">
-          <div class="vw-case-eyebrow">Caso</div>
-          <h2 class="vw-case-title" data-bind="case-title">—</h2>
-          <div class="vw-case-pid" data-bind="case-pid">—</div>
-        </div>
-        <dl class="vw-kv">
-          <dt>Estruturas</dt><dd data-bind="kv-count">—</dd>
-        </dl>
-        <div class="vw-notes" hidden>
-          <!-- placeholder pra notas — Sprint 4+ -->
-        </div>
+      <aside class="vw-right">
+        <aside id="structures-panel" class="panel">
+          <div class="panel-handle"></div>
+          <div class="panel-title">Estruturas <span class="panel-count" data-bind="structure-count">—</span></div>
+          <ul id="structures-list"></ul>
+        </aside>
       </aside>
 
-      <footer class="vw-foot">
-        <div class="vw-foot-stat"><span class="vw-dot-ok"></span>Segmentação <b>validada</b></div>
-        <div class="vw-foot-stat">Render · <b>WebGL2</b> · <span data-bind="foot-count">—</span> camadas · <span data-bind="foot-size">—</span></div>
-        <div class="vw-foot-stat">v1 · Medcase / Dasa</div>
-      </footer>
+    </div>
 
+    <!-- Share modal — opens via [data-action="share"] in the top bar. -->
+    <div class="modal-scrim" data-testid="share-modal" role="dialog" aria-modal="true" aria-labelledby="share-title" hidden>
+      <div class="modal">
+        <div class="modal-h">
+          <div>
+            <h3 class="modal-ttl" id="share-title">Compartilhar</h3>
+            <div class="modal-sub">Link de acesso ao caso 3D.</div>
+          </div>
+          <button class="modal-close" data-action="share-close" aria-label="Fechar">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 5l14 14M19 5L5 19"/></svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div>
+            <span class="modal-field-label">Link</span>
+            <div class="link-row">
+              <input class="link-input" data-bind="share-link" readonly />
+              <button class="link-copy" data-action="share-copy">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>
+                <span class="link-copy-label">Copiar</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div id="ar-root" class="ar-root" aria-hidden="true"></div>

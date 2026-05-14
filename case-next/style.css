@@ -1,8 +1,9 @@
 /* ============================================================
-   case-next — viewer styles (Medcase redesign 2026-05-13)
-   Light theme. Tokens come from /colors_and_type.css (loaded
-   before this file in index.html). Preserves all selectors
-   the Playwright suite and the JS modules reference.
+   case-next — viewer styles (Medcase redesign — v5 simplified)
+   Tokens come from /colors_and_type.css (loaded before this file).
+   Theme: light by default; html[data-theme="dark"] flips a small
+   set of viewer-local tokens for the dark variant. The design
+   system's accent (#C8412C) is shared across themes.
    ============================================================ */
 
 * {
@@ -11,12 +12,53 @@
   padding: 0;
 }
 
+/* ---------- VIEWER-LOCAL THEME TOKENS ------------------------
+   Light is default. The dark variant only overrides what reads
+   differently on a dark canvas. Names mirror mockup conventions
+   (--w-*) for fidelity to the handoff. */
+:root {
+  --w-base:         #FFFFFF;
+  --w-soft:         #FAFAFA;
+  --w-recess:       #F5F5F5;
+  --w-ink:          #15171A;
+  --w-ink-2:        #4A5058;
+  --w-ink-3:        #6B7177;
+  --w-rule:         rgba(21,23,26,0.10);
+  --w-rule-strong:  rgba(21,23,26,0.18);
+  --w-muted-fill:   rgba(21,23,26,0.04);
+  --w-track-dim:    rgba(21,23,26,0.10);
+  --w-canvas-bg:    #EDEFF2;
+  --w-pill-bg:      rgba(255,255,255,0.78);
+  --w-pill-blur:    blur(14px) saturate(140%);
+  --w-menu-bg:      rgba(255,255,255,0.96);
+  /* HUD over canvas — dark in light theme to read on the video. */
+  --w-hud-bg:       rgba(11,14,17,0.82);
+  --w-hud-border:   rgba(255,255,255,0.18);
+  --w-hud-fg:       #FFFFFF;
+}
+html[data-theme="dark"] {
+  --w-base:         #0B0E11;
+  --w-soft:         #14181C;
+  --w-recess:       #1F2429;
+  --w-ink:          #F2F3F4;
+  --w-ink-2:        #A8B0B6;
+  --w-ink-3:        #7A848C;
+  --w-rule:         rgba(242,243,244,0.10);
+  --w-rule-strong:  rgba(242,243,244,0.18);
+  --w-muted-fill:   rgba(242,243,244,0.06);
+  --w-track-dim:    rgba(242,243,244,0.10);
+  --w-canvas-bg:    #000000;
+  --w-pill-bg:      rgba(20,24,28,0.72);
+  --w-menu-bg:      rgba(11,14,17,0.94);
+}
+
 html, body {
   height: 100%;
-  background: var(--base);
-  color: var(--fg-1);
+  background: var(--w-base);
+  color: var(--w-ink);
   font-family: var(--font-text);
   overflow: hidden;
+  transition: background 200ms;
 }
 
 #canvas {
@@ -26,43 +68,30 @@ html, body {
 }
 
 /* ============================================================
-   VIEWER SHELL — 3-col grid in desktop, single-col on tablet/mobile
+   VIEWER SHELL — 2-col grid (stage + right structures panel)
+   Single col on mobile (<900px); the right panel becomes the
+   bottom sheet via the legacy .panel position:fixed rules.
    ============================================================ */
 .viewer {
   display: grid;
-  grid-template-rows: 52px 1fr 30px;
-  grid-template-columns: 280px 1fr 320px;
+  grid-template-rows: 56px 1fr;
+  grid-template-columns: 1fr 320px;
   grid-template-areas:
-    "top top top"
-    "left stage right"
-    "foot foot foot";
+    "top top"
+    "stage right";
   height: 100vh;
-  background: var(--base);
+  background: var(--w-base);
 }
-@media (max-width: 1280px) { .viewer { grid-template-columns: 260px 1fr 300px; } }
-@media (max-width: 1099px) {
-  .viewer {
-    grid-template-columns: 280px 1fr;
-    grid-template-areas:
-      "top top"
-      "left stage"
-      "foot foot";
-  }
-  .vw-right { display: none !important; }
-}
+@media (max-width: 1180px) { .viewer { grid-template-columns: 1fr 280px; } }
 @media (max-width: 900px) {
   .viewer {
+    grid-template-rows: 56px 1fr;
     grid-template-columns: 1fr;
     grid-template-areas:
       "top"
-      "stage"
-      "foot";
+      "stage";
   }
-  .vw-left { display: contents; }
-}
-@media (max-width: 768px) {
-  .viewer { grid-template-rows: 52px 1fr; grid-template-areas: "top" "stage"; }
-  .vw-foot { display: none; }
+  .vw-right { display: contents; }
 }
 
 /* ============================================================
@@ -74,267 +103,178 @@ html, body {
   align-items: center;
   justify-content: space-between;
   padding: 0 var(--space-5);
-  border-bottom: 1px solid var(--rule);
-  background: var(--base);
+  border-bottom: 1px solid var(--w-rule);
+  background: var(--w-base);
 }
-.vw-top-left, .vw-top-right { display: flex; align-items: center; gap: var(--space-4); }
+.vw-top-left, .vw-top-right { display: flex; align-items: center; gap: 14px; }
 
-.vw-brand {
+.vw-brand { display: inline-flex; align-items: center; color: var(--w-ink); }
+.vw-brand-stack { display: flex; flex-direction: column; line-height: 1; gap: 3px; }
+.vw-brand-product {
   font-family: var(--font-display);
   font-weight: 500;
-  font-size: 14px;
+  font-size: 15px;
   letter-spacing: -0.02em;
-  color: var(--fg-1);
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
+  color: var(--w-ink);
 }
-.vw-brand svg { width: 16px; height: 16px; }
-.vw-brand em { font-style: normal; color: var(--accent); }
-.vw-sep { color: var(--fg-3); margin: 0 6px; font-weight: 300; }
+.vw-brand-company {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--w-ink-3);
+  font-weight: 500;
+}
+.vw-sep { color: var(--w-ink-3); margin: 0 4px; font-weight: 300; }
 .vw-case-id {
   font-family: var(--font-mono);
   font-size: 11px;
-  letter-spacing: 0.02em;
-  color: var(--fg-2);
-  font-weight: 400;
-}
-
-.vw-crumb {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
+  color: var(--w-ink-2);
   text-transform: uppercase;
-  color: var(--fg-3);
 }
-.vw-crumb b { color: var(--fg-1); font-weight: 500; }
-@media (max-width: 1099px) { .vw-crumb { display: none; } }
+.vw-case-id b { color: var(--w-ink); font-weight: 600; }
 
-.vw-icon-btn {
-  width: 32px; height: 32px;
-  display: inline-grid; place-items: center;
-  border-radius: 6px;
-  background: transparent;
-  border: none;
-  color: var(--fg-2);
-  cursor: pointer;
-  transition: background 120ms;
+@media (max-width: 600px) {
+  .vw-sep, .vw-case-id { display: none; }
+  .vw-brand-company { display: none; }
 }
-.vw-icon-btn:hover { background: var(--surface-3); color: var(--fg-1); }
-.vw-icon-btn svg { width: 17px; height: 17px; }
 
-.vw-share {
+/* ============================================================
+   PILL SYSTEM — used by AR / Medir / Theme / Compartilhar
+   All four chrome controls share this primitive. 36px floor.
+   ============================================================ */
+.pill {
+  height: 36px;
+  min-width: 36px;
+  padding: 0 12px;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  padding: 7px 16px;
-  background: var(--fg-1);
-  color: #fff;
-  border: none;
-  border-radius: 6px;
-  font-weight: 600;
-  font-size: 12px;
+  border-radius: 999px;
+  border: 1px solid var(--w-rule-strong);
+  background: transparent;
+  color: var(--w-ink);
+  font-family: var(--font-text);
+  font-weight: 500;
+  font-size: 13px;
+  letter-spacing: 0;
   cursor: pointer;
-  font-family: inherit;
-  letter-spacing: 0.01em;
+  transition: background 120ms, border-color 120ms, color 120ms;
 }
-.vw-share:hover { background: #000; }
+.pill[hidden] { display: none; }
+.pill svg { width: 17px; height: 17px; flex-shrink: 0; }
+.pill.icon-only { padding: 0; width: 36px; }
+.pill:hover { background: var(--w-soft); }
+.pill.active,
+.pill[aria-expanded="true"] {
+  background: var(--w-ink);
+  color: var(--w-base);
+  border-color: var(--w-ink);
+}
+.pill.primary {
+  background: var(--w-ink);
+  color: var(--w-base);
+  border-color: var(--w-ink);
+  font-weight: 600;
+  padding: 0 16px;
+}
+.pill.primary:hover {
+  background: var(--w-ink-2);
+  border-color: var(--w-ink-2);
+}
+
+/* AR pill specifics — visibility is driven by ar.js via data-visible.
+   .pill base hides via [hidden]; here we layer [data-visible="false"]
+   to also hide. data-loading dims with a wait cursor. */
+.ar-button { color: var(--w-accent); border-color: var(--w-accent); }
+.ar-button:hover {
+  background: var(--w-accent);
+  color: var(--w-base);
+  border-color: var(--w-accent);
+}
+.ar-button[data-visible="false"] { display: none; }
+.ar-button[data-loading="true"] { opacity: 0.65; cursor: progress; }
+
+/* Measurement pill — same shape; coral active state when popover open. */
+.measure-fab[data-state="placing-p1"],
+.measure-fab[data-state="placing-p2"],
+.measure-fab[data-state="result"] { display: none !important; }
 
 /* ============================================================
-   LEFT PANEL — wraps the existing #structures-panel.
-   In desktop, the .panel inside fills the .vw-left slot.
-   In mobile, .vw-left collapses (display:contents) and the
-   .panel reverts to its bottom-sheet behavior.
-   ============================================================ */
-.vw-left {
-  grid-area: left;
-  border-right: 1px solid var(--rule);
-  overflow: hidden;
-  background: var(--base);
-  position: relative;
-}
-
-/* ============================================================
-   STAGE — fundo cinza-papel quase imperceptível
+   STAGE — paper-gray canvas surround with a soft top vignette
    ============================================================ */
 .vw-stage {
   grid-area: stage;
   position: relative;
-  background: var(--surface-canvas);
+  background: var(--w-canvas-bg);
   overflow: hidden;
 }
 .vw-stage::before {
   content: "";
   position: absolute;
   inset: 0;
-  background: radial-gradient(ellipse 70% 60% at 50% 45%, rgba(21,23,26,0.06) 0%, rgba(21,23,26,0) 70%);
   pointer-events: none;
   z-index: 1;
+  background: radial-gradient(120% 60% at 50% 0%, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0) 60%);
 }
 
 /* ============================================================
-   ZOOM CHIP (top-left of stage)
+   ZOOM CHIP — floats top-left of stage
    ============================================================ */
 .vw-zoom {
   position: absolute;
-  top: 16px;
-  left: 16px;
+  top: 18px;
+  left: 18px;
   z-index: 5;
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  padding: 4px 6px;
-  background: var(--base);
-  border: 1px solid var(--rule-strong);
-  border-radius: 8px;
-  box-shadow: 0 4px 12px -4px rgba(21,23,26,0.10);
+  padding: 4px;
+  background: var(--w-pill-bg);
+  backdrop-filter: var(--w-pill-blur);
+  -webkit-backdrop-filter: var(--w-pill-blur);
+  border: 1px solid var(--w-rule-strong);
+  border-radius: 12px;
 }
 .vw-zoom-btn {
-  width: 24px; height: 24px;
+  width: 28px; height: 28px;
   border: 0;
   background: transparent;
-  color: var(--fg-2);
+  color: var(--w-ink-2);
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: 6px;
   display: grid; place-items: center;
 }
-.vw-zoom-btn:hover { background: var(--surface-3); color: var(--fg-1); }
+.vw-zoom-btn:hover { background: var(--w-muted-fill); color: var(--w-ink); }
 .vw-zoom-btn svg { width: 14px; height: 14px; }
 .vw-zoom-value {
   font-family: var(--font-mono);
   font-size: 11px;
-  color: var(--fg-1);
+  color: var(--w-ink);
   font-weight: 500;
-  padding: 0 6px;
+  padding: 0 8px;
 }
 @media (max-width: 768px) { .vw-zoom { display: none; } }
 
 /* ============================================================
-   LEGEND (bottom-right of stage)
-   ============================================================ */
-.vw-legend {
-  position: absolute;
-  bottom: 16px;
-  right: 16px;
-  z-index: 5;
-  padding: 12px 14px;
-  background: var(--base);
-  border: 1px solid var(--rule-strong);
-  border-radius: 8px;
-  box-shadow: 0 4px 12px -4px rgba(21,23,26,0.10);
-  min-width: 180px;
-  max-width: 240px;
-}
-.vw-legend-ttl {
-  font-family: var(--font-mono);
-  font-size: 9px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--fg-3);
-  font-weight: 500;
-  margin-bottom: 6px;
-}
-.vw-legend-rows { display: flex; flex-direction: column; gap: 6px; }
-.vw-legend-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  color: var(--fg-1);
-  white-space: nowrap;
-}
-.vw-legend-dot {
-  width: 10px; height: 10px;
-  border-radius: 3px;
-  flex-shrink: 0;
-}
-@media (max-width: 768px) { .vw-legend { display: none; } }
-
-/* ============================================================
-   RIGHT PANEL (case meta + notes placeholder)
-   Hidden by default; main.js flips data-show="true" if metadata.
-   The breakpoint media query above also enforces display:none <1100px.
+   RIGHT PANEL — slot for #structures-panel on desktop;
+   collapses to bottom-sheet on mobile (the .panel rule lives
+   in the legacy Structures Panel block below).
    ============================================================ */
 .vw-right {
   grid-area: right;
-  border-left: 1px solid var(--rule);
-  overflow-y: auto;
-  background: var(--base);
+  border-left: 1px solid var(--w-rule);
+  overflow: hidden;
+  background: var(--w-base);
+  position: relative;
 }
-.vw-right[data-show="false"] { display: none; }
-
-.vw-case-head { padding: var(--space-5); border-bottom: 1px solid var(--rule); }
-.vw-case-eyebrow {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--fg-3);
-  margin-bottom: 6px;
-  font-weight: 500;
-}
-.vw-case-title {
-  font-family: var(--font-display);
-  font-weight: 500;
-  font-size: 21px;
-  letter-spacing: -0.02em;
-  margin: 0 0 4px;
-  color: var(--fg-1);
-}
-.vw-case-pid {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--fg-3);
-}
-
-.vw-kv {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 8px var(--space-4);
-  padding: var(--space-5);
-  border-bottom: 1px solid var(--rule);
-}
-.vw-kv dt {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--fg-3);
-  font-weight: 500;
-}
-.vw-kv dd { margin: 0; font-size: 13px; color: var(--fg-1); font-weight: 500; }
 
 /* ============================================================
-   FOOT STRIP
-   ============================================================ */
-.vw-foot {
-  grid-area: foot;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 var(--space-5);
-  border-top: 1px solid var(--rule);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--fg-3);
-  background: var(--base);
-}
-.vw-foot-stat { display: flex; align-items: center; gap: 6px; }
-.vw-foot-stat b { color: var(--fg-1); font-weight: 500; }
-.vw-dot-ok {
-  width: 6px; height: 6px;
-  border-radius: 999px;
-  background: var(--signal-ok);
-  box-shadow: 0 0 0 3px rgba(46,125,91,0.18);
-}
-@media (max-width: 768px) { .vw-foot { display: none; } }
-
-/* ============================================================
-   STRUCTURES PANEL (preserved selectors — restyle only)
-   Desktop ≥769px: lives inside .vw-left as a flow element.
-   Mobile <769px: reverts to its bottom-sheet behavior.
+   STRUCTURES PANEL (preserved selectors — restyled in place)
+   Desktop ≥769px: lives inside .vw-right.
+   Mobile <769px: position:fixed bottom sheet.
    ============================================================ */
 .panel {
   position: absolute;
@@ -345,21 +285,21 @@ html, body {
   overflow-y: auto;
   padding: 0;
   border-radius: 0;
-  background: var(--paper);
-  color: var(--fg-1);
+  background: var(--w-base);
+  color: var(--w-ink);
   z-index: 1;
 }
 
 .panel-title {
   font-family: var(--font-text);
   font-weight: 600;
-  font-size: 15px;
+  font-size: 14px;
   margin: 0;
-  padding: var(--space-5) var(--space-5) var(--space-3);
+  padding: 20px var(--space-5) 10px;
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  border-bottom: 1px solid var(--rule);
+  letter-spacing: -0.005em;
 }
 .panel-count {
   font-family: var(--font-mono);
@@ -367,7 +307,7 @@ html, body {
   font-weight: 500;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--fg-3);
+  color: var(--w-ink-3);
 }
 
 .panel ul { list-style: none; }
@@ -378,9 +318,8 @@ html, body {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  border-bottom: 1px solid var(--rule);
+  border-top: 1px solid var(--w-rule);
 }
-.panel li:last-child { border-bottom: none; }
 .panel li::before {
   content: "";
   position: absolute;
@@ -401,28 +340,26 @@ html, body {
 
 .opacity-row { display: block; }
 
-/* Slider — hairline track, 14px ink thumb */
+/* Slider — hairline track, ink thumb */
 .opacity-slider {
   -webkit-appearance: none;
   appearance: none;
   width: 100%;
-  height: 28px;
+  height: 22px;
   background: transparent;
   cursor: pointer;
   margin: 0;
   padding: 0;
 }
-@media (hover: hover) and (pointer: fine) {
-  .opacity-slider { height: 22px; }
-}
+@media (hover: hover) and (pointer: fine) { .opacity-slider { height: 18px; } }
 .opacity-slider::-webkit-slider-runnable-track {
   height: 2px;
-  background: var(--rule-strong);
+  background: var(--w-track-dim);
   border-radius: 1px;
 }
 .opacity-slider::-moz-range-track {
   height: 2px;
-  background: var(--rule-strong);
+  background: var(--w-track-dim);
   border-radius: 1px;
 }
 .opacity-slider::-webkit-slider-thumb {
@@ -431,9 +368,9 @@ html, body {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: var(--fg-1);
-  border: 2px solid var(--paper);
-  box-shadow: 0 1px 3px rgba(21,23,26,0.25);
+  background: var(--w-ink);
+  border: 2px solid var(--w-base);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.25);
   margin-top: -6px;
   cursor: pointer;
 }
@@ -441,41 +378,44 @@ html, body {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: var(--fg-1);
-  border: 2px solid var(--paper);
-  box-shadow: 0 1px 3px rgba(21,23,26,0.25);
+  background: var(--w-ink);
+  border: 2px solid var(--w-base);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.25);
   cursor: pointer;
 }
 
 .structure-name {
   font-family: var(--font-text);
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 500;
-  color: var(--fg-1);
+  color: var(--w-ink);
+  letter-spacing: -0.005em;
   flex: 1;
 }
 
 .eye-toggle {
   background: transparent;
-  border: 1px solid var(--rule);
+  border: 1px solid var(--w-rule);
   border-radius: 8px;
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   padding: 0;
   transition: background 0.15s, border-color 0.15s;
+  color: var(--w-ink);
 }
-.eye-toggle:hover { background: var(--surface-3); border-color: var(--rule-strong); }
+.eye-toggle:hover { background: var(--w-soft); border-color: var(--w-rule-strong); }
 .eye-toggle img {
-  width: 18px;
-  height: 18px;
-  /* Theme is light, so the SVG renders ink-on-paper without inversion. */
+  width: 16px;
+  height: 16px;
 }
+/* In dark theme the eye icon source is dark; invert to render as foreground. */
+html[data-theme="dark"] .eye-toggle img { filter: invert(1); }
 
-/* Loading / error overlays — paper card with ink border */
+/* Loading / error overlays */
 .overlay {
   position: fixed;
   top: 50%;
@@ -483,12 +423,12 @@ html, body {
   transform: translate(-50%, -50%);
   padding: 16px 24px;
   border-radius: 8px;
-  background: var(--paper);
-  color: var(--fg-1);
+  background: var(--w-base);
+  color: var(--w-ink);
   font-size: 14px;
   text-align: center;
   max-width: 80vw;
-  border: 1px solid var(--rule-strong);
+  border: 1px solid var(--w-rule-strong);
   box-shadow: 0 12px 32px -12px rgba(21,23,26,0.20);
   z-index: 100;
 }
@@ -501,7 +441,7 @@ html, body {
    MOBILE BOTTOM SHEET (≤768px) — keeps the existing JS contract
    ============================================================ */
 @media (max-width: 768px) {
-  .vw-left { display: contents; }
+  .vw-right { display: contents; }
   .panel {
     position: fixed;
     top: auto;
@@ -521,8 +461,11 @@ html, body {
     background-color: rgba(255,255,255,0.85);
     backdrop-filter: blur(22px) saturate(140%);
     -webkit-backdrop-filter: blur(22px) saturate(140%);
-    border-top: 1px solid var(--rule-strong);
+    border-top: 1px solid var(--w-rule-strong);
     z-index: 40;
+  }
+  html[data-theme="dark"] .panel {
+    background-color: rgba(11,14,17,0.72);
   }
   .panel.is-dragging { transition: none; }
   .panel-handle {
@@ -544,18 +487,20 @@ html, body {
     border-radius: 2px;
     background: rgba(21,23,26,0.22);
   }
-  .panel-title { flex: 0 0 auto; padding: 4px 18px 10px; border-bottom: 1px solid var(--rule); }
+  html[data-theme="dark"] .panel-handle::before {
+    background: rgba(242,243,244,0.28);
+  }
+  .panel-title { flex: 0 0 auto; padding: 4px 18px 10px; border-bottom: 1px solid var(--w-rule); }
   .panel ul { flex: 1 1 auto; overflow-y: auto; overflow-x: hidden; }
 }
 @media (min-width: 769px) { .panel-handle { display: none; } }
 
 /* ============================================================
-   MEASUREMENT (Sprint 3b.2) — selectors preserved, colors flipped
+   MEASUREMENT — selectors preserved, colors flipped to coral
    ============================================================ */
 
-/* CSS2DObject pill — sits over the canvas, must read on light bg */
 .measurement-pill {
-  background: var(--accent);
+  background: var(--w-accent, #C8412C);
   color: #fff;
   font-family: var(--font-mono);
   font-weight: 600;
@@ -570,13 +515,11 @@ html, body {
   position: relative;
 }
 
-/* Volume non-manifold soft warning — Sprint 3b.3.
-   Gold instead of coral, with a ⚠ glyph appended via ::after.
-   Off-token #ffb000 chosen for higher contrast on the light canvas than
-   --signal-warn (#C68A2C). The design system's signal-warn is meant for
-   form/copy hints, not on-canvas pills. */
+/* Volume non-manifold warning — gold #ffb000 reads on both light and
+   dark canvas without needing two values. */
 .measurement-pill[data-warn="true"] {
   background: #ffb000;
+  color: #15171A;
 }
 .measurement-pill[data-warn="true"]::after {
   content: " ⚠";
@@ -584,141 +527,30 @@ html, body {
   margin-left: 4px;
 }
 
-/* Measure menu — popover anchored to the FAB. Light paper-frosted chrome
-   to fit the redesign register; arrow pointing up toward the FAB. */
-.measure-menu {
-  position: fixed;
-  top: 72px;
-  right: 16px;
-  background: rgba(255,255,255,0.96);
-  border: 1px solid var(--rule-strong);
-  border-radius: 12px;
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  padding: 6px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  z-index: 1000;
-  box-shadow: 0 12px 32px -12px rgba(21,23,26,0.20);
-}
-.measure-menu[data-open="false"] { display: none; }
-.measure-menu::after {
-  content: "";
-  position: absolute;
-  top: -8px;
-  right: 28px;
-  width: 0;
-  height: 0;
-  border-left: 8px solid transparent;
-  border-right: 8px solid transparent;
-  border-bottom: 8px solid var(--rule-strong);
-}
-.measure-menu-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
-  background: transparent;
-  border: none;
-  color: var(--fg-1);
-  font-size: 14px;
-  font-weight: 500;
-  font-family: inherit;
-  cursor: pointer;
-  border-radius: 8px;
-  min-width: 160px;
-  text-align: left;
-}
-.measure-menu-item:hover,
-.measure-menu-item:focus-visible {
-  background: var(--surface-3);
-  outline: none;
-}
-.measure-menu-item svg {
-  width: 20px;
-  height: 20px;
-  color: var(--fg-2);
-  flex-shrink: 0;
-}
-
-@media (max-width: 768px) {
-  /* On mobile the FAB is 48×48 at (16,16); pop the menu down a touch further. */
-  .measure-menu { top: 80px; right: 16px; }
-}
-
 .measurement-endpoint-label {
-  background: var(--fg-1);
-  color: var(--accent);
+  background: var(--w-ink);
+  color: var(--w-accent, #C8412C);
   font-family: var(--font-mono);
   font-weight: 700;
   font-size: 11px;
   padding: 2px 7px;
   border-radius: 4px;
-  border: 1px solid var(--accent);
+  border: 1px solid var(--w-accent, #C8412C);
   white-space: nowrap;
   pointer-events: none;
   user-select: none;
   transform: translate(8px, calc(-100% - 4px));
 }
 
-/* FAB de entrada/saída do modo de medição (top-right da stage) */
-.measure-fab {
-  position: fixed;
-  top: 16px;
-  right: 16px;
-  height: 44px;
-  min-width: 44px;
-  padding: 0 16px;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  background: rgba(255,255,255,0.92);
-  color: var(--fg-1);
-  border: 1px solid var(--rule-strong);
-  border-radius: 999px;
-  font-family: var(--font-text);
-  font-weight: 600;
-  font-size: 13px;
-  cursor: pointer;
-  z-index: 50;
-  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  box-shadow: 0 4px 12px -4px rgba(21,23,26,0.12);
-}
-.measure-fab:hover { border-color: var(--fg-1); }
-.measure-fab[data-state="cancel"] {
-  background: var(--accent);
-  color: #fff;
-  border-color: var(--accent);
-}
-.measure-fab svg {
-  width: 22px;
-  height: 22px;
-  flex-shrink: 0;
-}
-.measure-fab[hidden] { display: none; }
-
-@media (max-width: 768px) {
-  .measure-fab {
-    width: 48px;
-    height: 48px;
-    min-width: 48px;
-    padding: 0;
-    justify-content: center;
-  }
-  .measure-fab .label { display: none; }
-}
-
-/* Hint banner — dark HUD over light canvas, per mobile mockup insight */
+/* Hint banner (top-center). HUD-style: dark over the canvas regardless
+   of theme — reads through the model's brighter passages. */
 .measure-hint {
   position: fixed;
-  top: 12px;
+  top: 70px;   /* below the 56px top bar + 14px */
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(11,14,17,0.82);
-  color: #fff;
+  background: var(--w-hud-bg);
+  color: var(--w-hud-fg);
   font-family: var(--font-text);
   font-weight: 500;
   font-size: 13px;
@@ -727,13 +559,13 @@ html, body {
   pointer-events: none;
   z-index: 49;
   white-space: nowrap;
-  border: 1px solid rgba(255,255,255,0.18);
+  border: 1px solid var(--w-hud-border);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
 }
 .measure-hint[hidden] { display: none; }
 
-/* Mini-toolbar (bottom-center). Buttons keep their class names. */
+/* Mini-toolbar bottom-center (confirm row / result row). */
 .measure-toolbar {
   position: fixed;
   bottom: 16px;
@@ -744,19 +576,14 @@ html, body {
   z-index: 1000;
 }
 .measure-toolbar[hidden] { display: none; }
-
 @media (max-width: 768px) {
   .measure-toolbar {
     bottom: calc(30vh + 16px);
     width: calc(100% - 16px);
     max-width: 480px;
   }
-  .measure-toolbar button {
-    flex: 1;
-    justify-content: center;
-  }
+  .measure-toolbar button { flex: 1; justify-content: center; }
 }
-
 .measure-toolbar button {
   height: 40px;
   padding: 0 18px;
@@ -771,25 +598,26 @@ html, body {
   white-space: nowrap;
   border: 1px solid transparent;
 }
-
 .measure-toolbar .btn-primary {
-  background: var(--accent);
+  background: var(--w-accent, #C8412C);
   color: #fff;
-  border-color: var(--accent);
+  border-color: var(--w-accent, #C8412C);
   box-shadow: 0 6px 16px -4px rgba(200,65,44,0.40);
 }
-.measure-toolbar .btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
-
+.measure-toolbar .btn-primary:hover {
+  background: var(--accent-hover, #A8341F);
+  border-color: var(--accent-hover, #A8341F);
+}
 .measure-toolbar .btn-secondary {
-  background: rgba(11,14,17,0.82);
-  color: #fff;
-  border-color: rgba(255,255,255,0.18);
+  background: var(--w-hud-bg);
+  color: var(--w-hud-fg);
+  border-color: var(--w-hud-border);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
 }
 .measure-toolbar .btn-secondary:hover { border-color: #fff; }
 
-/* Lupa — DOM wrapper sobre o canvas dedicado da lupa */
+/* Lupa */
 .measure-loupe {
   position: fixed;
   width: 100px;
@@ -801,7 +629,6 @@ html, body {
 }
 .measure-loupe[data-visible="true"] { display: block; }
 .measure-loupe[data-flip="below"] { transform: translate(-50%, 0); }
-
 .measure-loupe-frame {
   width: 100%;
   height: 100%;
@@ -812,34 +639,24 @@ html, body {
   background: rgba(11,14,17,0.42);
   position: relative;
 }
-
-.measure-loupe-canvas {
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-
+.measure-loupe-canvas { display: block; width: 100%; height: 100%; }
 .measure-loupe-crosshair {
   position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 24px;
-  height: 24px;
+  left: 50%; top: 50%;
+  width: 24px; height: 24px;
   transform: translate(-50%, -50%);
 }
 .measure-loupe-crosshair::before,
 .measure-loupe-crosshair::after {
   content: "";
   position: absolute;
-  background: var(--accent);
+  background: var(--w-accent, #C8412C);
 }
 .measure-loupe-crosshair::before { left: 50%; top: 0; width: 1.5px; height: 100%; transform: translateX(-50%); }
 .measure-loupe-crosshair::after  { top: 50%; left: 0; height: 1.5px; width: 100%; transform: translateY(-50%); }
-
 .measure-loupe-tail {
   position: absolute;
-  width: 0;
-  height: 0;
+  width: 0; height: 0;
   left: 50%;
   bottom: -14px;
   transform: translateX(-50%);
@@ -853,7 +670,6 @@ html, body {
   border-top: none;
   border-bottom: 14px solid #fff;
 }
-
 .measure-loupe-label {
   position: absolute;
   bottom: 6px;
@@ -869,8 +685,67 @@ html, body {
 }
 .measure-loupe-label[hidden] { display: none; }
 
+/* Measure menu — popover anchored to the Medir pill in the top bar.
+   main.js positions it on open; CSS handles the visual treatment. */
+.measure-menu {
+  position: fixed;
+  z-index: 1000;
+  width: 208px;
+  background: var(--w-menu-bg);
+  border: 1px solid var(--w-rule-strong);
+  border-radius: 12px;
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  box-shadow: 0 24px 48px -16px rgba(0,0,0,0.18);
+  overflow: hidden;
+  display: none;
+}
+.measure-menu[data-open="true"] { display: block; }
+.measure-menu-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  color: var(--w-ink);
+  text-align: left;
+  font-family: inherit;
+}
+.measure-menu-item + .measure-menu-item { border-top: 1px solid var(--w-rule); }
+.measure-menu-item:hover { background: var(--w-soft); }
+.measure-menu-item .ic {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--w-muted-fill);
+  border: 1px solid var(--w-rule);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  color: var(--w-ink-2);
+}
+.measure-menu-item .ic svg { width: 18px; height: 18px; }
+.measure-menu-item .lbl { flex: 1; }
+.measure-menu-item .lbl .l1 {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.2;
+  color: var(--w-ink);
+}
+.measure-menu-item .lbl .l2 {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--w-ink-3);
+  margin-top: 2px;
+}
+
 /* ============================================================
-   AR — ar.js inserts these into <body>; same selectors preserved
+   AR root — model-viewer lives off-screen
    ============================================================ */
 .ar-root {
   position: fixed;
@@ -881,45 +756,9 @@ html, body {
   opacity: 0;
 }
 
-.ar-button {
-  position: fixed;
-  top: 22px;
-  right: 80px;
-  height: 36px;
-  padding: 0 14px;
-  display: none;
-  align-items: center;
-  gap: 6px;
-  background: rgba(255,255,255,0.92);
-  color: var(--accent);
-  border: 1px solid var(--accent);
-  border-radius: 999px;
-  font-family: var(--font-text);
-  font-weight: 700;
-  font-size: 12px;
-  letter-spacing: 0.04em;
-  cursor: pointer;
-  z-index: 50;
-  transition: background 120ms ease, border-color 120ms ease;
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  box-shadow: 0 4px 12px -4px rgba(21,23,26,0.10);
-}
-
-.ar-button[data-visible="true"] { display: inline-flex; }
-.ar-button:hover { background: var(--accent); color: #fff; }
-.ar-button[data-loading="true"] { opacity: 0.65; cursor: progress; }
-
-@media (max-width: 768px) {
-  .ar-button {
-    top: 22px;
-    right: 84px;
-    height: 36px;
-    font-size: 12px;
-  }
-}
-
-/* Modal QR (desktop) */
+/* ============================================================
+   AR modal — QR code dialog (desktop)
+   ============================================================ */
 .ar-modal {
   position: fixed;
   inset: 0;
@@ -932,9 +771,8 @@ html, body {
   -webkit-backdrop-filter: blur(8px);
 }
 .ar-modal[data-visible="true"] { display: flex; }
-
 .ar-modal-content {
-  background: var(--paper);
+  background: var(--w-base);
   border-radius: 12px;
   padding: 28px 24px 22px;
   max-width: 360px;
@@ -942,25 +780,23 @@ html, body {
   text-align: center;
   position: relative;
   font-family: var(--font-text);
-  color: var(--fg-1);
+  color: var(--w-ink);
   box-shadow: 0 24px 60px -16px rgba(21,23,26,0.40);
-  border: 1px solid var(--rule);
+  border: 1px solid var(--w-rule);
 }
-
 .ar-modal-close {
   position: absolute;
   top: 6px;
   right: 12px;
   background: none;
   border: none;
-  color: var(--fg-1);
+  color: var(--w-ink);
   font-size: 28px;
   line-height: 1;
   cursor: pointer;
   padding: 4px 8px;
 }
-.ar-modal-close:hover { color: var(--accent); }
-
+.ar-modal-close:hover { color: var(--w-accent, #C8412C); }
 .ar-modal-qr {
   margin: 8px auto 14px;
   width: 240px;
@@ -968,18 +804,131 @@ html, body {
   background: #fff;
   padding: 12px;
   border-radius: 8px;
-  border: 1px solid var(--rule);
+  border: 1px solid var(--w-rule);
 }
-.ar-modal-qr img {
-  width: 100%;
-  height: 100%;
-  display: block;
-}
-
+.ar-modal-qr img { width: 100%; height: 100%; display: block; }
 .ar-modal p {
   font-family: var(--font-text);
   font-size: 14px;
   margin: 0;
   line-height: 1.4;
-  color: var(--fg-2);
+  color: var(--w-ink-2);
 }
+
+/* ============================================================
+   SHARE MODAL — opens via [data-action="share"] in the top bar
+   ============================================================ */
+.modal-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgba(11,14,17,0.42);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: vw-scrim-in 160ms ease-out;
+}
+.modal-scrim[hidden] { display: none; }
+@keyframes vw-scrim-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes vw-modal-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.modal {
+  width: min(520px, calc(100vw - 48px));
+  background: var(--w-base);
+  color: var(--w-ink);
+  border: 1px solid var(--w-rule-strong);
+  border-radius: 14px;
+  box-shadow: 0 24px 64px -16px rgba(0,0,0,0.32), 0 4px 12px -4px rgba(0,0,0,0.12);
+  overflow: hidden;
+  animation: vw-modal-in 220ms cubic-bezier(0.16,1,0.3,1);
+}
+.modal-h {
+  padding: 20px 24px 16px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid var(--w-rule);
+}
+.modal-ttl {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 18px;
+  letter-spacing: -0.02em;
+  margin: 0 0 4px;
+  color: var(--w-ink);
+}
+.modal-sub {
+  font-family: var(--font-text);
+  font-size: 13px;
+  color: var(--w-ink-3);
+  line-height: 1.4;
+}
+.modal-close {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid var(--w-rule);
+  background: transparent;
+  color: var(--w-ink-2);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  transition: background 120ms;
+}
+.modal-close:hover { background: var(--w-soft); color: var(--w-ink); }
+.modal-body { padding: 20px 24px; display: flex; flex-direction: column; gap: 18px; }
+.modal-field-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--w-ink-3);
+  font-weight: 500;
+  margin-bottom: 8px;
+  display: block;
+}
+.link-row {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--w-rule-strong);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.link-input {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  padding: 0 12px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--w-ink);
+  letter-spacing: 0;
+  outline: none;
+  min-width: 0;
+  height: 40px;
+}
+.link-copy {
+  border: 0;
+  border-left: 1px solid var(--w-rule);
+  background: var(--w-soft);
+  padding: 0 14px;
+  font-family: var(--font-text);
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--w-ink);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: background 120ms;
+}
+.link-copy:hover { background: var(--w-recess); }
+.link-copy.ok { background: var(--w-ink); color: var(--w-base); }
+.link-copy svg { width: 13px; height: 13px; }

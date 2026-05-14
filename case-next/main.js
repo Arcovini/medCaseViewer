@@ -125,48 +125,36 @@ bootstrap();
 // reads from world/dom/loader results.
 // ============================================================
 
-function bindRedesignChrome(structures, uid, byteLength) {
+function bindRedesignChrome(structures, uid, _byteLength) {
   const uidShort = uid.slice(0, 8);
   setBind("uid-short", uidShort);
-  setBind("case-title", `Caso ${uidShort}`);
-  setBind("case-pid", `ID ${uid}`);
-  setBind("kv-count", `${structures.length} camadas`);
-  setBind("structure-count", `${structures.length} ${structures.length === 1 ? "camada" : "camadas"}`);
-  setBind("foot-count", String(structures.length));
-  setBind("foot-size", byteLength ? `${(byteLength / (1024 * 1024)).toFixed(1)} MB` : "—");
+  setBind("structure-count", String(structures.length));
 
-  const crumbEl = document.querySelector('[data-bind="crumb"]');
-  if (crumbEl && structures.length >= 2) {
-    const a = humanizeName(structures[0].name);
-    const b = humanizeName(structures[1].name);
-    crumbEl.innerHTML = `Reconstrução · <b>${escapeHtml(a)} + ${escapeHtml(b)}</b>`;
+  // Top bar
+  wireAction("share", openShareModal);
+  wireAction("theme-toggle", toggleTheme);
+
+  // Share modal
+  wireAction("share-close", closeShareModal);
+  wireAction("share-copy", copyShareLink);
+  const scrim = document.querySelector('[data-testid="share-modal"]');
+  if (scrim) {
+    scrim.addEventListener("click", (e) => { if (e.target === scrim) closeShareModal(); });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && !scrim.hasAttribute("hidden")) closeShareModal();
+    });
   }
+  const linkInput = document.querySelector('[data-bind="share-link"]');
+  if (linkInput) linkInput.value = window.location.href;
 
-  const legendRows = document.querySelector('[data-bind="legend-rows"]');
-  if (legendRows) {
-    legendRows.innerHTML = "";
-    for (const { name, color } of structures) {
-      const row = document.createElement("div");
-      row.className = "vw-legend-row";
-      const dot = document.createElement("span");
-      dot.className = "vw-legend-dot";
-      if (color) dot.style.background = color;
-      const label = document.createElement("span");
-      label.textContent = humanizeName(name);
-      row.appendChild(dot);
-      row.appendChild(label);
-      legendRows.appendChild(row);
-    }
-  }
-
-  wireAction("reset-camera", () => world.frameToScene());
-  wireAction("fullscreen", toggleFullscreen);
-  wireAction("share", shareCurrentUrl);
-
+  // Stage zoom
   wireAction("zoom-in", () => { world.zoomBy(1.2); updateZoomPct(); });
   wireAction("zoom-out", () => { world.zoomBy(1 / 1.2); updateZoomPct(); });
   world.onCameraChange(updateZoomPct);
   updateZoomPct();
+
+  // Persisted theme
+  initTheme();
 }
 
 function setBind(name, text) {
@@ -186,36 +174,65 @@ function updateZoomPct() {
   setBind("zoom-pct", `${pct}%`);
 }
 
-function toggleFullscreen() {
-  if (document.fullscreenElement) {
-    document.exitFullscreen?.();
-  } else {
-    document.body.requestFullscreen?.();
-  }
+const THEME_STORAGE_KEY = "medcase-viewer-theme";
+
+function initTheme() {
+  let saved = null;
+  try { saved = localStorage.getItem(THEME_STORAGE_KEY); } catch (_) {}
+  setTheme(saved === "dark" ? "dark" : "light");
 }
 
-async function shareCurrentUrl() {
-  const url = window.location.href;
+function toggleTheme() {
+  const next = (document.documentElement.getAttribute("data-theme") === "dark") ? "light" : "dark";
+  setTheme(next);
+  try { localStorage.setItem(THEME_STORAGE_KEY, next); } catch (_) {}
+}
+
+function setTheme(theme) {
+  document.documentElement.setAttribute("data-theme", theme);
+  const sun = document.querySelector(".ic-sun");
+  const moon = document.querySelector(".ic-moon");
+  if (sun)  { theme === "dark" ? sun.setAttribute("hidden", "")  : sun.removeAttribute("hidden"); }
+  if (moon) { theme === "dark" ? moon.removeAttribute("hidden") : moon.setAttribute("hidden", ""); }
+}
+
+function openShareModal() {
+  const scrim = document.querySelector('[data-testid="share-modal"]');
+  if (!scrim) return;
+  scrim.removeAttribute("hidden");
+  const close = scrim.querySelector('[data-action="share-close"]');
+  if (close) close.focus();
+}
+
+function closeShareModal() {
+  const scrim = document.querySelector('[data-testid="share-modal"]');
+  if (scrim) scrim.setAttribute("hidden", "");
+}
+
+async function copyShareLink() {
+  const input = document.querySelector('[data-bind="share-link"]');
+  const url = input?.value || window.location.href;
   try {
     await navigator.clipboard?.writeText(url);
   } catch {
-    const ta = document.createElement("textarea");
-    ta.value = url;
-    ta.style.position = "fixed";
-    ta.style.opacity = "0";
-    document.body.appendChild(ta);
-    ta.select();
-    try { document.execCommand("copy"); } catch {}
-    document.body.removeChild(ta);
+    if (input) {
+      input.removeAttribute("readonly");
+      input.select();
+      try { document.execCommand("copy"); } catch {}
+      input.setAttribute("readonly", "");
+    }
   }
-}
-
-function humanizeName(name) {
-  return String(name).replace(/_/g, " ");
-}
-
-function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const btn = document.querySelector('[data-action="share-copy"]');
+  const lbl = btn?.querySelector(".link-copy-label");
+  if (btn && lbl) {
+    btn.classList.add("ok");
+    const prev = lbl.textContent;
+    lbl.textContent = "Copiado";
+    setTimeout(() => {
+      btn.classList.remove("ok");
+      lbl.textContent = prev;
+    }, 1600);
+  }
 }
 
 // Test hook: when Playwright sets window.__playwrightTest before page load,
