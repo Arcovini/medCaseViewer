@@ -42,10 +42,14 @@ test.describe("case-next v5 chrome", () => {
     await expect(page.locator('[data-bind="uid-short"]')).toHaveText(TEST_UID.slice(0, 8));
 
     // The four chrome pills: AR + Medir + Theme + Compartilhar.
+    // Theme & Share also appear inside the mobile overflow menu, so two
+    // matches each is fine (one desktop pill + one menu item).
     await expect(page.locator('[data-testid="ar-button"]')).toHaveCount(1);
     await expect(page.locator('[data-testid="measure-fab"]')).toHaveCount(1);
-    await expect(page.locator('[data-action="theme-toggle"]')).toHaveCount(1);
-    await expect(page.locator('[data-action="share"]')).toHaveCount(1);
+    const themeCount = await page.locator('[data-action="theme-toggle"]').count();
+    const shareCount = await page.locator('[data-action="share"]').count();
+    expect(themeCount).toBeGreaterThanOrEqual(1);
+    expect(shareCount).toBeGreaterThanOrEqual(1);
   });
 
   test("zoom chip: visible in desktop, percentage shown, +/- buttons change value", async ({ page, isMobile }) => {
@@ -78,24 +82,35 @@ test.describe("case-next v5 chrome", () => {
     }
   });
 
-  test("theme toggle: flips html[data-theme] light↔dark and persists in localStorage", async ({ page }) => {
+  test("theme toggle: flips html[data-theme] light↔dark and persists in localStorage", async ({ page, isMobile }) => {
     await setup(page);
     await page.goto(VIEWER_URL);
     await waitForBootstrap(page);
 
     await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
 
-    await page.locator('[data-action="theme-toggle"]').click();
+    // On mobile the theme toggle lives inside the hamburger overflow menu;
+    // on desktop it's a dedicated pill in the top bar.
+    const triggerToggle = async () => {
+      if (isMobile) {
+        await page.locator('[data-testid="overflow-toggle"]').click();
+        await page.locator('[data-testid="overflow-menu"] [data-action="theme-toggle"]').click();
+      } else {
+        await page.locator('.theme-toggle[data-action="theme-toggle"]').click();
+      }
+    };
+
+    await triggerToggle();
     await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
 
     const stored = await page.evaluate(() => localStorage.getItem("medcase-viewer-theme"));
     expect(stored).toBe("dark");
 
-    await page.locator('[data-action="theme-toggle"]').click();
+    await triggerToggle();
     await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
   });
 
-  test("share modal: opens via top-bar Compartilhar, shows the case URL, closes via X / Escape", async ({ page }) => {
+  test("share modal: opens via top-bar Compartilhar, shows the case URL, closes via X / Escape", async ({ page, isMobile }) => {
     await setup(page);
     await page.goto(VIEWER_URL);
     await waitForBootstrap(page);
@@ -103,7 +118,16 @@ test.describe("case-next v5 chrome", () => {
     const scrim = page.locator('[data-testid="share-modal"]');
     await expect(scrim).toBeHidden();
 
-    await page.locator('[data-action="share"]').click();
+    const triggerShare = async () => {
+      if (isMobile) {
+        await page.locator('[data-testid="overflow-toggle"]').click();
+        await page.locator('[data-testid="overflow-menu"] [data-action="share"]').click();
+      } else {
+        await page.locator('.pill.primary[data-action="share"]').click();
+      }
+    };
+
+    await triggerShare();
     await expect(scrim).toBeVisible();
     await expect(page.locator('[data-bind="share-link"]')).toHaveValue(/case-next\/\?id=test-fixture-abc123$/);
 
@@ -111,10 +135,32 @@ test.describe("case-next v5 chrome", () => {
     await expect(scrim).toBeHidden();
 
     // Re-open and close with Escape.
-    await page.locator('[data-action="share"]').click();
+    await triggerShare();
     await expect(scrim).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(scrim).toBeHidden();
+  });
+
+  test("mobile overflow menu: hamburger opens popover with theme + share items", async ({ page, isMobile }) => {
+    test.skip(!isMobile, "Overflow menu is mobile-only.");
+    await setup(page);
+    await page.goto(VIEWER_URL);
+    await waitForBootstrap(page);
+
+    const menu = page.locator('[data-testid="overflow-menu"]');
+    const toggle = page.locator('[data-testid="overflow-toggle"]');
+
+    await expect(toggle).toBeVisible();
+    await expect(menu).toBeHidden();
+
+    await toggle.click();
+    await expect(menu).toBeVisible();
+    await expect(menu.locator('[data-action="theme-toggle"]')).toBeVisible();
+    await expect(menu.locator('[data-action="share"]')).toBeVisible();
+
+    // Pressing Escape closes the popover.
+    await page.keyboard.press("Escape");
+    await expect(menu).toBeHidden();
   });
 
   test("mobile: zoom chip hides, structures panel becomes the bottom sheet", async ({ page, isMobile }) => {

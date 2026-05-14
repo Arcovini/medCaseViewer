@@ -54,14 +54,53 @@
             <span class="label">Medir</span>
           </button>
 
-          <button class="pill icon-only theme-toggle" data-action="theme-toggle" aria-label="Alternar tema">
+          <!-- Desktop chrome: theme toggle + Compartilhar live as their own pills. -->
+          <button class="pill icon-only theme-toggle vw-desktop-only" data-action="theme-toggle" aria-label="Alternar tema">
             <svg class="ic-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
             <svg class="ic-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
           </button>
 
-          <button class="pill primary" data-action="share" aria-label="Compartilhar">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>
+          <button class="pill primary vw-desktop-only" data-action="share">
             <span class="label">Compartilhar</span>
+          </button>
+
+          <!-- Mobile chrome: a single hamburger pill that opens a popover
+               with the theme toggle and Compartilhar. Per mobile_v2 handoff. -->
+          <button class="pill icon-only vw-mobile-only"
+                  data-action="overflow-toggle"
+                  data-testid="overflow-toggle"
+                  aria-label="Menu"
+                  aria-haspopup="menu"
+                  aria-expanded="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+          </button>
+        </div>
+
+        <!-- Mobile overflow popover, anchored to the hamburger pill on open. -->
+        <div class="overflow-menu vw-mobile-only"
+             data-open="false"
+             data-testid="overflow-menu"
+             role="menu">
+          <button class="overflow-item" data-action="theme-toggle" role="menuitem">
+            <span class="ic">
+              <svg class="ic-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+              <svg class="ic-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+            </span>
+            <span class="lbl">
+              <span class="l1 lbl-light">Modo escuro</span>
+              <span class="l1 lbl-dark">Modo claro</span>
+              <span class="l2 sub-light">Mudar para escuro</span>
+              <span class="l2 sub-dark">Mudar para claro</span>
+            </span>
+          </button>
+          <button class="overflow-item" data-action="share" role="menuitem">
+            <span class="ic">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>
+            </span>
+            <span class="lbl">
+              <span class="l1">Compartilhar</span>
+              <span class="l2">Link de acesso</span>
+            </span>
           </button>
         </div>
       </header>

@@ -133,6 +133,7 @@ function bindRedesignChrome(structures, uid, _byteLength) {
   // Top bar
   wireAction("share", openShareModal);
   wireAction("theme-toggle", toggleTheme);
+  initOverflowMenu();
 
   // Share modal
   wireAction("share-close", closeShareModal);
@@ -191,6 +192,61 @@ function toggleTheme() {
 function setTheme(theme) {
   document.documentElement.setAttribute("data-theme", theme);
   // Icon swap (sun ↔ moon) lives in CSS — keyed off html[data-theme="dark"].
+}
+
+// Mobile overflow popover — hamburger pill opens a menu with theme + share.
+function initOverflowMenu() {
+  const toggle = document.querySelector('[data-testid="overflow-toggle"]');
+  const menu = document.querySelector('[data-testid="overflow-menu"]');
+  if (!toggle || !menu) return;
+
+  const position = () => {
+    const r = toggle.getBoundingClientRect();
+    if (!r.width && !r.height) {
+      menu.style.top = "62px";
+      menu.style.right = "16px";
+      menu.style.left = "auto";
+      return;
+    }
+    menu.style.top = (r.bottom + 8) + "px";
+    menu.style.left = (r.right - menu.offsetWidth) + "px";
+    menu.style.right = "auto";
+  };
+
+  toggle.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const next = menu.dataset.open !== "true";
+    menu.dataset.open = next ? "true" : "false";
+    toggle.setAttribute("aria-expanded", String(next));
+    if (next) position();
+  });
+
+  // Each menu item triggers its data-action (already wired) and closes the
+  // popover. The item's data-action also fires the existing handler via
+  // querySelectorAll('[data-action]') in wireAction.
+  menu.querySelectorAll(".overflow-item").forEach((item) => {
+    item.addEventListener("click", () => {
+      menu.dataset.open = "false";
+      toggle.setAttribute("aria-expanded", "false");
+    });
+  });
+
+  // Outside-click + Escape close the popover.
+  document.addEventListener("pointerdown", (e) => {
+    if (menu.dataset.open !== "true") return;
+    if (menu.contains(e.target) || toggle.contains(e.target)) return;
+    menu.dataset.open = "false";
+    toggle.setAttribute("aria-expanded", "false");
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && menu.dataset.open === "true") {
+      menu.dataset.open = "false";
+      toggle.setAttribute("aria-expanded", "false");
+    }
+  });
+  window.addEventListener("resize", () => {
+    if (menu.dataset.open === "true") position();
+  });
 }
 
 function openShareModal() {

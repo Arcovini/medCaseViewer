@@ -140,17 +140,103 @@ html, body {
   .vw-brand-company { display: none; }
 }
 
-/* Mobile top bar (<768px): pills collapse to icon-only so the four
-   chrome actions (AR / Medir / Theme / Share) fit a 390px viewport. */
+/* Responsive visibility helpers for top-bar chrome. !important wins over
+   the .pill base display:inline-flex defined later in this file.
+   Desktop ≥769px: theme + Compartilhar pills are visible; hamburger hidden.
+   Mobile  <769px: theme + Compartilhar move into the hamburger popover. */
+.vw-mobile-only { display: none !important; }
+@media (max-width: 768px) {
+  .vw-desktop-only { display: none !important; }
+  button.vw-mobile-only { display: inline-flex !important; }
+  /* The popover div itself uses dataset-driven display, so reset its
+     base hiding rule and let [data-open] decide. */
+  div.vw-mobile-only { display: none !important; }
+  div.vw-mobile-only[data-open="true"] { display: block !important; }
+}
+
+/* Mobile top-bar polish — pills tighten up and AR/Medir lose their
+   text labels (the hamburger handles the rest). */
 @media (max-width: 768px) {
   .vw-top { padding: 0 var(--space-4); }
   .vw-top-right { gap: 8px; }
   .pill { padding: 0; width: 36px; }
-  .pill.primary { padding: 0; width: 36px; }
   .pill .label { display: none; }
-  .pill .label,
-  .pill > span.label { display: none; }
 }
+
+/* ============================================================
+   OVERFLOW MENU (mobile) — opens from the hamburger pill, lists
+   theme toggle + Compartilhar. Anchored via JS to the pill rect.
+   ============================================================ */
+.overflow-menu {
+  position: fixed;
+  z-index: 1000;
+  width: 240px;
+  background: var(--w-menu-bg);
+  border: 1px solid var(--w-rule-strong);
+  border-radius: 14px;
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  box-shadow: 0 24px 48px -16px rgba(0,0,0,0.20);
+  overflow: hidden;
+  display: none;
+}
+@media (max-width: 768px) {
+  .overflow-menu[data-open="true"] { display: block; }
+}
+.overflow-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  color: var(--w-ink);
+  text-align: left;
+  font-family: inherit;
+}
+.overflow-item + .overflow-item { border-top: 1px solid var(--w-rule); }
+.overflow-item:hover { background: var(--w-soft); }
+.overflow-item .ic {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--w-muted-fill);
+  border: 1px solid var(--w-rule);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  color: var(--w-ink-2);
+}
+.overflow-item .ic svg { width: 18px; height: 18px; }
+.overflow-item .lbl { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.overflow-item .lbl .l1 {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.2;
+  color: var(--w-ink);
+}
+.overflow-item .lbl .l2 {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--w-ink-3);
+}
+/* Show light/dark labels per current theme — pure CSS. */
+.overflow-item .lbl-light, .overflow-item .sub-light { display: inline; }
+.overflow-item .lbl-dark,  .overflow-item .sub-dark  { display: none; }
+html[data-theme="dark"] .overflow-item .lbl-light,
+html[data-theme="dark"] .overflow-item .sub-light { display: none; }
+html[data-theme="dark"] .overflow-item .lbl-dark,
+html[data-theme="dark"] .overflow-item .sub-dark  { display: inline; }
+/* The .ic in the theme row shows the icon for the theme you'd switch TO:
+   sun appears in dark mode (= "switch to light"), moon in light mode. */
+.overflow-item .ic .ic-moon { display: inline-block; }
+.overflow-item .ic .ic-sun  { display: none; }
+html[data-theme="dark"] .overflow-item .ic .ic-moon { display: none; }
+html[data-theme="dark"] .overflow-item .ic .ic-sun  { display: inline-block; }
 
 /* ============================================================
    PILL SYSTEM — used by AR / Medir / Theme / Compartilhar
