@@ -212,13 +212,23 @@ function initOverflowMenu() {
   const position = () => {
     const r = toggle.getBoundingClientRect();
     if (!r.width && !r.height) {
+      // Fallback before the toggle is laid out.
       menu.style.top = "62px";
-      menu.style.right = "16px";
-      menu.style.left = "auto";
+      menu.style.left = "16px";
+      menu.style.right = "auto";
       return;
     }
     menu.style.top = (r.bottom + 8) + "px";
-    menu.style.left = (r.right - menu.offsetWidth) + "px";
+    // The hamburger lives on the LEFT of the mobile top bar, so anchor the
+    // menu's left edge to the toggle's left edge (it opens rightward into
+    // the viewport). If the menu would overflow the right edge, clamp it
+    // back so it stays inside the visible area with an 8px margin.
+    const menuW = menu.offsetWidth || 240;
+    const vw = window.innerWidth || document.documentElement.clientWidth || 0;
+    const margin = 8;
+    let left = r.left;
+    if (left + menuW > vw - margin) left = Math.max(margin, vw - menuW - margin);
+    menu.style.left = left + "px";
     menu.style.right = "auto";
   };
 
