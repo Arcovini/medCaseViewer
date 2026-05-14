@@ -570,6 +570,83 @@ html, body {
   position: relative;
 }
 
+/* Volume non-manifold soft warning — Sprint 3b.3.
+   Gold instead of coral, with a ⚠ glyph appended via ::after.
+   Off-token #ffb000 chosen for higher contrast on the light canvas than
+   --signal-warn (#C68A2C). The design system's signal-warn is meant for
+   form/copy hints, not on-canvas pills. */
+.measurement-pill[data-warn="true"] {
+  background: #ffb000;
+}
+.measurement-pill[data-warn="true"]::after {
+  content: " ⚠";
+  font-size: 0.9em;
+  margin-left: 4px;
+}
+
+/* Measure menu — popover anchored to the FAB. Light paper-frosted chrome
+   to fit the redesign register; arrow pointing up toward the FAB. */
+.measure-menu {
+  position: fixed;
+  top: 72px;
+  right: 16px;
+  background: rgba(255,255,255,0.96);
+  border: 1px solid var(--rule-strong);
+  border-radius: 12px;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 1000;
+  box-shadow: 0 12px 32px -12px rgba(21,23,26,0.20);
+}
+.measure-menu[data-open="false"] { display: none; }
+.measure-menu::after {
+  content: "";
+  position: absolute;
+  top: -8px;
+  right: 28px;
+  width: 0;
+  height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-bottom: 8px solid var(--rule-strong);
+}
+.measure-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: transparent;
+  border: none;
+  color: var(--fg-1);
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  border-radius: 8px;
+  min-width: 160px;
+  text-align: left;
+}
+.measure-menu-item:hover,
+.measure-menu-item:focus-visible {
+  background: var(--surface-3);
+  outline: none;
+}
+.measure-menu-item svg {
+  width: 20px;
+  height: 20px;
+  color: var(--fg-2);
+  flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+  /* On mobile the FAB is 48×48 at (16,16); pop the menu down a touch further. */
+  .measure-menu { top: 80px; right: 16px; }
+}
+
 .measurement-endpoint-label {
   background: var(--fg-1);
   color: var(--accent);

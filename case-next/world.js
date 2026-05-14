@@ -476,11 +476,12 @@ export function removeLine(id) {
 
 // --- Pill (CSS2DObject com texto da distância) ---
 
-export function addPill(midpoint3D, text) {
+export function addPill(midpoint3D, text, { warn } = {}) {
   const id = nextMeasurementId++;
   const el = document.createElement("div");
   el.className = "measurement-pill";
   el.textContent = text;
+  if (warn) el.dataset.warn = "true";
   const obj = new CSS2DObject(el);
   obj.position.copy(midpoint3D);
   scene.add(obj);
@@ -603,4 +604,89 @@ export function getZoomPercentage() {
   const current = camera.position.distanceTo(controls.target);
   if (current === 0) return 100;
   return Math.round((_initialCameraDistance / current) * 100);
+}
+
+// ===========================================================================
+// Sprint 3b.3 — Medição de volume
+// ===========================================================================
+
+const _v0 = new THREE.Vector3();
+const _v1 = new THREE.Vector3();
+const _v2 = new THREE.Vector3();
+const _cross = new THREE.Vector3();
+
+// Calcula volume real de uma malha em cm³ via soma de tetraedros sinalizados
+// sobre os triângulos. Vértices em coordenadas de mundo via mesh.matrixWorld
+// pra que escala/rotação do GLB sejam respeitadas. No mesmo loop, conta
+// referências de cada aresta: em malha fechada cada aresta é compartilhada
+// por exatamente 2 triângulos. Caso contrário, manifold=false e a UI mostra
+// soft warning (~12,3 cm³).
+export function computeMeshVolumeForMesh(mesh) {
+  mesh.updateMatrixWorld();
+  const matrix = mesh.matrixWorld;
+  const positions = mesh.geometry.attributes.position;
+  const index = mesh.geometry.index;
+
+  const triCount = index ? index.count / 3 : positions.count / 3;
+  let signedVolume = 0;
+  const edgeCounts = new Map();
+
+  function bumpEdge(a, b) {
+    const k = a < b ? (a * 0x200000 + b) : (b * 0x200000 + a);
+    edgeCounts.set(k, (edgeCounts.get(k) ?? 0) + 1);
+  }
+
+  for (let t = 0; t < triCount; t++) {
+    const i0 = index ? index.getX(t * 3)     : t * 3;
+    const i1 = index ? index.getX(t * 3 + 1) : t * 3 + 1;
+    const i2 = index ? index.getX(t * 3 + 2) : t * 3 + 2;
+
+    _v0.fromBufferAttribute(positions, i0).applyMatrix4(matrix);
+    _v1.fromBufferAttribute(positions, i1).applyMatrix4(matrix);
+    _v2.fromBufferAttribute(positions, i2).applyMatrix4(matrix);
+
+    _cross.crossVectors(_v1, _v2);
+    signedVolume += _v0.dot(_cross);
+
+    bumpEdge(i0, i1);
+    bumpEdge(i1, i2);
+    bumpEdge(i2, i0);
+  }
+
+  let manifold = true;
+  for (const c of edgeCounts.values()) {
+    if (c !== 2) { manifold = false; break; }
+  }
+
+  const volumeMm3 = Math.abs(signedVolume) / 6;
+  return {
+    volumeCm3: volumeMm3 / 1000,
+    manifold,
+  };
+}
+
+const _volumeCache = new Map();   // name → { volumeCm3, manifold }
+
+export function computeMeshVolumeCached(name) {
+  if (_volumeCache.has(name)) return _volumeCache.get(name);
+  const mesh = namedMeshes.get(name);
+  if (!mesh) return null;
+  const result = computeMeshVolumeForMesh(mesh);
+  _volumeCache.set(name, result);
+  return result;
+}
+
+export function getMeshCentroid(name) {
+  const mesh = namedMeshes.get(name);
+  if (!mesh) return null;
+  const box = new THREE.Box3().setFromObject(mesh);
+  return box.getCenter(new THREE.Vector3());
+}
+
+// Hook de teste: injeta valor no cache de volume sem precisar computar.
+// Usado pra cobrir caminhos non-manifold sem depender da topologia exata
+// das malhas do fixture. ES module bindings são imutáveis, então
+// monkey-patch externo não funcionaria.
+export function __testInjectVolumeCache(name, value) {
+  _volumeCache.set(name, value);
 }

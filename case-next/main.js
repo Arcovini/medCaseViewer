@@ -5,9 +5,12 @@ import * as world from "./world.js";
 import * as loader from "./loader.js";
 import * as dom from "./dom.js";
 import * as measurement from "./measurement.js";
+import * as volume from "./volume.js";
 import * as ar from "./ar.js";
 
 let measurementApi = null;
+let volumeApi = null;
+let fab = null;
 
 async function bootstrap() {
   const params = new URLSearchParams(window.location.search);
@@ -42,9 +45,43 @@ async function bootstrap() {
   world.mount(root);
   world.frameToScene();
 
+  // FAB único compartilhado entre Linear e Volume. main.js controla.
+  fab = dom.mountMeasurementFAB({
+    onClick: () => menu.toggle(),
+  });
+
+  // Hint banner compartilhado entre Linear e Volume — uma única instância DOM.
+  const hint = dom.mountHintBanner();
+
   // Inicializa measurement antes de renderizar o painel pra que o callback onToggle
   // possa avisar sobre malha-âncora ocultada via measurementApi.onMeshVisibilityChange.
-  measurementApi = measurement.init({ world, dom });
+  measurementApi = measurement.init({
+    world,
+    dom,
+    hint,
+    onExit: () => fab.setVisible(true),
+  });
+
+  volumeApi = volume.init({
+    world,
+    dom,
+    hint,
+    onExit: () => fab.setVisible(true),
+  });
+
+  const menu = dom.mountMeasurementMenu({
+    anchorEl: fab.getElement(),
+    onPickLinear: () => {
+      fab.setVisible(false);
+      measurementApi.startLinear();
+    },
+    onPickVolume: () => {
+      fab.setVisible(false);
+      volumeApi.startVolume();
+    },
+  });
+
+  fab.setVisible(true);
 
   const structures = world.getMeshNames().map((name) => ({
     name,
@@ -190,7 +227,6 @@ if (window.__playwrightTest) {
   window.__ar = ar;
   // measurementApi vira disponível apenas após bootstrap() resolver.
   // Tests que dependem dele já esperam pelo painel renderizar (sinal que main.js terminou).
-  Object.defineProperty(window, "__measurement", {
-    get: () => measurementApi,
-  });
+  Object.defineProperty(window, "__measurement", { get: () => measurementApi });
+  Object.defineProperty(window, "__volume", { get: () => volumeApi });
 }

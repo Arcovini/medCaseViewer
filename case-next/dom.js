@@ -190,9 +190,11 @@ function _onDragEnd() {
 // ===========================================================================
 
 const _FAB_ICON_RULER = `<path d="M3 12 L7 8 L21 8 L21 16 L7 16 Z"/><path d="M9 8 L9 12 M13 8 L13 12 M17 8 L17 12"/>`;
-const _FAB_ICON_X = `<path d="M6 6 L18 18 M18 6 L6 18"/>`;
 
-export function mountMeasurementFAB({ onStart, onCancel }) {
+// FAB único compartilhado entre Linear e Volume. O click abre o popover do menu
+// (main.js cuida disso). Cancelamento de modo ativo é feito pelo toolbar inferior,
+// não pelo FAB — durante modo ativo, FAB fica escondido.
+export function mountMeasurementFAB({ onClick }) {
   const btn = document.createElement("button");
   btn.type = "button";
   btn.className = "measure-fab";
@@ -203,26 +205,59 @@ export function mountMeasurementFAB({ onStart, onCancel }) {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${_FAB_ICON_RULER}</svg>
     <span class="label">Medir</span>
   `;
-  btn.addEventListener("click", () => {
-    if (btn.dataset.state === "idle") onStart();
-    else onCancel();
-  });
+  btn.addEventListener("click", onClick);
   document.body.appendChild(btn);
 
   return {
-    setState(state) {
-      btn.dataset.state = state;
-      const label = btn.querySelector(".label");
-      const svg = btn.querySelector("svg");
-      if (state === "cancel") {
-        label.textContent = "Cancelar";
-        svg.innerHTML = _FAB_ICON_X;
-      } else {
-        label.textContent = "Medir";
-        svg.innerHTML = _FAB_ICON_RULER;
-      }
-    },
     setVisible(visible) { btn.hidden = !visible; },
+    getElement() { return btn; },
+  };
+}
+
+const _MENU_ICON_RULER = `<path d="M3 12 L7 8 L21 8 L21 16 L7 16 Z"/><path d="M9 8 L9 12 M13 8 L13 12 M17 8 L17 12"/>`;
+const _MENU_ICON_CUBE = `<path d="M12 3 L21 8 L21 16 L12 21 L3 16 L3 8 Z"/><path d="M3 8 L12 13 L21 8 M12 13 L12 21"/>`;
+
+export function mountMeasurementMenu({ anchorEl, onPickLinear, onPickVolume }) {
+  const wrapper = document.createElement("div");
+  wrapper.className = "measure-menu";
+  wrapper.dataset.open = "false";
+  wrapper.dataset.testid = "measure-menu";
+  wrapper.innerHTML = `
+    <button type="button" class="measure-menu-item" data-tool="linear" data-testid="menu-linear">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${_MENU_ICON_RULER}</svg>
+      <span>Linear</span>
+    </button>
+    <button type="button" class="measure-menu-item" data-tool="volume" data-testid="menu-volume">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${_MENU_ICON_CUBE}</svg>
+      <span>Volume</span>
+    </button>
+  `;
+  document.body.appendChild(wrapper);
+
+  // Outside-click fecha popover. anchorEl (o FAB) é tratado como "inside" porque
+  // o handler de click do FAB chama toggle() — sem essa exceção, abrir e fechar
+  // aconteceriam no mesmo gesto.
+  document.addEventListener("pointerdown", (e) => {
+    if (wrapper.dataset.open !== "true") return;
+    if (wrapper.contains(e.target)) return;
+    if (anchorEl && anchorEl.contains(e.target)) return;
+    wrapper.dataset.open = "false";
+  });
+
+  wrapper.querySelector('[data-tool="linear"]').addEventListener("click", () => {
+    wrapper.dataset.open = "false";
+    onPickLinear();
+  });
+  wrapper.querySelector('[data-tool="volume"]').addEventListener("click", () => {
+    wrapper.dataset.open = "false";
+    onPickVolume();
+  });
+
+  return {
+    open()   { wrapper.dataset.open = "true";  },
+    close()  { wrapper.dataset.open = "false"; },
+    toggle() { wrapper.dataset.open = wrapper.dataset.open === "true" ? "false" : "true"; },
+    isOpen() { return wrapper.dataset.open === "true"; },
   };
 }
 
@@ -399,6 +434,46 @@ export function mountLoupe() {
     },
     setVisible(visible) {
       wrapper.dataset.visible = String(visible);
+    },
+  };
+}
+
+// ===========================================================================
+// Sprint 3b.3 — Medição de volume (toolbar bottom-center: Sair / +Nova)
+// ===========================================================================
+
+export function mountVolumeToolbar({ onNew, onExit }) {
+  const el = document.createElement("div");
+  el.className = "measure-toolbar";
+  el.dataset.testid = "volume-toolbar";
+  el.hidden = true;
+  document.body.appendChild(el);
+
+  function makeBtn(label, klass, onClick, testid) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = klass;
+    b.textContent = label;
+    b.dataset.testid = testid;
+    b.addEventListener("click", onClick);
+    return b;
+  }
+
+  return {
+    showEmpty() {
+      el.innerHTML = "";
+      el.appendChild(makeBtn("✕ Sair", "btn-secondary", onExit, "btn-volume-exit"));
+      el.hidden = false;
+    },
+    showResult() {
+      el.innerHTML = "";
+      el.appendChild(makeBtn("✕ Sair", "btn-secondary", onExit, "btn-volume-exit"));
+      el.appendChild(makeBtn("+ Nova", "btn-primary", onNew, "btn-volume-new"));
+      el.hidden = false;
+    },
+    hide() {
+      el.innerHTML = "";
+      el.hidden = true;
     },
   };
 }

@@ -428,9 +428,16 @@ test("3b.2 / FAB aparece após carregamento com label Medir", async ({ page }) =
   await expect(fab).toHaveAttribute("data-state", "idle");
 });
 
-test("3b.2 / tap no FAB transiciona pra placing-p1", async ({ page }) => {
-  await setupCaseNext(page);
+// Pós-Sprint 3b.3, o FAB abre o popover (Linear / Volume) ao invés de iniciar
+// Linear direto. Helper consolida o gesto FAB → menu-linear pra reduzir ruído.
+async function openLinearViaMenu(page) {
   await page.locator('[data-testid="measure-fab"]').click();
+  await page.locator('[data-testid="menu-linear"]').click();
+}
+
+test("3b.2 / tap no FAB+Linear transiciona pra placing-p1", async ({ page }) => {
+  await setupCaseNext(page);
+  await openLinearViaMenu(page);
   expect(await getMeasurementState(page)).toBe("placing-p1");
   await expect(page.locator('[data-testid="measure-hint"]')).toBeVisible();
   // FAB fica oculto durante placing — toolbar inferior cuida do cancelar.
@@ -439,7 +446,7 @@ test("3b.2 / tap no FAB transiciona pra placing-p1", async ({ page }) => {
 
 test("3b.2 / tap no canvas cria candidato e mostra toolbar de confirmação", async ({ page }) => {
   await setupCaseNext(page);
-  await page.locator('[data-testid="measure-fab"]').click();
+  await openLinearViaMenu(page);
   await tapCanvasCenter(page);
 
   const cand = await page.evaluate(() => window.__measurement.getCandidate());
@@ -451,7 +458,7 @@ test("3b.2 / tap no canvas cria candidato e mostra toolbar de confirmação", as
 
 test("3b.2 / Confirmar P1 transiciona pra placing-p2 com endpoint fixado", async ({ page }) => {
   await setupCaseNext(page);
-  await page.locator('[data-testid="measure-fab"]').click();
+  await openLinearViaMenu(page);
   await tapCanvasCenter(page);
   await page.locator('[data-testid="btn-confirm"]').click();
 
@@ -463,7 +470,7 @@ test("3b.2 / Confirmar P1 transiciona pra placing-p2 com endpoint fixado", async
 
 test("3b.2 / fluxo completo até pílula com formato XX,X mm", async ({ page }) => {
   await setupCaseNext(page);
-  await page.locator('[data-testid="measure-fab"]').click();
+  await openLinearViaMenu(page);
   await tapCanvasCenter(page);
   await page.locator('[data-testid="btn-confirm"]').click();
 
@@ -482,7 +489,7 @@ test("3b.2 / fluxo completo até pílula com formato XX,X mm", async ({ page }) 
 
 test("3b.2 / Limpar volta ao idle com tudo zerado", async ({ page }) => {
   await setupCaseNext(page);
-  await page.locator('[data-testid="measure-fab"]').click();
+  await openLinearViaMenu(page);
   await tapCanvasCenter(page);
   await page.locator('[data-testid="btn-confirm"]').click();
   await tapCanvasOffset(page, 100, 50);

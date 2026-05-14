@@ -203,6 +203,16 @@ export async function init({ world, dom, uid }) {
   _arButton = mountARButton({ onClick: _handleClick });
   _arModal = mountARModal({});
 
+  // Classifica plataforma e revela o botão *imediatamente* em desktop —
+  // o fluxo QR não precisa de model-viewer (só geramos QR no clique).
+  // No mobile (ios/android) o botão continua a depender do load do
+  // model-viewer abaixo pra checar canActivateAR.
+  const earlyPlatform = _classifyPlatform();
+  if (earlyPlatform === "desktop") {
+    _capabilities = { platform: "desktop", canActivateAR: false };
+    _arButton.setVisible(true);
+  }
+
   try {
     await _loadModelViewerLib();
     const el = _mountModelViewer();

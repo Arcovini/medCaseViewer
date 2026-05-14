@@ -17,10 +17,10 @@ const SHORT_LINE_OFFSET_PX = 14;
 
 let _world = null;
 let _dom = null;
-let _fab = null;
 let _hint = null;
 let _toolbar = null;
 let _loupe = null;
+let _onExit = null;             // callback pra avisar main.js que voltamos a IDLE
 
 let _state = STATE.IDLE;
 let _candidate = null;          // { id, point3D, meshName }
@@ -33,19 +33,16 @@ let _highlightedMeshName = null;
 // Pointer tracking
 let _touch = null;              // { startX, startY, startT, isOnHandle, isDragging }
 
-export function init({ world, dom }) {
+export function init({ world, dom, hint, onExit }) {
   _world = world;
   _dom = dom;
+  _hint = hint;
+  _onExit = onExit;
 
-  _fab = dom.mountMeasurementFAB({
-    onStart: () => _enter(STATE.PLACING_P1),
-    onCancel: () => _enter(STATE.IDLE),
-  });
-  _hint = dom.mountHintBanner();
   _toolbar = dom.mountMiniToolbar({
     onConfirm: _onConfirm,
-    onCancel: () => _enter(STATE.IDLE),
-    onClear: () => _enter(STATE.IDLE),
+    onCancel: _exit,
+    onClear: _exit,
     onNew: () => _enter(STATE.PLACING_P1),
   });
   _loupe = dom.mountLoupe();
@@ -67,10 +64,10 @@ export function init({ world, dom }) {
   canvas.addEventListener("pointerup", _onPointerUp);
   canvas.addEventListener("pointercancel", _onPointerUp);
 
-  _fab.setVisible(true);
   _enter(STATE.IDLE);
 
   return {
+    startLinear,
     getState: () => _state,
     getCandidate: () => _candidate
       ? { point3D: _candidate.point3D.clone(), meshName: _candidate.meshName }
@@ -93,6 +90,15 @@ export function init({ world, dom }) {
   };
 }
 
+function startLinear() {
+  _enter(STATE.PLACING_P1);
+}
+
+function _exit() {
+  _enter(STATE.IDLE);
+  if (_onExit) _onExit();
+}
+
 // Hook chamado pelo main.js quando uma malha tem visibility alternada (eye-toggle).
 // Se a malha-âncora de uma medição confirmada for ocultada, esconde a medição inteira.
 function onMeshVisibilityChange(meshName, isVisible) {
@@ -113,27 +119,18 @@ function _enter(next) {
 
   switch (next) {
     case STATE.IDLE:
-      _fab.setState("idle");
-      _fab.setVisible(true);
       _hint.clear();
       _toolbar.hide();
       break;
     case STATE.PLACING_P1:
-      // FAB escondido durante placing — toolbar inferior cuida do cancelar.
-      // Antes o FAB virava "✕ Cancelar" no top-right e em mobile sobrepunha
-      // o hint banner.
-      _fab.setVisible(false);
       _hint.setText("Toque na estrutura para colocar o ponto");
       _toolbar.hide();
       break;
     case STATE.PLACING_P2:
-      _fab.setVisible(false);
       _hint.setText("Toque para colocar o segundo ponto");
       _toolbar.hide();
       break;
     case STATE.RESULT:
-      // Em result o toolbar (Limpar / Nova) cuida das ações; FAB fica oculto.
-      _fab.setVisible(false);
       _hint.clear();
       _toolbar.showResultRow();
       break;
@@ -195,7 +192,6 @@ function _onConfirm() {
 
     // Não chamar _enter(RESULT) porque ele zera tudo via _clearAll. Aplicar transição direta.
     _state = STATE.RESULT;
-    _fab.setVisible(false);
     _hint.clear();
     _toolbar.showResultRow();
   }
