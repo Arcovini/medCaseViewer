@@ -1,0 +1,24 @@
+# Cache policy for the static site (served by Hostinger LiteSpeed).
+#
+# Background: by default the server was sending `Cache-Control: public,
+# max-age=604800` (seven days) on every JS/CSS, which meant returning
+# visitors kept running stale viewer code for up to a week after a deploy.
+# A user who had visited /case/ before the R2 unification couldn't load
+# new R2-only cases until they cleared their cache or opened an incognito
+# tab. This file fixes that.
+#
+# Strategy:
+#   - HTML / JS / CSS: `no-cache` — browsers may store the response but
+#     must revalidate with the server before each use. With the server's
+#     existing ETag + Last-Modified, revalidation usually returns 304
+#     (no body), so the bandwidth cost is negligible while deploys land
+#     immediately.
+#   - Images / fonts / SVGs / GLBs: untouched. They rarely change and the
+#     default 7-day cache is fine.
+<IfModule mod_headers.c>
+  <FilesMatch "\.(html|htm|js|css)$">
+    Header set Cache-Control "no-cache, must-revalidate"
+    Header unset Expires
+    Header unset Pragma
+  </FilesMatch>
+</IfModule>
