@@ -10,7 +10,7 @@ import fs from "node:fs/promises";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FIXTURE_PATH = path.join(__dirname, "fixtures/sample.glb");
 const TEST_UID = "test-fixture-abc123";
-const VIEWER_URL = `/case-next/?id=${TEST_UID}`;
+const VIEWER_URL = `/case/?id=${TEST_UID}`;
 
 async function setup(page) {
   const body = await fs.readFile(FIXTURE_PATH);
@@ -82,12 +82,12 @@ test.describe("case-next v5 chrome", () => {
     }
   });
 
-  test("theme toggle: flips html[data-theme] light↔dark and persists in localStorage", async ({ page, isMobile }) => {
+  test("theme toggle: flips html[data-theme] dark↔light and persists in localStorage", async ({ page, isMobile }) => {
     await setup(page);
     await page.goto(VIEWER_URL);
     await waitForBootstrap(page);
 
-    await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
 
     // On mobile the theme toggle lives inside the hamburger overflow menu;
     // on desktop it's a dedicated pill in the top bar.
@@ -101,13 +101,13 @@ test.describe("case-next v5 chrome", () => {
     };
 
     await triggerToggle();
-    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
 
     const stored = await page.evaluate(() => localStorage.getItem("medcase-viewer-theme"));
-    expect(stored).toBe("dark");
+    expect(stored).toBe("light");
 
     await triggerToggle();
-    await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   });
 
   test("share modal: opens via top-bar Compartilhar, shows the case URL, closes via X / Escape", async ({ page, isMobile }) => {
@@ -129,7 +129,7 @@ test.describe("case-next v5 chrome", () => {
 
     await triggerShare();
     await expect(scrim).toBeVisible();
-    await expect(page.locator('[data-bind="share-link"]')).toHaveValue(/case-next\/\?id=test-fixture-abc123$/);
+    await expect(page.locator('[data-bind="share-link"]')).toHaveValue(/case\/\?id=test-fixture-abc123$/);
 
     await page.locator('[data-action="share-close"]').click();
     await expect(scrim).toBeHidden();

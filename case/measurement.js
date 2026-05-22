@@ -1,4 +1,4 @@
-// case-next/measurement.js
+// case/measurement.js
 // Máquina de estado da medição linear. Não importa THREE; não usa document.querySelector
 // diretamente. Recebe APIs de world e dom em init().
 

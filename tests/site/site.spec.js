@@ -3,7 +3,7 @@ import { test, expect } from "@playwright/test";
 
 const SITE_URL = '/';
 const WA_PREFIX = 'https://wa.me/5521993118288';
-const DEMO_PREFIX = 'https://biodesignlab.com.br/case-next/?id=';
+const DEMO_PREFIX = 'https://biodesignlab.com.br/case/?id=';
 
 test.describe('marketing landing', () => {
   test('smoke: page loads with Medcase wordmark + hero headline', async ({ page }) => {
@@ -13,7 +13,7 @@ test.describe('marketing landing', () => {
     await expect(page.locator('h1.headline')).toContainText('Anatomia');
   });
 
-  test('cta wiring: every Solicitar links to wa.me, every Abrir caso demo to case-next', async ({ page }) => {
+  test('cta wiring: every Solicitar links to wa.me, every Abrir caso demo to /case/', async ({ page }) => {
     await page.goto(SITE_URL);
     const coralLinks = page.locator('a.btn-primary.coral');
     const coralCount = await coralLinks.count();

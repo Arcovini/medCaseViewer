@@ -29,10 +29,19 @@ async function mockGlbRoute(page, statusOverride = 200) {
   });
 }
 
+// Intercepta o probe da API do Sketchfab. main.js só chama esse endpoint
+// quando o R2 retorna 404 — aí ele decide entre redirecionar pra /case/legacy/
+// (200) ou mostrar a mensagem "peça pro radiologista" (404).
+async function mockSketchfabRoute(page, status = 404) {
+  await page.route(`https://api.sketchfab.com/v3/models/${TEST_UID}`, async (route) => {
+    await route.fulfill({ status });
+  });
+}
+
 test("smoke: canvas renderiza conteúdo do GLB do fixture", async ({ page }) => {
   await page.addInitScript(() => { window.__playwrightTest = true; });
   await mockGlbRoute(page);
-  await page.goto(`/case-next/?id=${TEST_UID}`);
+  await page.goto(`/case/?id=${TEST_UID}`);
 
   const canvas = page.locator("#canvas");
   await expect(canvas).toBeVisible();
@@ -46,7 +55,7 @@ test("smoke: canvas renderiza conteúdo do GLB do fixture", async ({ page }) => 
 test("painel renderiza nomes das estruturas do fixture", async ({ page }) => {
   await page.addInitScript(() => { window.__playwrightTest = true; });
   await mockGlbRoute(page);
-  await page.goto(`/case-next/?id=${TEST_UID}`);
+  await page.goto(`/case/?id=${TEST_UID}`);
 
   // Wait for the panel to render
   await expect(page.locator("#structures-list li")).toHaveCount(4, { timeout: 10_000 });
@@ -62,7 +71,7 @@ test("painel renderiza nomes das estruturas do fixture", async ({ page }) => {
 test("toggle de eye-button esconde e mostra a estrutura na cena", async ({ page }) => {
   await page.addInitScript(() => { window.__playwrightTest = true; });
   await mockGlbRoute(page);
-  await page.goto(`/case-next/?id=${TEST_UID}`);
+  await page.goto(`/case/?id=${TEST_UID}`);
 
   // Wait for the panel to render
   await expect(page.locator("#structures-list li")).toHaveCount(4, { timeout: 10_000 });
@@ -93,28 +102,48 @@ test("toggle de eye-button esconde e mostra a estrutura na cena", async ({ page 
 
 test("URL sem ?id= mostra mensagem de erro", async ({ page }) => {
   await page.addInitScript(() => { window.__playwrightTest = true; });
-  await page.goto("/case-next/");
+  await page.goto("/case/");
 
   const errorEl = page.locator("#error");
   await expect(errorEl).toBeVisible();
-  await expect(errorEl).toContainText("UID do caso não informado");
+  await expect(errorEl).toContainText("Nenhum caso foi informado");
 });
 
-test("UID inexistente (404 do R2) mostra mensagem de erro", async ({ page }) => {
+test("UID ausente em ambos os sistemas mostra mensagem amigável", async ({ page }) => {
   await page.addInitScript(() => { window.__playwrightTest = true; });
-  await mockGlbRoute(page, 404);  // helper retorna 404 em vez do fixture
-  await page.goto(`/case-next/?id=${TEST_UID}`);
+  await mockGlbRoute(page, 404);
+  await mockSketchfabRoute(page, 404);
+  await page.goto(`/case/?id=${TEST_UID}`);
 
   const errorEl = page.locator("#error");
   await expect(errorEl).toBeVisible();
-  await expect(errorEl).toContainText("Caso não encontrado");
-  await expect(errorEl).toContainText(TEST_UID);
+  await expect(errorEl).toContainText("Caso não encontrado no sistema");
+  await expect(errorEl).toContainText("radiologista");
+});
+
+test("UID só no Sketchfab redireciona para /case/legacy/", async ({ page }) => {
+  await page.addInitScript(() => { window.__playwrightTest = true; });
+  await mockGlbRoute(page, 404);
+  await mockSketchfabRoute(page, 200);
+  // Stub the legacy page so the test doesn't depend on Sketchfab CDN or the
+  // viewer-1.9.0 script. We just need to know the redirect landed.
+  await page.route("**/case/legacy/**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "text/html",
+      body: "<!doctype html><html><body data-testid='legacy-stub'></body></html>",
+    });
+  });
+
+  await page.goto(`/case/?id=${TEST_UID}`);
+  await page.waitForURL(/\/case\/legacy\/\?id=test-fixture-abc123/);
+  await expect(page.locator('[data-testid="legacy-stub"]')).toBeAttached();
 });
 
 test("setOpacity numa estrutura não afeta opacity das outras (clone defensivo)", async ({ page }) => {
   await page.addInitScript(() => { window.__playwrightTest = true; });
   await mockGlbRoute(page);
-  await page.goto(`/case-next/?id=${TEST_UID}`);
+  await page.goto(`/case/?id=${TEST_UID}`);
 
   await expect(page.locator("#structures-list li")).toHaveCount(4, { timeout: 10_000 });
 
@@ -136,7 +165,7 @@ test("setOpacity numa estrutura não afeta opacity das outras (clone defensivo)"
 test("setVisibility(name,true) restaura último opacity não-zero após drag→0", async ({ page }) => {
   await page.addInitScript(() => { window.__playwrightTest = true; });
   await mockGlbRoute(page);
-  await page.goto(`/case-next/?id=${TEST_UID}`);
+  await page.goto(`/case/?id=${TEST_UID}`);
 
   await expect(page.locator("#structures-list li")).toHaveCount(4, { timeout: 10_000 });
   const names = await page.evaluate(() => window.__world.getMeshNames());
@@ -159,7 +188,7 @@ test("setVisibility(name,true) restaura último opacity não-zero após drag→0
 test("setVisibility(name,true) usa default 1.0 quando lastOpacity nunca foi setado", async ({ page }) => {
   await page.addInitScript(() => { window.__playwrightTest = true; });
   await mockGlbRoute(page);
-  await page.goto(`/case-next/?id=${TEST_UID}`);
+  await page.goto(`/case/?id=${TEST_UID}`);
 
   await expect(page.locator("#structures-list li")).toHaveCount(4, { timeout: 10_000 });
   const names = await page.evaluate(() => window.__world.getMeshNames());
@@ -175,7 +204,7 @@ test("setVisibility(name,true) usa default 1.0 quando lastOpacity nunca foi seta
 test("getMeshColor retorna string hex válida do material", async ({ page }) => {
   await page.addInitScript(() => { window.__playwrightTest = true; });
   await mockGlbRoute(page);
-  await page.goto(`/case-next/?id=${TEST_UID}`);
+  await page.goto(`/case/?id=${TEST_UID}`);
 
   await expect(page.locator("#structures-list li")).toHaveCount(4, { timeout: 10_000 });
 
@@ -193,7 +222,7 @@ test("getMeshColor retorna string hex válida do material", async ({ page }) => 
 test("painel renderiza um slider em cada estrutura, default 1.0", async ({ page }) => {
   await page.addInitScript(() => { window.__playwrightTest = true; });
   await mockGlbRoute(page);
-  await page.goto(`/case-next/?id=${TEST_UID}`);
+  await page.goto(`/case/?id=${TEST_UID}`);
 
   await expect(page.locator("#structures-list li")).toHaveCount(4, { timeout: 10_000 });
   await expect(page.locator(".opacity-slider")).toHaveCount(4);
@@ -205,7 +234,7 @@ test("painel renderiza um slider em cada estrutura, default 1.0", async ({ page 
 test("cada <li> recebe --struct-color batendo com world.getMeshColor", async ({ page }) => {
   await page.addInitScript(() => { window.__playwrightTest = true; });
   await mockGlbRoute(page);
-  await page.goto(`/case-next/?id=${TEST_UID}`);
+  await page.goto(`/case/?id=${TEST_UID}`);
 
   await expect(page.locator("#structures-list li")).toHaveCount(4, { timeout: 10_000 });
 
@@ -226,7 +255,7 @@ test("cada <li> recebe --struct-color batendo com world.getMeshColor", async ({ 
 test("arrastar o slider chama world.setOpacity para aquela estrutura", async ({ page }) => {
   await page.addInitScript(() => { window.__playwrightTest = true; });
   await mockGlbRoute(page);
-  await page.goto(`/case-next/?id=${TEST_UID}`);
+  await page.goto(`/case/?id=${TEST_UID}`);
 
   await expect(page.locator("#structures-list li")).toHaveCount(4, { timeout: 10_000 });
 
@@ -244,7 +273,7 @@ test("arrastar o slider chama world.setOpacity para aquela estrutura", async ({ 
 test("dom.setEyeState atualiza DOM sem afetar a visibilidade no world", async ({ page }) => {
   await page.addInitScript(() => { window.__playwrightTest = true; });
   await mockGlbRoute(page);
-  await page.goto(`/case-next/?id=${TEST_UID}`);
+  await page.goto(`/case/?id=${TEST_UID}`);
 
   await expect(page.locator("#structures-list li")).toHaveCount(4, { timeout: 10_000 });
   const firstLi = page.locator("#structures-list li").first();
@@ -263,7 +292,7 @@ test("dom.setEyeState atualiza DOM sem afetar a visibilidade no world", async ({
 test("dom.setSliderValue atualiza value sem afetar a opacity no world", async ({ page }) => {
   await page.addInitScript(() => { window.__playwrightTest = true; });
   await mockGlbRoute(page);
-  await page.goto(`/case-next/?id=${TEST_UID}`);
+  await page.goto(`/case/?id=${TEST_UID}`);
 
   await expect(page.locator("#structures-list li")).toHaveCount(4, { timeout: 10_000 });
   const firstLi = page.locator("#structures-list li").first();
@@ -282,7 +311,7 @@ test("dom.setSliderValue atualiza value sem afetar a opacity no world", async ({
 test("slider em 0 esconde o mesh e marca o olho como OFF", async ({ page }) => {
   await page.addInitScript(() => { window.__playwrightTest = true; });
   await mockGlbRoute(page);
-  await page.goto(`/case-next/?id=${TEST_UID}`);
+  await page.goto(`/case/?id=${TEST_UID}`);
 
   await expect(page.locator("#structures-list li")).toHaveCount(4, { timeout: 10_000 });
   const firstLi = page.locator("#structures-list li").first();
@@ -300,7 +329,7 @@ test("slider em 0 esconde o mesh e marca o olho como OFF", async ({ page }) => {
 test("religar olho após slider→0 restaura último opacity não-zero (não 1.0)", async ({ page }) => {
   await page.addInitScript(() => { window.__playwrightTest = true; });
   await mockGlbRoute(page);
-  await page.goto(`/case-next/?id=${TEST_UID}`);
+  await page.goto(`/case/?id=${TEST_UID}`);
 
   await expect(page.locator("#structures-list li")).toHaveCount(4, { timeout: 10_000 });
   const firstLi = page.locator("#structures-list li").first();
@@ -329,7 +358,7 @@ test("religar olho após slider→0 restaura último opacity não-zero (não 1.0
 test("desligar olho via click direto leva slider visualmente a 0", async ({ page }) => {
   await page.addInitScript(() => { window.__playwrightTest = true; });
   await mockGlbRoute(page);
-  await page.goto(`/case-next/?id=${TEST_UID}`);
+  await page.goto(`/case/?id=${TEST_UID}`);
 
   await expect(page.locator("#structures-list li")).toHaveCount(4, { timeout: 10_000 });
   const firstLi = page.locator("#structures-list li").first();
@@ -352,7 +381,7 @@ test("desligar olho via click direto leva slider visualmente a 0", async ({ page
 test("<li> tem layout em coluna e position relative para a faixa lateral", async ({ page }) => {
   await page.addInitScript(() => { window.__playwrightTest = true; });
   await mockGlbRoute(page);
-  await page.goto(`/case-next/?id=${TEST_UID}`);
+  await page.goto(`/case/?id=${TEST_UID}`);
 
   await expect(page.locator("#structures-list li")).toHaveCount(4, { timeout: 10_000 });
 
@@ -378,7 +407,7 @@ test("<li> tem layout em coluna e position relative para a faixa lateral", async
 async function setupCaseNext(page) {
   await page.addInitScript(() => { window.__playwrightTest = true; });
   await mockGlbRoute(page);
-  await page.goto(`/case-next/?id=${TEST_UID}`);
+  await page.goto(`/case/?id=${TEST_UID}`);
   // Espera o painel renderizar (sinal que main.js terminou e measurement.init() rodou).
   await expect(page.locator("#structures-list li")).toHaveCount(4, { timeout: 10_000 });
 }

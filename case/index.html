@@ -1,66 +1,166 @@
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;600;700&family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="../style.css" />
-  <script type="text/javascript" src="https://static.sketchfab.com/api/sketchfab-viewer-1.9.0.js"></script>
-</head>
+<!doctype html>
+<html lang="pt-BR" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Medcase — visualizador 3D</title>
 
-<body style="background-color: #111;">
-  <!-- VIDEO button directly in body, not inside any div -->
-  <button id="global_trigger" data-is-hidden="false"
-    style="display: none; position: fixed; top: 16px; left: 16px; margin-left: 0px !important; color: white; background-color: rgb(59, 57, 57); border: 1px solid white; z-index: 100; padding: 0px 0px; border-radius: 8px; cursor: pointer; font-size: 16px;">
-    Vídeo
-  </button>
-  <div class="min-height-90vh" style="background-color: #272425 !important; z-index: 10000;">
-    <div class="py-1 pb-3 container">
+    <link rel="stylesheet" href="../colors_and_type.css" />
+    <link rel="stylesheet" href="./style.css" />
 
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.164.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.164.0/examples/jsm/"
+      }
+    }
+    </script>
+  </head>
+  <body>
 
+    <div class="viewer">
 
-      <!-- Botão Medir - aligned with Estruturas panel -->
-      <button class="btn-outline-primary" id="newMeasure">
-        <img id="imggMedir" src="measure-icon.svg" width="24" height="24" alt="Measure" />
-        Medir
-      </button>
+      <header class="vw-top">
+        <!-- Mobile: hamburger occupies the leftmost slot (per mobile_v2 handoff). -->
+        <button class="pill icon-only vw-mobile-only vw-top-overflow"
+                data-action="overflow-toggle"
+                data-testid="overflow-toggle"
+                aria-label="Menu"
+                aria-haspopup="menu"
+                aria-expanded="false">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        </button>
 
-
-      <div class="row" style="padding-top: 70px;">
-
-        <div class="d-flex flex-column col-md-8 skfb-view">
-          <div class="top-cover" id="top"></div>
-          <iframe id="api-frame" width="100%" height="70vh"></iframe>
-
-          <div class="logo-cover" id="logo"></div>
-          <!-- Botão Mudar Fundo no canto inferior esquerdo -->
-          <button id="bg-black"
-            style="position: absolute; bottom: 0px;margin-left: 0px !important; left: 0px; background: #272425; z-index: 10000;">
-            <img id="icon" src="moon.svg" alt="modo escuro" width="24">
-          </button>
-          <div class="iframe-overlay-top" id="overtop"></div>
-          <div class="iframe-overlay-bottom" id="overbottom"></div>
+        <div class="vw-top-left vw-desktop-only">
+          <span class="vw-brand" aria-label="Medcase por Biodesignlab">
+            <span class="vw-brand-stack">
+              <span class="vw-brand-product">Medcase</span>
+              <span class="vw-brand-company">por Biodesignlab</span>
+            </span>
+          </span>
+          <span class="vw-sep">/</span>
+          <span class="vw-case-id">Caso <b data-bind="uid-short">—</b></span>
         </div>
 
+        <div class="vw-top-right">
+          <button class="pill ar-button"
+                  data-testid="ar-button"
+                  data-visible="false"
+                  data-loading="false"
+                  aria-label="Ver em AR">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V5a1 1 0 0 1 1-1h2"/><path d="M17 4h2a1 1 0 0 1 1 1v2"/><path d="M20 17v2a1 1 0 0 1-1 1h-2"/><path d="M7 20H5a1 1 0 0 1-1-1v-2"/><path d="M12 8l5 3v6l-5 3-5-3v-6z"/><path d="M12 8v6"/><path d="M17 11l-5 3-5-3"/></svg>
+            <span class="label">AR</span>
+          </button>
 
-        <!-- Estruturas mais para baixo -->
-        <div id="structures" class="d-flex flex-column col-md-4 mx-auto rounded"
-          style="color: white; background-color:rgb(59, 57, 57); margin-top: 20px; z-index: 999;">
-          <div id="title" style="color: white; background-color: rgb(59, 57, 57); max-width: 600px">
-            <label id="sub" class="Subtitle"
-              style="color: white; background-color:  rgb(59, 57, 57);">Estruturas</label>
+          <button class="pill measure-fab"
+                  data-testid="measure-fab"
+                  data-state="idle"
+                  aria-label="Medir"
+                  aria-haspopup="menu"
+                  aria-expanded="false"
+                  hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17L17 3l4 4L7 21z"/><path d="M7 13l2 2M11 9l2 2M15 5l2 2"/></svg>
+            <span class="label">Medir</span>
+          </button>
+
+          <!-- Desktop chrome: theme toggle + Compartilhar live as their own pills. -->
+          <button class="pill icon-only theme-toggle vw-desktop-only" data-action="theme-toggle" aria-label="Alternar tema">
+            <svg class="ic-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+            <svg class="ic-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+          </button>
+
+          <button class="pill primary vw-desktop-only" data-action="share">
+            <span class="label">Compartilhar</span>
+          </button>
+
+        </div>
+
+        <!-- Mobile overflow popover, anchored to the hamburger pill on open. -->
+        <div class="overflow-menu vw-mobile-only"
+             data-open="false"
+             data-testid="overflow-menu"
+             role="menu">
+          <button class="overflow-item" data-action="theme-toggle" role="menuitem">
+            <span class="ic">
+              <svg class="ic-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+              <svg class="ic-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+            </span>
+            <span class="lbl">
+              <span class="l1 lbl-light">Modo escuro</span>
+              <span class="l1 lbl-dark">Modo claro</span>
+              <span class="l2 sub-light">Mudar para escuro</span>
+              <span class="l2 sub-dark">Mudar para claro</span>
+            </span>
+          </button>
+          <button class="overflow-item" data-action="share" role="menuitem">
+            <span class="ic">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>
+            </span>
+            <span class="lbl">
+              <span class="l1">Compartilhar</span>
+              <span class="l2">Link de acesso</span>
+            </span>
+          </button>
+        </div>
+      </header>
+
+      <main class="vw-stage">
+        <canvas id="canvas"></canvas>
+
+        <div class="vw-zoom" aria-label="Zoom">
+          <button class="vw-zoom-btn" data-action="zoom-out" aria-label="Diminuir">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/></svg>
+          </button>
+          <span class="vw-zoom-value" data-bind="zoom-pct">100%</span>
+          <button class="vw-zoom-btn" data-action="zoom-in" aria-label="Aumentar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+        </div>
+
+        <div id="loading" class="overlay" hidden>Carregando...</div>
+        <div id="error" class="overlay error" hidden></div>
+      </main>
+
+      <aside class="vw-right">
+        <aside id="structures-panel" class="panel">
+          <div class="panel-handle"></div>
+          <div class="panel-title">Estruturas <span class="panel-count" data-bind="structure-count">—</span></div>
+          <ul id="structures-list"></ul>
+        </aside>
+      </aside>
+
+    </div>
+
+    <!-- Share modal — opens via [data-action="share"] in the top bar. -->
+    <div class="modal-scrim" data-testid="share-modal" role="dialog" aria-modal="true" aria-labelledby="share-title" hidden>
+      <div class="modal">
+        <div class="modal-h">
+          <div>
+            <h3 class="modal-ttl" id="share-title">Compartilhar</h3>
+            <div class="modal-sub">Link de acesso ao caso 3D.</div>
           </div>
-          <div class="navTree" id="navTree"></div>
+          <button class="modal-close" data-action="share-close" aria-label="Fechar">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 5l14 14M19 5L5 19"/></svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div>
+            <span class="modal-field-label">Link</span>
+            <div class="link-row">
+              <input class="link-input" data-bind="share-link" readonly />
+              <button class="link-copy" data-action="share-copy">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>
+                <span class="link-copy-label">Copiar</span>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
-  </div>
 
-  <script src="main.js"></script>
-  <script src="measure.js"></script>
-  <script src="opacity.js"></script>
-  <script src="laudo.js"></script>
-  <script src="mudaCor.js"></script>
+    <div id="ar-root" class="ar-root" aria-hidden="true"></div>
 
-  <script src="botao_video.js"></script>
-</body>
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>

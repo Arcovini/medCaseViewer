@@ -176,7 +176,7 @@ const UA_ANDROID = "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 
 
 test("Android com canActivateAR=true: botão AR aparece", async ({ page }) => {
   await setupARFakes(page, { canActivateAR: true, ua: UA_ANDROID });
-  await page.goto(`/case-next/?id=${TEST_UID}`);
+  await page.goto(`/case/?id=${TEST_UID}`);
   await waitForGlbLoaded(page);
   await waitForArReady(page);
 
@@ -185,7 +185,7 @@ test("Android com canActivateAR=true: botão AR aparece", async ({ page }) => {
 
 test("Android sem AR (canActivateAR=false): botão AR fica oculto", async ({ page }) => {
   await setupARFakes(page, { canActivateAR: false, ua: UA_ANDROID });
-  await page.goto(`/case-next/?id=${TEST_UID}`);
+  await page.goto(`/case/?id=${TEST_UID}`);
   await waitForGlbLoaded(page);
   await waitForArReady(page);
 
@@ -194,7 +194,7 @@ test("Android sem AR (canActivateAR=false): botão AR fica oculto", async ({ pag
 
 test("iOS com canActivateAR=true: botão AR aparece", async ({ page }) => {
   await setupARFakes(page, { canActivateAR: true, ua: UA_IOS });
-  await page.goto(`/case-next/?id=${TEST_UID}`);
+  await page.goto(`/case/?id=${TEST_UID}`);
   await waitForGlbLoaded(page);
   await waitForArReady(page);
 
@@ -207,7 +207,7 @@ test("iOS com canActivateAR=false: botão AR aparece mesmo assim", async ({ page
   // que o botão fique permanentemente oculto no iOS real, confiamos na
   // plataforma — qualquer iOS 12+ suporta Quick Look.
   await setupARFakes(page, { canActivateAR: false, ua: UA_IOS });
-  await page.goto(`/case-next/?id=${TEST_UID}`);
+  await page.goto(`/case/?id=${TEST_UID}`);
   await waitForGlbLoaded(page);
   await waitForArReady(page);
 
@@ -216,7 +216,7 @@ test("iOS com canActivateAR=false: botão AR aparece mesmo assim", async ({ page
 
 test("falha em carregar model-viewer NÃO bloqueia o panel (silent-fail)", async ({ page }) => {
   await setupARFakes(page, { failModelViewerImport: true });
-  await page.goto(`/case-next/?id=${TEST_UID}`);
+  await page.goto(`/case/?id=${TEST_UID}`);
   await waitForGlbLoaded(page);
   await waitForArReady(page);
 
@@ -231,7 +231,7 @@ test("timeout do load do model-viewer NÃO trava a UI nem o botão", async ({ pa
   // Aqui setamos neverFireLoadEvent: o evento `load` nunca dispara. ar.init
   // tolera o timeout e segue — botão fica visível baseado na plataforma.
   await setupARFakes(page, { neverFireLoadEvent: true });
-  await page.goto(`/case-next/?id=${TEST_UID}`);
+  await page.goto(`/case/?id=${TEST_UID}`);
   await waitForGlbLoaded(page);
   // Aguardar um pouco a mais que o timeout do model-viewer load (6s)
   await page.waitForFunction(() => window.__ar && window.__ar.isReady(), null, { timeout: 12_000 });
@@ -263,7 +263,7 @@ test.describe("desktop QR modal", () => {
 
   test("desktop: clicar no botão abre o modal QR", async ({ page }) => {
     await setupARFakes(page, { canActivateAR: false });
-    await page.goto(`/case-next/?id=${TEST_UID}`);
+    await page.goto(`/case/?id=${TEST_UID}`);
     await waitForGlbLoaded(page);
     await waitForArReady(page);
 
@@ -273,7 +273,7 @@ test.describe("desktop QR modal", () => {
 
   test("desktop: URL passada ao QR contém o id atual", async ({ page }) => {
     await setupARFakes(page, { canActivateAR: false });
-    await page.goto(`/case-next/?id=${TEST_UID}`);
+    await page.goto(`/case/?id=${TEST_UID}`);
     await waitForGlbLoaded(page);
     await waitForArReady(page);
 
@@ -282,12 +282,12 @@ test.describe("desktop QR modal", () => {
 
     const qrUrl = await page.evaluate(() => window.__lastQRUrl);
     expect(qrUrl).toContain(`id=${TEST_UID}`);
-    expect(qrUrl).toContain("/case-next/");
+    expect(qrUrl).toContain("/case/");
   });
 
   test("desktop: modal QR fecha pelo botão ✕", async ({ page }) => {
     await setupARFakes(page, { canActivateAR: false });
-    await page.goto(`/case-next/?id=${TEST_UID}`);
+    await page.goto(`/case/?id=${TEST_UID}`);
     await waitForGlbLoaded(page);
     await waitForArReady(page);
 
@@ -300,7 +300,7 @@ test.describe("desktop QR modal", () => {
 
   test("desktop: modal QR fecha pelo backdrop", async ({ page }) => {
     await setupARFakes(page, { canActivateAR: false });
-    await page.goto(`/case-next/?id=${TEST_UID}`);
+    await page.goto(`/case/?id=${TEST_UID}`);
     await waitForGlbLoaded(page);
     await waitForArReady(page);
 
@@ -316,7 +316,7 @@ test.describe("desktop QR modal", () => {
 
   test("desktop: modal QR fecha pelo Escape", async ({ page }) => {
     await setupARFakes(page, { canActivateAR: false });
-    await page.goto(`/case-next/?id=${TEST_UID}`);
+    await page.goto(`/case/?id=${TEST_UID}`);
     await waitForGlbLoaded(page);
     await waitForArReady(page);
 
@@ -329,7 +329,7 @@ test.describe("desktop QR modal", () => {
 
   test("desktop: botão AR aparece após carregamento (modo QR)", async ({ page }) => {
     await setupARFakes(page, { canActivateAR: false });
-    await page.goto(`/case-next/?id=${TEST_UID}`);
+    await page.goto(`/case/?id=${TEST_UID}`);
     await waitForGlbLoaded(page);
     await waitForArReady(page);
 
@@ -345,7 +345,7 @@ test.describe("desktop QR modal", () => {
 
 test("Android: clicar dispara activateAR sem mexer em ios-src", async ({ page }) => {
   await setupARFakes(page, { canActivateAR: true, ua: UA_ANDROID });
-  await page.goto(`/case-next/?id=${TEST_UID}`);
+  await page.goto(`/case/?id=${TEST_UID}`);
   await waitForGlbLoaded(page);
   await waitForArReady(page);
 
@@ -360,7 +360,7 @@ test("Android: clicar dispara activateAR sem mexer em ios-src", async ({ page })
 
 test("iOS: clicar gera USDZ e dispara activateAR com ios-src=blob:", async ({ page }) => {
   await setupARFakes(page, { canActivateAR: true, ua: UA_IOS });
-  await page.goto(`/case-next/?id=${TEST_UID}`);
+  await page.goto(`/case/?id=${TEST_UID}`);
   await waitForGlbLoaded(page);
   await waitForArReady(page);
 
@@ -384,7 +384,7 @@ test("iOS: USDZ exportado em escala metro (mm bake 0.001 em geometry, scene.scal
   // O fix: bake da escala 0.001 em cada BufferGeometry e zerar a scale
   // do Group raiz. Este teste valida ambas as metades do contrato.
   await setupARFakes(page, { canActivateAR: true, ua: UA_IOS });
-  await page.goto(`/case-next/?id=${TEST_UID}`);
+  await page.goto(`/case/?id=${TEST_UID}`);
   await waitForGlbLoaded(page);
   await waitForArReady(page);
 
@@ -426,7 +426,7 @@ test("iOS: USDZ exportado em escala metro (mm bake 0.001 em geometry, scene.scal
 
 test("iOS: USDZ é memoizado — segundo clique reusa o mesmo blob URL", async ({ page }) => {
   await setupARFakes(page, { canActivateAR: true, ua: UA_IOS });
-  await page.goto(`/case-next/?id=${TEST_UID}`);
+  await page.goto(`/case/?id=${TEST_UID}`);
   await waitForGlbLoaded(page);
   await waitForArReady(page);
 
@@ -447,7 +447,7 @@ test("iOS: botão mostra estado loading durante geração de USDZ", async ({ pag
   // Atrasa USDZExporter em 800ms — janela ampla o suficiente pra capturar
   // data-loading="true" mesmo sob carga (suite full executando paralelo).
   await setupARFakes(page, { canActivateAR: true, ua: UA_IOS, usdzExportDelayMs: 800 });
-  await page.goto(`/case-next/?id=${TEST_UID}`);
+  await page.goto(`/case/?id=${TEST_UID}`);
   await waitForGlbLoaded(page);
   await waitForArReady(page);
 
@@ -469,7 +469,7 @@ test("iOS: botão mostra estado loading durante geração de USDZ", async ({ pag
 
 test("preservação: clicar AR não afeta o painel ou eye-toggles", async ({ page }) => {
   await setupARFakes(page, { canActivateAR: true, ua: UA_ANDROID });
-  await page.goto(`/case-next/?id=${TEST_UID}`);
+  await page.goto(`/case/?id=${TEST_UID}`);
   await waitForGlbLoaded(page);
   await waitForArReady(page);
 
@@ -528,7 +528,7 @@ test("botão AR não existe no DOM antes do GLB carregar", async ({ page }) => {
     await route.fulfill({ status: 200, contentType: "model/gltf-binary", body });
   });
 
-  await page.goto(`/case-next/?id=${TEST_UID}`);
+  await page.goto(`/case/?id=${TEST_UID}`);
 
   // Janela de loading: o pill AR existe no markup estático do shell v5, mas
   // continua oculto (data-visible="false") porque ar.init() ainda não rodou
