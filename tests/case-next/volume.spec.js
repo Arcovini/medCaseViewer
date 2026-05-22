@@ -24,7 +24,7 @@ async function mockGlbRoute(page) {
 async function setupCaseNext(page) {
   await page.addInitScript(() => { window.__playwrightTest = true; });
   await mockGlbRoute(page);
-  await page.goto(`/case-next/?id=${TEST_UID}`);
+  await page.goto(`/case/?id=${TEST_UID}`);
   await expect(page.locator("#structures-list li")).toHaveCount(4, { timeout: 10_000 });
 }
 

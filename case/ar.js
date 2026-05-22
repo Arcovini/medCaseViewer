@@ -1,4 +1,4 @@
-// case-next/ar.js
+// case/ar.js
 // Composição AR: monta um <model-viewer> oculto pra detectar capacidade AR
 // (canActivateAR) e disparar activateAR(). No iOS, gera USDZ on-demand a
 // partir da cena Three.js já carregada via USDZExporter. No desktop, abre

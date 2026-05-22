@@ -1,4 +1,4 @@
-// case-next/dom.js
+// case/dom.js
 // UI helpers: structures panel, loading and error overlays.
 // Knows nothing about Three.js beyond the structure name (string) and color (hex string).
 

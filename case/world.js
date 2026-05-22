@@ -1,4 +1,4 @@
-// case-next/world.js
+// case/world.js
 // Tudo dentro do canvas (Three.js). Não toca em DOM além do canvas que recebe.
 
 import * as THREE from "three";

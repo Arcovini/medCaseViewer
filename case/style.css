@@ -1,7 +1,7 @@
 /* ============================================================
-   case-next — viewer styles (Medcase redesign — v5 simplified)
+   case — viewer styles (Medcase redesign — v5 simplified)
    Tokens come from /colors_and_type.css (loaded before this file).
-   Theme: light by default; html[data-theme="dark"] flips a small
+   Theme: dark by default; html[data-theme="light"] flips a small
    set of viewer-local tokens for the dark variant. The design
    system's accent (#C8412C) is shared across themes.
    ============================================================ */

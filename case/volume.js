@@ -1,4 +1,4 @@
-// case-next/volume.js
+// case/volume.js
 // Máquina de estado do modo Volume. Espelha a forma do measurement.js.
 // Calcula volume real de malhas via world.computeMeshVolumeCached.
 
