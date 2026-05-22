@@ -226,8 +226,9 @@ export function mountMeasurementFAB({ onClick }) {
 
 const _MENU_ICON_RULER = `<path d="M3 12 L7 8 L21 8 L21 16 L7 16 Z"/><path d="M9 8 L9 12 M13 8 L13 12 M17 8 L17 12"/>`;
 const _MENU_ICON_CUBE = `<path d="M12 3 L21 8 L21 16 L12 21 L3 16 L3 8 Z"/><path d="M3 8 L12 13 L21 8 M12 13 L12 21"/>`;
+const _MENU_ICON_CALIBRE = `<circle cx="12" cy="12" r="6"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>`;
 
-export function mountMeasurementMenu({ anchorEl, onPickLinear, onPickVolume }) {
+export function mountMeasurementMenu({ anchorEl, onPickLinear, onPickVolume, onPickCalibre }) {
   const wrapper = document.createElement("div");
   wrapper.className = "measure-menu";
   wrapper.dataset.open = "false";
@@ -240,6 +241,10 @@ export function mountMeasurementMenu({ anchorEl, onPickLinear, onPickVolume }) {
     <button type="button" class="measure-menu-item" data-tool="volume" data-testid="menu-volume">
       <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${_MENU_ICON_CUBE}</svg></span>
       <span class="lbl"><span class="l1">Volume</span><span class="l2">3D · cm³</span></span>
+    </button>
+    <button type="button" class="measure-menu-item" data-tool="calibre" data-testid="menu-calibre">
+      <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${_MENU_ICON_CALIBRE}</svg></span>
+      <span class="lbl"><span class="l1">Calibre</span><span class="l2">vaso · mm</span></span>
     </button>
   `;
   document.body.appendChild(wrapper);
@@ -280,6 +285,11 @@ export function mountMeasurementMenu({ anchorEl, onPickLinear, onPickVolume }) {
     wrapper.dataset.open = "false";
     _syncAnchorExpanded(anchorEl, false);
     onPickVolume();
+  });
+  wrapper.querySelector('[data-tool="calibre"]').addEventListener("click", () => {
+    wrapper.dataset.open = "false";
+    _syncAnchorExpanded(anchorEl, false);
+    if (onPickCalibre) onPickCalibre();
   });
 
   return {
@@ -488,6 +498,63 @@ export function mountLoupe() {
 // ===========================================================================
 // Sprint 3b.3 — Medição de volume (toolbar bottom-center: Sair / +Nova)
 // ===========================================================================
+
+// ===========================================================================
+// Sprint 3b.4 — Medição de calibre (vessel diameter)
+// ===========================================================================
+
+// Toolbar do modo Calibre. Variantes:
+//   cancelOnly()       — durante PLACING_P1, EXTRACTING_CL, READY_*
+//   confirmRow(label)  — durante CANDIDATE_P1 / CANDIDATE_P2
+//   resultRow()        — durante CIRCLE_PLACED (antes do pin)
+//   committedRow()     — após pin, permitindo + Nova ou sair
+export function mountCalibreToolbar({ onCancel, onConfirm, onNew, onExit }) {
+  const el = document.createElement("div");
+  el.className = "measure-toolbar";
+  el.dataset.testid = "calibre-toolbar";
+  el.hidden = true;
+  document.body.appendChild(el);
+
+  function makeBtn(label, klass, onClick, testid) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = klass;
+    b.textContent = label;
+    b.dataset.testid = testid;
+    b.addEventListener("click", onClick);
+    return b;
+  }
+
+  return {
+    showCancelOnly() {
+      el.innerHTML = "";
+      el.appendChild(makeBtn("✕ Cancelar", "btn-secondary", onCancel, "btn-calibre-cancel"));
+      el.hidden = false;
+    },
+    showConfirmRow(label) {
+      el.innerHTML = "";
+      el.appendChild(makeBtn("✕ Cancelar", "btn-secondary", onCancel, "btn-calibre-cancel"));
+      el.appendChild(makeBtn(`✓ Confirmar ${label}`, "btn-primary", onConfirm, "btn-calibre-confirm"));
+      el.hidden = false;
+    },
+    showResultRow() {
+      el.innerHTML = "";
+      el.appendChild(makeBtn("✕ Cancelar", "btn-secondary", onCancel, "btn-calibre-cancel"));
+      el.appendChild(makeBtn("✓ Confirmar", "btn-primary", onConfirm, "btn-calibre-confirm"));
+      el.hidden = false;
+    },
+    showCommittedRow() {
+      el.innerHTML = "";
+      el.appendChild(makeBtn("✕ Sair", "btn-secondary", onExit, "btn-calibre-exit"));
+      el.appendChild(makeBtn("+ Nova", "btn-primary", onNew, "btn-calibre-new"));
+      el.hidden = false;
+    },
+    hide() {
+      el.innerHTML = "";
+      el.hidden = true;
+    },
+  };
+}
 
 export function mountVolumeToolbar({ onNew, onExit }) {
   const el = document.createElement("div");

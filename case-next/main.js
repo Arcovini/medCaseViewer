@@ -6,10 +6,12 @@ import * as loader from "./loader.js";
 import * as dom from "./dom.js";
 import * as measurement from "./measurement.js";
 import * as volume from "./volume.js";
+import * as calibre from "./calibre.js";
 import * as ar from "./ar.js";
 
 let measurementApi = null;
 let volumeApi = null;
+let calibreApi = null;
 let fab = null;
 
 async function bootstrap() {
@@ -69,6 +71,13 @@ async function bootstrap() {
     onExit: () => fab.setVisible(true),
   });
 
+  calibreApi = calibre.init({
+    world,
+    dom,
+    hint,
+    onExit: () => fab.setVisible(true),
+  });
+
   const menu = dom.mountMeasurementMenu({
     anchorEl: fab.getElement(),
     onPickLinear: () => {
@@ -78,6 +87,10 @@ async function bootstrap() {
     onPickVolume: () => {
       fab.setVisible(false);
       volumeApi.startVolume();
+    },
+    onPickCalibre: () => {
+      fab.setVisible(false);
+      calibreApi.startCalibre();
     },
   });
 
@@ -99,6 +112,7 @@ async function bootstrap() {
         dom.setSliderValue(name, 0);
       }
       measurementApi.onMeshVisibilityChange(name, visible);
+      if (calibreApi) calibreApi.onMeshVisibilityChange(name, visible);
     },
     onOpacityChange: (name, value) => {
       world.setOpacity(name, value);
@@ -318,4 +332,5 @@ if (window.__playwrightTest) {
   // Tests que dependem dele já esperam pelo painel renderizar (sinal que main.js terminou).
   Object.defineProperty(window, "__measurement", { get: () => measurementApi });
   Object.defineProperty(window, "__volume", { get: () => volumeApi });
+  Object.defineProperty(window, "__calibre", { get: () => calibreApi });
 }
