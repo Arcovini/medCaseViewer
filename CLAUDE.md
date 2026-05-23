@@ -57,6 +57,13 @@ Chrome debugging is pre-configured in `.vscode/launch.json` for `http://localhos
 
 **Measurement Tool**: Uses `getWorldToScreenCoordinates` from Sketchfab API to project 3D points to 2D, then draws SVG lines. Measurements auto-clear on camera movement.
 
+**Measurement Modes (`/case/` Three.js viewer)**: three modes share a FAB pill + dropdown:
+- **Linear** (`measurement.js`): 2-point Euclidean distance in mm, drawn as a Line2 with a label pill at the midpoint.
+- **Volume** (`volume.js`): tap a mesh; computes real volume in cm³ via signed-tetrahedron sum over its triangles. Detects non-manifold meshes (open edges) and shows a `~` warn pill.
+- **Calibre** (`calibre.js` + `calibre-geom.js`): tap one or two points on a vessel surface. Cast ray inward from P1 to find the opposite lumen wall → midpoint = local center C0. PCA over nearby vertices gives the centerline tangent. Iterative marching cuts cross-section polygons perpendicular to the tangent and recenters on each polygon's centroid, until the mesh boundary is reached, a bifurcation is detected (area > 4× previous), or P2 is reached. The centerline is rendered as a glowing inner Line2 (`depthTest:false`). Clicking on the centerline drops a circle perpendicular to the local tangent with diameter = `2·√(area/π)` (equivalent-circle diameter — clinical standard). Drag-along-centerline re-runs `diameterAt` on every pointermove. Multi-vessel meshes are handled by picking the polygon whose centroid is closest to the last centerline point.
+
+**Future work — vessel centerline service**: the current calibre centerline extraction is a local marching algorithm in JS. It works well for straight/curved single vessels but can fail on branched topology. A more robust approach would be a Python service (similar to `mesh-processor` on Railway) running VTK or skimage skeletonization to precompute centerlines per mesh during upload. The viewer would then download the centerline polylines alongside the GLB and the calibre mode would be reduced to "click on the precomputed centerline → measure", removing the marching algorithm entirely.
+
 **Upload flow (`/upload/`)**: Two-phase to accommodate Sketchfab's async server-side processing:
 1. `POST /upload` with a `FormData` containing each STL under the repeated field name `files` (not `files[]`). Response is immediate and contains `{uid, viewer_url, ...}`.
 2. Poll `GET /status/{uid}` every 3s until `ready: true`; only then present the viewer URL to the clinician.

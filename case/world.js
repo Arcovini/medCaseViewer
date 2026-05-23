@@ -12,6 +12,7 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { OutlinePass } from "three/addons/postprocessing/OutlinePass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
+import { pickNearestSegment } from "./calibre-geom.js";
 
 let renderer, scene, camera, controls;
 let css2dRenderer;
@@ -32,7 +33,11 @@ const ndc = new THREE.Vector2();
 const measurementObjects = new Map();
 let nextMeasurementId = 1;
 
-const COLOR_ACCENT = 0xC8412C;
+const COLOR_ACCENT = 0xC8412C;       // usado só no OutlinePass (highlight da malha)
+// Amarelo de alto contraste pras geometrias de medição (linhas, pontos,
+// círculos). Vence vermelho (artéria), azul (veia) e verde (tumor) — não
+// se confunde com nenhuma cor anatômica padrão.
+const COLOR_MEASURE = 0xFFEB00;
 
 // Estado da lupa (segundo WebGLRenderer em canvas dedicado).
 let loupeRenderer = null;
@@ -134,9 +139,9 @@ function onResize() {
 
 function tick() {
   controls.update();
-  // Billboard + pulse: candidate sempre olha a câmera e tem leve respiração
-  // (1.0 → 1.08 → 1.0, ciclo ~1.5s) pra sinalizar afordância de drag.
-  const pulseScale = 1 + 0.08 * Math.sin(performance.now() * 0.004);
+  // Billboard + pulse: candidate sempre olha a câmera e tem respiração
+  // (0.88 → 1.12, ciclo ~1.5s) pra sinalizar afordância de drag.
+  const pulseScale = 1 + 0.12 * Math.sin(performance.now() * 0.004);
   for (const entry of measurementObjects.values()) {
     if (entry.type === "candidate") {
       entry.object3D.quaternion.copy(camera.quaternion);
@@ -306,7 +311,7 @@ export function onCameraChange(callback) {
 export function addEndpoint(point3D, label) {
   const id = nextMeasurementId++;
   const geom = new THREE.SphereGeometry(1.5, 24, 24);
-  const mat = new THREE.MeshBasicMaterial({ color: COLOR_ACCENT, depthTest: false });
+  const mat = new THREE.MeshBasicMaterial({ color: COLOR_MEASURE, depthTest: false });
   const mesh = new THREE.Mesh(geom, mat);
   mesh.position.copy(point3D);
   mesh.renderOrder = 999;
@@ -347,29 +352,39 @@ export function removeEndpoint(id) {
 
 export function addCandidate(point3D) {
   const id = nextMeasurementId++;
-  const radius = 2.5;
+  const radius = 3.5;
   const segments = 64;
 
-  // Anel tracejado externo
+  // Anel tracejado externo. Antes usava THREE.Line + LineDashedMaterial
+  // com `linewidth: 2` — mas no WebGL Line sempre renderiza 1px (limitação
+  // conhecida do GL). Line2 + LineMaterial honra linewidth em pixels via
+  // expansão geometry-shader-style.
   const ringPositions = [];
   for (let i = 0; i <= segments; i++) {
     const a = (i / segments) * Math.PI * 2;
     ringPositions.push(Math.cos(a) * radius, Math.sin(a) * radius, 0);
   }
-  const ringGeom = new THREE.BufferGeometry();
-  ringGeom.setAttribute("position", new THREE.Float32BufferAttribute(ringPositions, 3));
-  const ringMat = new THREE.LineDashedMaterial({
-    color: COLOR_ACCENT,
-    dashSize: 0.5,
-    gapSize: 0.35,
+  const ringGeom = new LineGeometry();
+  ringGeom.setPositions(ringPositions);
+  const ringMat = new LineMaterial({
+    color: COLOR_MEASURE,
+    linewidth: 4,
+    transparent: true,
     depthTest: false,
-    linewidth: 2,
+    depthWrite: false,
+    dashed: true,
+    dashSize: 6,
+    gapSize: 4,
+    dashScale: 1,
   });
-  const ring = new THREE.Line(ringGeom, ringMat);
+  const _r = renderer.domElement.getBoundingClientRect();
+  ringMat.resolution.set(_r.width || window.innerWidth, _r.height || window.innerHeight);
+  lineMaterials.add(ringMat);
+  const ring = new Line2(ringGeom, ringMat);
   ring.computeLineDistances();
 
   // Dot branco central (afordância de "centro do alvo / agarrável")
-  const dotGeom = new THREE.CircleGeometry(0.5, 16);
+  const dotGeom = new THREE.CircleGeometry(1.2, 24);
   const dotMat = new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false });
   const dot = new THREE.Mesh(dotGeom, dotMat);
 
@@ -383,7 +398,7 @@ export function addCandidate(point3D) {
   dot.renderOrder = 1000;
 
   scene.add(group);
-  measurementObjects.set(id, { type: "candidate", object3D: group });
+  measurementObjects.set(id, { type: "candidate", object3D: group, ringMat });
   return id;
 }
 
@@ -397,7 +412,9 @@ export function removeCandidate(id) {
   const entry = measurementObjects.get(id);
   if (!entry || entry.type !== "candidate") return;
   scene.remove(entry.object3D);
-  // Candidato agora é um Group (anel + dot); descartar recursos dos filhos.
+  // Candidato é um Group (anel Line2 + dot Mesh). O ringMat (Line2) também
+  // precisa sair do lineMaterials set (atualizado no resize).
+  if (entry.ringMat) lineMaterials.delete(entry.ringMat);
   entry.object3D.traverse((c) => {
     if (c.geometry) c.geometry.dispose();
     if (c.material) c.material.dispose();
@@ -417,7 +434,7 @@ const LINE_GAP_SIZE = 4;
 
 function _makeLineMaterial(provisional) {
   const mat = new LineMaterial({
-    color: COLOR_ACCENT,
+    color: COLOR_MEASURE,
     linewidth: LINE_WIDTH_PX,
     transparent: true,
     depthTest: false,           // linha sempre na frente das estruturas
@@ -695,6 +712,302 @@ export function getMeshCentroid(name) {
 // monkey-patch externo não funcionaria.
 export function __testInjectVolumeCache(name, value) {
   _volumeCache.set(name, value);
+}
+
+// ===========================================================================
+// Sprint 3b.4 — Medição de calibre (vessel diameter)
+// ===========================================================================
+
+// Triangle soup cacheado por mesh: positions já transformadas pra world-space.
+// Espelha _volumeCache (acima): pague o custo da transformação UMA vez por mesh.
+const _triangleSoupCache = new Map();
+
+export function getMeshTriangleSoup(name) {
+  if (_triangleSoupCache.has(name)) return _triangleSoupCache.get(name);
+  const mesh = namedMeshes.get(name);
+  if (!mesh) return null;
+  mesh.updateMatrixWorld();
+  const geom = mesh.geometry;
+  const localPos = geom.attributes.position;
+  const indexAttr = geom.index;
+
+  const worldPositions = new Float32Array(localPos.count * 3);
+  const v = new THREE.Vector3();
+  for (let i = 0; i < localPos.count; i++) {
+    v.fromBufferAttribute(localPos, i).applyMatrix4(mesh.matrixWorld);
+    worldPositions[i * 3]     = v.x;
+    worldPositions[i * 3 + 1] = v.y;
+    worldPositions[i * 3 + 2] = v.z;
+  }
+
+  let worldIndices = null;
+  if (indexAttr) {
+    worldIndices = new Uint32Array(indexAttr.count);
+    for (let i = 0; i < indexAttr.count; i++) {
+      worldIndices[i] = indexAttr.getX(i);
+    }
+  }
+
+  const soup = { positions: worldPositions, indices: worldIndices };
+  _triangleSoupCache.set(name, soup);
+  return soup;
+}
+
+// Normal da face em world-space. Computa cross product de duas arestas do
+// triângulo já transformado. Sinal segue winding order do mesh — para malhas
+// orientadas pra fora, retorna o normal "pra fora" do lume.
+export function getMeshFaceNormalWorld(name, faceIndex) {
+  const soup = getMeshTriangleSoup(name);
+  if (!soup) return null;
+  const { positions, indices } = soup;
+  let i0, i1, i2;
+  if (indices) {
+    i0 = indices[faceIndex * 3] * 3;
+    i1 = indices[faceIndex * 3 + 1] * 3;
+    i2 = indices[faceIndex * 3 + 2] * 3;
+  } else {
+    i0 = faceIndex * 9;
+    i1 = faceIndex * 9 + 3;
+    i2 = faceIndex * 9 + 6;
+  }
+  const v0 = new THREE.Vector3(positions[i0],     positions[i0 + 1], positions[i0 + 2]);
+  const v1 = new THREE.Vector3(positions[i1],     positions[i1 + 1], positions[i1 + 2]);
+  const v2 = new THREE.Vector3(positions[i2],     positions[i2 + 1], positions[i2 + 2]);
+  const e1 = v1.sub(v0);
+  const e2 = v2.sub(v0);
+  return e1.cross(e2).normalize();
+}
+
+// Raycast contra um único mesh, usando o triangle soup world-space que já
+// temos cacheado. Bypass do THREE.Raycaster.intersectObject pra evitar
+// edge cases envolvendo matrixWorld stale ou BoundingSphere desatualizada
+// — vimos casos onde intersectObject retornava 0 hits mesmo com o ray
+// claramente cortando o mesh. Möller-Trumbore é O(N) por chamada mas
+// aceitável (50k tris × 6 cross-products ≈ 1-2 ms).
+const RAY_OFFSET_EPSILON = 0.001;
+const RAY_T_EPSILON = 1e-4;
+
+export function raycastInternal(meshName, origin, direction) {
+  const soup = getMeshTriangleSoup(meshName);
+  if (!soup) return null;
+  const dir = direction.clone().normalize();
+  const ox = origin.x + dir.x * RAY_OFFSET_EPSILON;
+  const oy = origin.y + dir.y * RAY_OFFSET_EPSILON;
+  const oz = origin.z + dir.z * RAY_OFFSET_EPSILON;
+
+  const { positions, indices } = soup;
+  const triCount = indices ? indices.length / 3 : positions.length / 9;
+  let bestT = Infinity;
+  let bestPx = 0, bestPy = 0, bestPz = 0;
+
+  const dx = dir.x, dy = dir.y, dz = dir.z;
+  // Möller-Trumbore inline com scratch numéricos
+  for (let t = 0; t < triCount; t++) {
+    let i0, i1, i2;
+    if (indices) {
+      i0 = indices[t * 3] * 3;
+      i1 = indices[t * 3 + 1] * 3;
+      i2 = indices[t * 3 + 2] * 3;
+    } else {
+      i0 = t * 9; i1 = t * 9 + 3; i2 = t * 9 + 6;
+    }
+    const v0x = positions[i0],     v0y = positions[i0 + 1], v0z = positions[i0 + 2];
+    const v1x = positions[i1],     v1y = positions[i1 + 1], v1z = positions[i1 + 2];
+    const v2x = positions[i2],     v2y = positions[i2 + 1], v2z = positions[i2 + 2];
+    const e1x = v1x - v0x, e1y = v1y - v0y, e1z = v1z - v0z;
+    const e2x = v2x - v0x, e2y = v2y - v0y, e2z = v2z - v0z;
+    // h = dir × e2
+    const hx = dy * e2z - dz * e2y;
+    const hy = dz * e2x - dx * e2z;
+    const hz = dx * e2y - dy * e2x;
+    const a = e1x * hx + e1y * hy + e1z * hz;
+    if (a > -1e-10 && a < 1e-10) continue; // paralelo
+    const f = 1 / a;
+    const sx = ox - v0x, sy = oy - v0y, sz = oz - v0z;
+    const u = f * (sx * hx + sy * hy + sz * hz);
+    if (u < 0 || u > 1) continue;
+    // q = s × e1
+    const qx = sy * e1z - sz * e1y;
+    const qy = sz * e1x - sx * e1z;
+    const qz = sx * e1y - sy * e1x;
+    const v = f * (dx * qx + dy * qy + dz * qz);
+    if (v < 0 || u + v > 1) continue;
+    const tt = f * (e2x * qx + e2y * qy + e2z * qz);
+    if (tt > RAY_T_EPSILON && tt < bestT) {
+      bestT = tt;
+      bestPx = ox + tt * dx;
+      bestPy = oy + tt * dy;
+      bestPz = oz + tt * dz;
+    }
+  }
+
+  if (!isFinite(bestT)) return null;
+  return new THREE.Vector3(bestPx, bestPy, bestPz);
+}
+
+// Constrói base ortonormal {u, w} perpendicular a `tangent` (que é o eixo
+// da centerline no ponto). Usado pra gerar os 64 vértices do círculo do
+// diâmetro no plano perpendicular.
+function _computeCirclePlaneBasis(tangent, u, w) {
+  const t = tangent.clone().normalize();
+  // Escolha ref que não seja paralelo a t pra evitar cross degenerado
+  const ref = (Math.abs(t.x) < 0.9) ? _refX : _refY;
+  u.crossVectors(t, ref).normalize();
+  w.crossVectors(t, u).normalize();
+}
+const _refX = new THREE.Vector3(1, 0, 0);
+const _refY = new THREE.Vector3(0, 1, 0);
+
+const CIRCLE_SEGMENTS = 64;
+const CIRCLE_LINEWIDTH_PX = 6;
+const CENTERLINE_LINEWIDTH_PX = 6;
+
+function _buildCirclePositions(center, tangent, radius) {
+  const u = new THREE.Vector3();
+  const w = new THREE.Vector3();
+  _computeCirclePlaneBasis(tangent, u, w);
+  const out = new Array((CIRCLE_SEGMENTS + 1) * 3);
+  for (let i = 0; i <= CIRCLE_SEGMENTS; i++) {
+    const a = (i / CIRCLE_SEGMENTS) * Math.PI * 2;
+    const cos = Math.cos(a), sin = Math.sin(a);
+    out[i * 3]     = center.x + radius * (cos * u.x + sin * w.x);
+    out[i * 3 + 1] = center.y + radius * (cos * u.y + sin * w.y);
+    out[i * 3 + 2] = center.z + radius * (cos * u.z + sin * w.z);
+  }
+  return out;
+}
+
+// --- Centerline (Line2 com depthTest:false; ID gerado, registrado em measurementObjects) ---
+
+export function addCenterline(points3D, { dashed = false } = {}) {
+  const id = nextMeasurementId++;
+  const positions = [];
+  for (const p of points3D) positions.push(p.x, p.y, p.z);
+  const geom = new LineGeometry();
+  geom.setPositions(positions);
+  // Match settings de addLine() acima: transparent + depthTest:false +
+  // depthWrite:false força a linha a aparecer mesmo dentro do vaso.
+  const mat = new LineMaterial({
+    color: COLOR_MEASURE,
+    linewidth: CENTERLINE_LINEWIDTH_PX,
+    transparent: true,
+    depthTest: false,
+    depthWrite: false,
+    dashed,
+    dashSize: dashed ? 4 : 1,
+    gapSize:  dashed ? 3 : 1,
+    dashScale: 1,
+  });
+  const _r = renderer.domElement.getBoundingClientRect();
+  mat.resolution.set(_r.width || window.innerWidth, _r.height || window.innerHeight);
+  lineMaterials.add(mat);
+
+  const line = new Line2(geom, mat);
+  line.computeLineDistances();
+  line.renderOrder = 999;
+  scene.add(line);
+
+  measurementObjects.set(id, {
+    type: "centerline",
+    object3D: line,
+    points: points3D.map(p => p.clone()),
+  });
+  return id;
+}
+
+export function updateCenterline(id, points3D) {
+  const entry = measurementObjects.get(id);
+  if (!entry || entry.type !== "centerline") return;
+  const positions = [];
+  for (const p of points3D) positions.push(p.x, p.y, p.z);
+  entry.object3D.geometry.setPositions(positions);
+  if (entry.object3D.material.dashed) entry.object3D.computeLineDistances();
+  entry.points = points3D.map(p => p.clone());
+}
+
+export function removeCenterline(id) {
+  const entry = measurementObjects.get(id);
+  if (!entry || entry.type !== "centerline") return;
+  scene.remove(entry.object3D);
+  entry.object3D.geometry.dispose();
+  lineMaterials.delete(entry.object3D.material);
+  entry.object3D.material.dispose();
+  measurementObjects.delete(id);
+}
+
+export function getCenterlinePoints(id) {
+  const entry = measurementObjects.get(id);
+  if (!entry || entry.type !== "centerline") return null;
+  return entry.points.map(p => p.clone());
+}
+
+// Hit-test screen-space pra ponto na polyline. Mais robusto que Raycaster
+// quando a centerline está parcialmente atrás de geometria translúcida.
+export function pickPointOnCenterline(centerlineId, x, y, threshold = 22) {
+  const entry = measurementObjects.get(centerlineId);
+  if (!entry || entry.type !== "centerline") return null;
+  const screenPts = entry.points.map(p => projectToScreen(p));
+  const hit = pickNearestSegment(screenPts, x, y, threshold);
+  if (!hit) return null;
+  const p1 = entry.points[hit.segmentIndex];
+  const p2 = entry.points[hit.segmentIndex + 1];
+  const point3D = new THREE.Vector3().lerpVectors(p1, p2, hit.t);
+  const tangent = new THREE.Vector3().subVectors(p2, p1).normalize();
+  return { point3D, segmentIndex: hit.segmentIndex, t: hit.t, tangent };
+}
+
+// --- Diameter circle (Line2 fechado, perpendicular à tangente) ---
+
+export function addDiameterCircle(center, tangent, radius) {
+  const id = nextMeasurementId++;
+  const positions = _buildCirclePositions(center, tangent, radius);
+  const geom = new LineGeometry();
+  geom.setPositions(positions);
+  const mat = new LineMaterial({
+    color: COLOR_MEASURE,
+    linewidth: CIRCLE_LINEWIDTH_PX,
+    transparent: true,
+    depthTest: false,
+    depthWrite: false,
+    dashed: false,
+  });
+  const _r = renderer.domElement.getBoundingClientRect();
+  mat.resolution.set(_r.width || window.innerWidth, _r.height || window.innerHeight);
+  lineMaterials.add(mat);
+
+  const line = new Line2(geom, mat);
+  line.computeLineDistances();
+  line.renderOrder = 999;
+  scene.add(line);
+
+  measurementObjects.set(id, {
+    type: "diameter-circle",
+    object3D: line,
+    center: center.clone(),
+    tangent: tangent.clone(),
+    radius,
+  });
+  return id;
+}
+
+export function updateDiameterCircle(id, center, tangent, radius) {
+  const entry = measurementObjects.get(id);
+  if (!entry || entry.type !== "diameter-circle") return;
+  const positions = _buildCirclePositions(center, tangent, radius);
+  entry.object3D.geometry.setPositions(positions);
+  entry.center.copy(center);
+  entry.tangent.copy(tangent);
+  entry.radius = radius;
+}
+
+export function removeDiameterCircle(id) {
+  const entry = measurementObjects.get(id);
+  if (!entry || entry.type !== "diameter-circle") return;
+  scene.remove(entry.object3D);
+  entry.object3D.geometry.dispose();
+  lineMaterials.delete(entry.object3D.material);
+  entry.object3D.material.dispose();
+  measurementObjects.delete(id);
 }
 
 // Updates the scene's clear-color background to the given hex string
