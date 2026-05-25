@@ -384,7 +384,7 @@ Replace the entire file at `/Users/viniciusarcoverde/Documents/MedCase/medCaseVi
   <title>Medcase | Visualizador cirúrgico 3D</title>
 
   <meta name="description"
-    content="Reconstruções 3D de alta fidelidade para planejamento cirúrgico. Receba o visualizador interativo em até 3 dias úteis." />
+    content="Reconstruções 3D de alta fidelidade para planejamento cirúrgico. Receba o visualizador interativo em até 5 dias úteis." />
 
   <link rel="canonical" href="https://biodesignlab.com.br/" />
 
@@ -435,14 +435,14 @@ Replace the entire file at `/Users/viniciusarcoverde/Documents/MedCase/medCaseVi
   <meta property="og:url" content="https://biodesignlab.com.br/" />
   <meta property="og:title" content="Medcase – Visualizador cirúrgico 3D" />
   <meta property="og:description"
-    content="Reconstruções 3D de alta fidelidade para planejamento cirúrgico. Receba o visualizador interativo em até 3 dias úteis." />
+    content="Reconstruções 3D de alta fidelidade para planejamento cirúrgico. Receba o visualizador interativo em até 5 dias úteis." />
   <meta property="og:image" content="https://biodesignlab.com.br/images/og-logo.jpg" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="Medcase – Visualizador cirúrgico 3D" />
   <meta name="twitter:description"
-    content="Reconstruções 3D de alta fidelidade para planejamento cirúrgico. Receba o visualizador interativo em até 3 dias úteis." />
+    content="Reconstruções 3D de alta fidelidade para planejamento cirúrgico. Receba o visualizador interativo em até 5 dias úteis." />
   <meta name="twitter:image" content="https://biodesignlab.com.br/images/og-logo.jpg" />
 
   <link rel="stylesheet" href="/colors_and_type.css">
@@ -483,7 +483,7 @@ Replace the entire file at `/Users/viniciusarcoverde/Documents/MedCase/medCaseVi
           <div>
             <span class="eyebrow">Planejamento pré-operatório · 2026</span>
             <h1 class="headline">Anatomia<br>como <span class="scribble">evidência<svg viewBox="0 0 200 18" preserveAspectRatio="none"><path d="M2 12 C 40 4, 80 16, 120 8 S 196 12, 198 6"/></svg></span>.</h1>
-            <p class="lede">Reconstruções 3D de alta fidelidade entregues em até três dias. Visualização interativa para cirurgia complexa — no consultório, na sala, no celular do plantonista.</p>
+            <p class="lede">Reconstruções 3D de alta fidelidade entregues em até cinco dias. Visualização interativa para cirurgia complexa — no consultório, na sala, no celular do plantonista.</p>
             <div class="cta-row">
               <a href="https://wa.me/5521993118288?text=Ol%C3%A1%2C%20quero%20saber%20mais%20sobre%20as%20solu%C3%A7%C3%B5es%20em%20modelos%203D%20para%20cirurgias." class="btn-primary coral" target="_blank" rel="noopener">Solicitar um caso →</a>
               <a href="https://biodesignlab.com.br/case-next/?id=5fc6c4d2d77d4ab6a8cadfe8996c70a4" target="_blank" rel="noopener" class="btn-ghost">
@@ -502,7 +502,7 @@ Replace the entire file at `/Users/viniciusarcoverde/Documents/MedCase/medCaseVi
               </div>
             </div>
             <div class="chip chip-1"><span class="dot"></span>AngioTC · 0,6mm</div>
-            <div class="chip chip-2"><div><div class="meta">Entrega</div><div class="num">3 dias</div></div></div>
+            <div class="chip chip-2"><div><div class="meta">Entrega</div><div class="num">5 dias</div></div></div>
           </div>
         </div>
       </div>
@@ -592,7 +592,7 @@ Replace the entire file at `/Users/viniciusarcoverde/Documents/MedCase/medCaseVi
               </svg>
             </div>
             <div>
-              <h3>Link interativo<br>em 3 dias</h3>
+              <h3>Link interativo<br>em 5 dias</h3>
               <p>Abre direto no navegador. Sem instalação, sem login. Funciona no celular durante o plantão, em qualquer dispositivo.</p>
             </div>
           </article>
@@ -673,7 +673,7 @@ Replace the entire file at `/Users/viniciusarcoverde/Documents/MedCase/medCaseVi
           <div class="cta-left">
             <span class="eyebrow" style="color:#fff;opacity:0.7;">Próximo caso</span>
             <h2>Cada caso vira<br>um plano cirúrgico.</h2>
-            <p class="lede">Envie o exame na unidade Dasa. Em até três dias úteis o link do modelo 3D chega no seu celular, pronto para girar, medir e compartilhar com a equipe.</p>
+            <p class="lede">Envie o exame na unidade Dasa. Em até cinco dias úteis o link do modelo 3D chega no seu celular, pronto para girar, medir e compartilhar com a equipe.</p>
             <div class="cta-row" style="margin-top:var(--space-6);">
               <a href="https://wa.me/5521993118288?text=Ol%C3%A1%2C%20quero%20saber%20mais%20sobre%20as%20solu%C3%A7%C3%B5es%20em%20modelos%203D%20para%20cirurgias." class="btn-primary coral" target="_blank" rel="noopener">Solicitar um caso →</a>
               <a href="https://biodesignlab.com.br/case-next/?id=5fc6c4d2d77d4ab6a8cadfe8996c70a4" target="_blank" rel="noopener" class="btn-ghost-dark">
@@ -955,7 +955,7 @@ Open `http://127.0.0.1:5500/` and verify, top to bottom:
 
 1. Title in tab: `Medcase | Visualizador cirúrgico 3D`.
 2. Header: sticky on scroll, frosted-paper background, "Medcase" + "Visualizador cirúrgico" eyebrow, nav links (`Produto`/`Números`/`Equipe`), concierge phone pill ≥1100px, coral "Solicitar →" pill.
-3. Hero: H1 "Anatomia como evidência." (with coral scribble), lede, coral CTA + ghost demo button, "(21) 99311-8288" hint line, video looping in the cream pad, two chips ("AngioTC · 0,6mm", "Entrega · 3 dias").
+3. Hero: H1 "Anatomia como evidência.", lede, coral CTA + ghost demo button, "(21) 99311-8288" hint line, video looping in the cream pad, two chips ("AngioTC · 0,6mm", "Entrega · 5 dias").
 4. Trust strip: paper bg, hairline top/bottom, "Operando ao lado das principais redes do Rio." headline, 4 partner logos in a hairline-divided row.
 5. Como funciona (cream band): "Do exame ao bisturi.", 3 step cards (Solicitação / Segmentação / Entrega) with SVG illustrations.
 6. Product moment (paper): "Gire, meça, compartilhe." (compartilhe in coral), 3 feature rows with line icons, devices PNG on the right.

@@ -6,6 +6,7 @@
    ============================================================ */
 
 * { box-sizing: border-box; }
+html, body { overflow-x: clip; }
 body { margin: 0; background: var(--base); color: var(--fg-1); }
 img { max-width: 100%; display: block; }
 
@@ -61,9 +62,6 @@ img { max-width: 100%; display: block; }
 
 .headline { font-family: var(--font-display); font-weight: 500; font-size: clamp(2.75rem, 5.5vw + 1rem, 5.75rem); line-height: 1.0; letter-spacing: -0.035em; margin: 18px 0 var(--space-5); text-wrap: balance; color: var(--fg-1); }
 .headline em { font-style: normal; color: var(--accent); font-weight: 500; }
-.headline .scribble { position: relative; display: inline-block; }
-.headline .scribble svg { position: absolute; left: -4px; right: -4px; bottom: -10px; width: calc(100% + 8px); height: 18px; color: var(--accent); }
-.scribble svg path { fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round; }
 
 .lede { font-size: 18px; line-height: 1.55; color: var(--fg-2); max-width: 46ch; margin: 0 0 var(--space-6); }
 .cta-row { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
@@ -103,7 +101,7 @@ img { max-width: 100%; display: block; }
   .partners .cell:nth-child(2n) { border-right: none; }
   .partners .cell:nth-last-child(-n+2) { border-bottom: none; }
 }
-.partners img { max-height: 42px; max-width: 160px; width: auto; height: auto; display: block; filter: none; opacity: 1; }
+.partners img { max-height: 42px; max-width: min(160px, 100%); width: auto; height: auto; display: block; filter: none; opacity: 1; }
 
 /* ============================================================
    Marketing — SECTIONS BASE
@@ -191,7 +189,7 @@ img { max-width: 100%; display: block; }
 @media (max-width: 900px) { .ftr-grid { grid-template-columns: 1fr 1fr; } }
 .ftr h4 { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: #5E6770; font-weight: 500; margin: 0 0 var(--space-4); }
 .ftr ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
-.ftr a { color: #A8B0B6; text-decoration: none; font-size: 14px; }
+.ftr a { color: #A8B0B6; text-decoration: none; font-size: 14px; overflow-wrap: anywhere; }
 .ftr a:hover { color: #FBF7F0; }
 .ftr-foot { border-top: 1px solid rgba(242,243,244,0.10); padding-top: var(--space-5); margin-top: var(--space-7); font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.04em; color: #5E6770; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
 .ftr .wm { color: #FBF7F0; display: inline-flex; margin-bottom: var(--space-4); font-family: var(--font-display); font-weight: 500; font-size: 22px; letter-spacing: -0.02em; text-decoration: none; }

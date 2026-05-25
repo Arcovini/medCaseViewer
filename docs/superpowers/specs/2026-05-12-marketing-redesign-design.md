@@ -50,8 +50,8 @@ A migração não toca `/case/` (Sketchfab legado), `/case-next/` (Three.js — 
 **Decisão:** adotar a copy editorial do `ui_kits/site/index_v2.html` integralmente. O texto da produção atual é **descartado** onde diverge, incluindo:
 
 - Headline "Visualizador 3D cirúrgico" → **"Anatomia como evidência."** (com sublinhado coral à mão na palavra "evidência").
-- Subhead "Soluções para planejamento de cirurgias complexas no seu computador ou dispositivo móvel..." → **"Reconstruções 3D de alta fidelidade entregues em até três dias. Visualização interativa para cirurgia complexa — no consultório, na sala, no celular do plantonista."**
-- Prazo de entrega: produção atual é internamente inconsistente (3 dias no "Passo a passo", 5 dias na CTA final). O mockup fala **3 dias** em todos os lugares — adotamos isso como verdade pública.
+- Subhead "Soluções para planejamento de cirurgias complexas no seu computador ou dispositivo móvel..." → **"Reconstruções 3D de alta fidelidade entregues em até cinco dias. Visualização interativa para cirurgia complexa — no consultório, na sala, no celular do plantonista."**
+- Prazo de entrega: **5 dias** em todos os lugares (mockup original do redesign falava 3 dias; atualizado em 2026-05-25 para refletir o prazo real de produção).
 - Headline "Passo a passo" → **"Do exame ao bisturi."**
 - Headline "Avaliação pré-operatória" → **"Gire, meça, compartilhe."**
 - Headline "Médicos responsáveis" → **"Quem assina cada caso."**
@@ -138,7 +138,7 @@ A ordem dentro de `<body>` é (top to bottom, depois do GTM noscript):
 - **Coluna esquerda:**
   - Eyebrow mono: `Planejamento pré-operatório · 2026`.
   - H1 `<h1 class="headline">Anatomia<br>como <span class="scribble">evidência<svg…/></span>.</h1>` (o SVG é um path coral hand-drawn sobre a palavra "evidência").
-  - Lede 18px: "Reconstruções 3D de alta fidelidade entregues em até três dias. Visualização interativa para cirurgia complexa — no consultório, na sala, no celular do plantonista."
+  - Lede 18px: "Reconstruções 3D de alta fidelidade entregues em até cinco dias. Visualização interativa para cirurgia complexa — no consultório, na sala, no celular do plantonista."
   - `.cta-row` com:
     - Coral `<a class="btn-primary coral">Solicitar um caso →</a>` → WhatsApp deeplink.
     - Ghost `<a class="btn-ghost">▸ Abrir caso demo</a>` → `https://biodesignlab.com.br/case-next/?id=5fc6c4d2d77d4ab6a8cadfe8996c70a4`.
@@ -147,7 +147,7 @@ A ordem dentro de `<body>` é (top to bottom, depois do GTM noscript):
 - **Coluna direita:** `.hero-vis`
   - `.hero-vis-pad` (fundo `--surface-mute-2`, raio 24px, padding 28px).
   - Dentro: `.hero-canvas` (raio 14px, sombra dupla) com `<video autoplay muted loop playsinline src="/videoViewer.mp4">` e dois chips `<span class="tag">`: "Caso 7d3a · Artéria renal" (top-left) e "3D · Interativo" (top-right).
-  - Dois chips flutuantes **fora** do pad: `.chip-1` (top, "AngioTC · 0,6mm" com dot coral) e `.chip-2` (bottom-left, "Entrega · 3 dias" com numeral display).
+  - Dois chips flutuantes **fora** do pad: `.chip-1` (top, "AngioTC · 0,6mm" com dot coral) e `.chip-2` (bottom-left, "Entrega · 5 dias" com numeral display).
 
 ### 3. `<section class="trust">` — paper bg, hairline top+bottom
 
@@ -165,7 +165,7 @@ A ordem dentro de `<body>` é (top to bottom, depois do GTM noscript):
 - `.how-grid` 3-col com 3 `<article class="step">`:
   - **01 · Solicitação** — SVG inline (formulário + ícone + coral). Headline "Solicitação na unidade". Body: "O cirurgião pede angiotomografia ou ressonância com pós-processamento 3D em qualquer unidade da rede."
   - **02 · Segmentação** — SVG inline (3 placas empilhadas com kidney+vessel+tumor coral). Headline "Segmentação e malha 3D". Body: "Nossa equipe segmenta as estruturas relevantes. Cada órgão, vaso e lesão vira uma camada nomeada e ajustável."
-  - **03 · Entrega** — SVG inline (smartphone com check mint). Headline "Link interativo em 3 dias". Body: "Abre direto no navegador. Sem instalação, sem login. Funciona no celular durante o plantão, em qualquer dispositivo."
+  - **03 · Entrega** — SVG inline (smartphone com check mint). Headline "Link interativo em 5 dias". Body: "Abre direto no navegador. Sem instalação, sem login. Funciona no celular durante o plantão, em qualquer dispositivo."
 
 ### 5. `<section class="section soft">` — Product moment, paper bg
 
@@ -187,7 +187,7 @@ A ordem dentro de `<body>` é (top to bottom, depois do GTM noscript):
 
 - `.cta-card` ink bg `#1A1815` (mapped to `--fg-1` por aproximação warm→cool), raio 28px, padding generoso, decoração radial coral top-right via `::before`.
 - 1.2/1 grid:
-  - **Esquerda:** eyebrow "Próximo caso" (cor branca 70% opacidade), H2 "Cada caso vira um plano cirúrgico.", lede "Envie o exame na unidade Dasa. Em até três dias úteis o link do modelo 3D chega no seu celular, pronto para girar, medir e compartilhar com a equipe." Botão coral "Solicitar um caso →" + botão ghost-on-dark "▸ Abrir caso demo".
+  - **Esquerda:** eyebrow "Próximo caso" (cor branca 70% opacidade), H2 "Cada caso vira um plano cirúrgico.", lede "Envie o exame na unidade Dasa. Em até cinco dias úteis o link do modelo 3D chega no seu celular, pronto para girar, medir e compartilhar com a equipe." Botão coral "Solicitar um caso →" + botão ghost-on-dark "▸ Abrir caso demo".
   - **Direita:** 4 tick-rows com keys mono coral e labels brancos:
     - `01` Sem instalação · Abre no navegador, no celular do plantão.
     - `02` Sem login obrigatório · Link direto, válido por 30 dias.
@@ -237,7 +237,7 @@ Os blocos abaixo do `<head>` atual e do final do `<body>` ficam **exatamente com
 ### Flipado para Medcase
 
 - `<title>` → `Medcase | Visualizador cirúrgico 3D`.
-- `<meta name="description">` → `Reconstruções 3D de alta fidelidade para planejamento cirúrgico. Receba o visualizador interativo em até 3 dias úteis.` (era "3 dias úteis" — fica idêntico).
+- `<meta name="description">` → `Reconstruções 3D de alta fidelidade para planejamento cirúrgico. Receba o visualizador interativo em até 5 dias úteis.`
 - `<meta property="og:title">` e `<meta name="twitter:title">` → `Medcase – Visualizador cirúrgico 3D`.
 - `<meta property="og:description">` e `<meta name="twitter:description">` → mesma description.
 - JSON-LD `Organization.name` → `Medcase`.
