@@ -20,14 +20,15 @@
 
       <h1 class="text-2xl font-bold text-gray-900 mb-2">Enviar um novo caso</h1>
       <p class="text-sm text-gray-600 mb-6">
-        Selecione os arquivos <strong>STL</strong> das estruturas anatômicas deste caso.
+        Selecione os arquivos <strong>STL</strong> ou <strong>OBJ</strong> das estruturas anatômicas deste caso.
         Eles serão combinados em um único modelo 3D interativo.
       </p>
 
       <!-- STATE: IDLE -->
       <section id="state-idle">
-        <label for="file-input" class="block mb-2 text-sm font-medium text-gray-700">Arquivos STL</label>
-        <input id="file-input" type="file" accept=".stl,.STL" multiple
+        <label for="file-input" class="block mb-2 text-sm font-medium text-gray-700">Arquivos do caso</label>
+        <input id="file-input" type="file"
+          accept=".stl,.STL,.obj,.OBJ,.mtl,.MTL,.jpg,.JPG,.jpeg,.JPEG,.png,.PNG,.zip,.ZIP" multiple
           class="block w-full text-sm text-gray-600
                  file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0
                  file:text-sm file:font-semibold

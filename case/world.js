@@ -237,6 +237,12 @@ export function getMeshOpacity(name) {
 export function getMeshColor(name) {
   const mesh = namedMeshes.get(name);
   if (!mesh || !mesh.material.color) return null;
+  // Textured meshes (PBR baseColorTexture / MeshStandardMaterial.map) carry
+  // their look in the texture; the material.color factor is white (1,1,1) by
+  // default and exposing it as the swatch would mislead the panel into showing
+  // a generic white chip for a photo-realistic mesh. Returning null lets dom.js
+  // skip the --struct-color override and fall through to neutral chrome.
+  if (mesh.material.map) return null;
   return "#" + mesh.material.color.getHexString();
 }
 
