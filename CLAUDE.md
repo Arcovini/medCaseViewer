@@ -32,30 +32,34 @@ Chrome debugging is pre-configured in `.vscode/launch.json` for `http://localhos
 ### Project Structure
 
 - `/index.html` - Marketing/landing page (standalone, uses Tailwind CSS via CDN)
-- `/case/` - The 3D viewer application
-  - `index.html` - Viewer HTML template with Sketchfab iframe
-  - `main.js` - Sketchfab API initialization, node tree management
-  - `measure.js` - 3D click-to-measure tool with SVG overlay
-  - `opacity.js` - Material opacity slider controls
-  - `mudaCor.js` - Light/dark theme switching
-  - `laudo.js` / `mainLinhaLaudo.js` - Report/documentation features
-  - `botao_video.js` - YouTube video modal integration
+- `/case/` - The 3D viewer application (native Three.js r0.164)
+  - `index.html` - Viewer template: Three.js `<canvas>` + importmap (three, addons, n8ao)
+  - `main.js` - Bootstrap: reads `?id`, loads the GLB, wires the measurement FAB, structures panel, theme toggle, share/AR
+  - `world.js` - Three.js scene: renderer, lighting + IBL, tone mapping, N8AO, OrbitControls, outline pass (see Rendering pipeline)
+  - `loader.js` - GLB fetch from Cloudflare R2 (`cases/{uid}.glb`), with a Sketchfab probe → `legacy/` fallback
+  - `dom.js` - DOM helpers: structures panel, loading/error overlays, measurement FAB + hint banner
+  - `measurement.js` / `volume.js` / `calibre.js` / `calibre-geom.js` - the three measurement modes (see Measurement Modes)
+  - `ar.js` - "Ver em AR" handoff (model-viewer)
+  - `legacy/` - the old Sketchfab-iframe viewer (`main.js`, `measure.js`, `opacity.js`, `mudaCor.js`, `laudo.js`, `mainLinhaLaudo.js`, `botao_video.js`), served as a fallback for cases that exist only on Sketchfab
 - `/upload/` - Clinician self-service upload page (talks to the `mesh-processor` backend)
   - `index.html` - Multi-file STL input, 4-state UI (idle / processing / done / error) with Tailwind CDN
   - `upload.js` - Posts files to `POST /upload`, then polls `GET /status/{uid}` until ready
 
 ### Key Technical Details
 
-**Sketchfab Integration**: The app uses Sketchfab Viewer API v1.9.0. The API instance is stored globally as `api` after initialization in `main.js`. All 3D interactions (materials, visibility, annotations) go through this API.
-
 **URL Parameters**:
-- `?id=MODEL_UID` - Load specific Sketchfab model
-- `?autospin=VALUE` - Auto-rotation speed (0.0 disables)
-- `?yt=VIDEO_ID` - Embed YouTube video with modal toggle
+- `?id=UID` - Load a case by UID. `loader.js` fetches `cases/{uid}.glb` from Cloudflare R2; on a 404 it probes the Sketchfab API and, if found, redirects to the `legacy/` Sketchfab viewer.
 
-**Theme System**: `mudaCor.js` handles dark/light mode by modifying multiple DOM elements and recalculating text luminance for readability.
+**Theme System (`/case/`)**: `main.js` (`initTheme`/`setTheme`/`toggleTheme`) toggles `html[data-theme]` — **dark by default**, persisted in `localStorage` under `medcase-viewer-theme`. CSS variables (`--w-*`, in `style.css`) flip per theme; `setTheme` also reads `--w-canvas-bg` and pushes it into the Three.js `scene.background` so the WebGL clear color tracks the CSS.
 
-**Measurement Tool**: Uses `getWorldToScreenCoordinates` from Sketchfab API to project 3D points to 2D, then draws SVG lines. Measurements auto-clear on camera movement.
+**Legacy Sketchfab viewer (`/case/legacy/`)**: the pre-Three.js viewer. Uses Sketchfab Viewer API v1.9.0 (global `api`), `mudaCor.js` for theming, and an SVG-overlay measurement tool via `getWorldToScreenCoordinates`. Supports `?autospin=` and `?yt=` params. Reached only via the R2-miss → Sketchfab fallback above.
+
+**Rendering pipeline (`/case/world.js`)**: image formation tuned for product/medical realism:
+- **Tone mapping**: `NeutralToneMapping` at `toneMappingExposure = 0.85` — faithful colors with a soft highlight rolloff (avoids ACESFilmic's cinematic desaturation and pure-white clipping).
+- **Image-based lighting**: a Polyhaven `studio_small_09_1k.hdr` (~1.6MB) is fetched at runtime from `dl.polyhaven.org`, PMREM-prefiltered into `scene.environment` (`environmentIntensity = 2.0`); its softboxes read as crisp studio highlights. A synthetic `RoomEnvironment` lights the first frames and stays as a graceful fallback if the HDR fetch fails. The HDR lights the scene only — it is never shown as a skybox.
+- **Light rig**: `HemisphereLight` + key + fill `DirectionalLight`s at moderate intensity — adds subtle direction and guarantees the magnifier's second `WebGLRenderer` (no shared PMREM env) is lit, without drowning the IBL or flattening the AO.
+- **Ambient occlusion**: `N8AOPass` (pmndrs/n8ao, screen-space) in the `EffectComposer` — softer/faster than the native SSAOPass; supplies the contact shadows that give concavities depth. `aoRadius`/`distanceFalloff` are rescaled to the model's bounding radius in `frameToScene()`.
+- **Background**: a flat `scene.background` kept in sync with the CSS `--w-canvas-bg` token via `setSceneBackground()` (light `#EDEFF2` / dark `#181818`), plus a soft radial vignette on `.vw-stage::before` (smoothstep falloff that eases out at the corners) for photographic depth.
 
 **Measurement Modes (`/case/` Three.js viewer)**: three modes share a FAB pill + dropdown:
 - **Linear** (`measurement.js`): 2-point Euclidean distance in mm, drawn as a Line2 with a label pill at the midpoint.
@@ -72,7 +76,10 @@ The backend URL is auto-detected from `window.location.hostname`: `localhost`/`1
 
 ### Dependencies (CDN-loaded)
 
-- Sketchfab Viewer API 1.9.0
+- Three.js 0.164.0 (unpkg) - the `/case/` viewer; addons via the `three/addons/` importmap entry
+- n8ao 1.9.4 (esm.sh, `?external=three`) - screen-space ambient occlusion pass
+- Polyhaven `studio_small_09_1k.hdr` - studio IBL fetched at runtime from `dl.polyhaven.org` (RoomEnvironment fallback if it fails)
+- Sketchfab Viewer API 1.9.0 - legacy `/case/legacy/` viewer only
 - Tailwind CSS (landing page only)
 - Google Fonts (Nunito Sans, Open Sans)
 - Google Tag Manager / Google Ads conversion tracking

@@ -47,7 +47,11 @@ html[data-theme="dark"] {
   --w-rule-strong:  rgba(242,243,244,0.18);
   --w-muted-fill:   rgba(242,243,244,0.06);
   --w-track-dim:    rgba(242,243,244,0.10);
-  --w-canvas-bg:    #000000;
+  /* Neutro puro (R=G=B). Em low-luminance qualquer viés cromático é
+     amplificado pelo olho — warm vira marrom, cool vira azul-tela.
+     #181818 dá um cinza muito escuro sem temperatura aparente, e a
+     vignette escurece os cantos até quase preto. */
+  --w-canvas-bg:    #181818;
   --w-pill-bg:      rgba(20,24,28,0.72);
   --w-menu-bg:      rgba(11,14,17,0.94);
 }
@@ -321,7 +325,23 @@ html[data-theme="dark"] .theme-toggle .ic-moon { display: inline-block; }
   inset: 0;
   pointer-events: none;
   z-index: 1;
-  background: radial-gradient(120% 60% at 50% 0%, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0) 60%);
+  /* Vignette radial puro, centrado, fixo na viewport. A cor base vem do
+     canvas (--w-canvas-bg); o gradiente só escurece os cantos pra dar
+     profundidade fotográfica. Curva tipo smoothstep (ease-in-out): a
+     inclinação cresce devagar, atinge o máximo no meio-externo e DESACELERA
+     ao chegar no canto — assim a transição "assenta" suave em vez de bater
+     no escuro. Muitos stops + delta pequeno entre eles eliminam banding. */
+  background: radial-gradient(ellipse 115% 105% at 50% 45%,
+    rgba(0, 0, 0, 0)    0%,
+    rgba(0, 0, 0, 0.03) 26%,
+    rgba(0, 0, 0, 0.08) 42%,
+    rgba(0, 0, 0, 0.16) 55%,
+    rgba(0, 0, 0, 0.27) 66%,
+    rgba(0, 0, 0, 0.40) 75%,
+    rgba(0, 0, 0, 0.53) 83%,
+    rgba(0, 0, 0, 0.66) 90%,
+    rgba(0, 0, 0, 0.75) 95%,
+    rgba(0, 0, 0, 0.82) 100%);
 }
 
 /* ============================================================
