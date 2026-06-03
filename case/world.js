@@ -83,7 +83,10 @@ export function init(canvasEl) {
   // o modelo iluminado em vez de preto.
   pmremGenerator = new THREE.PMREMGenerator(renderer);
   scene.environment = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
-  scene.environmentIntensity = 2.0;
+  // 1.0 (e não 2.0) — a 2.0 o HDR de estúdio estourava a pele e os reflexos do
+  // metal em branco puro, mesmo com exposure 0.85. 1.0 mantém os softboxes como
+  // highlights nítidos sem clipar.
+  scene.environmentIntensity = 1.0;
 
   // HDR studio (Polyhaven studio_small_09 — 3 softboxes visíveis no
   // equirect). Cada softbox vira um highlight nítido na superfície da
