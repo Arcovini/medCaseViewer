@@ -31,7 +31,7 @@ async function bootstrap() {
   }
 
   dom.showLoading(true);
-  const url = loader.buildGlbUrl(uid);
+  const url = await loader.resolveGlbUrl(uid);
 
   let root, byteLength;
   try {

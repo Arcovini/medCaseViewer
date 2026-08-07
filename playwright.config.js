@@ -5,7 +5,11 @@ export default defineConfig({
   testDir: "./tests",
   fullyParallel: false,
   reporter: "list",
-  timeout: 15_000,
+  // O projeto "desktop" sobe o viewer inteiro (GLB + WebGL + IBL) por teste, e o
+  // render loop do Three.js nunca fica ocioso: cada clique paga a checagem de
+  // estabilidade do Playwright. Testes de cor/medição levam 20–36s aqui, contra
+  // ~1,5s no projeto "mobile". Com 15s a suíte falhava por tempo, não por bug.
+  timeout: 45_000,
   use: {
     baseURL: "http://127.0.0.1:5505",
     trace: "retain-on-failure",

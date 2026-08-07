@@ -41,14 +41,19 @@ test("cada estrutura colorida ganha um swatch clicável", async ({ page }) => {
 
 test("clicar no swatch abre o popover de cor com o nome da estrutura", async ({ page }) => {
   await openViewer(page);
-  const { swatch, name } = await firstStructure(page);
+  const { swatch } = await firstStructure(page);
 
   const pop = page.locator('[data-testid="color-pop"]');
   await expect(pop).toBeHidden();
 
+  // Compara com o nome VISÍVEL da linha, não com data-structure-name: o
+  // GLTFLoader sanitiza espaços em "_" no id, e o painel dessanitiza para exibir
+  // (dom.displayLabel). O contrato para o clínico é o popover mostrar o mesmo
+  // texto da linha — o fixture tem "Art Renal Dir", com espaços.
+  const visivel = (await page.locator(".structure-name").first().textContent()).trim();
   await swatch.click();
   await expect(pop).toBeVisible();
-  await expect(page.locator('[data-testid="color-pop-name"]')).toHaveText(name);
+  await expect(page.locator('[data-testid="color-pop-name"]')).toHaveText(visivel);
   await expect(swatch).toHaveAttribute("aria-expanded", "true");
 });
 
