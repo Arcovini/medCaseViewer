@@ -50,6 +50,58 @@
             Se ela estiver inteiramente dentro da referência, só a peça de dentro
             é criada.
           </p>
+
+          <!-- Diagrama antes → depois. Mesmas cores dos chips de prévia:
+               azul = referência, cinza = peça de fora, amarelo = destaque.
+               As formas "depois" são recortes reais (clip/mask dos dois círculos),
+               não desenhos aproximados. -->
+          <svg viewBox="0 0 300 96" role="img" class="mx-auto mt-3 block w-full max-w-[340px]"
+            aria-label="Duas estruturas sobrepostas viram três peças: a referência inteira, a parte de fora e a parte de dentro destacada.">
+            <defs>
+              <clipPath id="bool-clip-dentro"><circle cx="0" cy="0" r="28" /></clipPath>
+              <mask id="bool-mask-fora">
+                <rect x="-60" y="-40" width="160" height="80" fill="white" />
+                <!-- A referência fica em (0,0) no sistema local, igual ao clip -->
+                <circle cx="0" cy="0" r="28" fill="black" />
+              </mask>
+            </defs>
+
+            <!-- Antes: as duas estruturas sobrepostas -->
+            <g transform="translate(48,44)">
+              <circle cx="0" cy="0" r="28" fill="#EFF6FF" stroke="#60A5FA" stroke-width="1.5" />
+              <circle cx="33" cy="0" r="21" fill="#F9FAFB" fill-opacity="0.75"
+                stroke="#9CA3AF" stroke-width="1.5" />
+              <text x="-4" y="42" text-anchor="middle" font-size="9" fill="#1D4ED8">referência</text>
+              <text x="40" y="-28" text-anchor="middle" font-size="9" fill="#4B5563">a dividir</text>
+            </g>
+
+            <!-- Seta -->
+            <g stroke="#9CA3AF" stroke-width="1.5" fill="none" stroke-linecap="round">
+              <path d="M118 44 h18" />
+              <path d="M132 39 l6 5 l-6 5" />
+            </g>
+
+            <!-- Depois: três peças separadas -->
+            <g transform="translate(172,44)">
+              <circle cx="0" cy="0" r="28" fill="#EFF6FF" stroke="#60A5FA" stroke-width="1.5" />
+              <text x="0" y="42" text-anchor="middle" font-size="9" fill="#1D4ED8">fica inteira</text>
+            </g>
+            <!-- dentro: lente (B recortada por A), deslocada para separar -->
+            <g transform="translate(190,44)">
+              <g clip-path="url(#bool-clip-dentro)">
+                <circle cx="33" cy="0" r="21" fill="#FDE047" stroke="#CA8A04" stroke-width="1.5" />
+              </g>
+              <text x="20" y="-28" text-anchor="middle" font-size="9" font-weight="600" fill="#A16207">dentro</text>
+            </g>
+            <!-- fora: crescente (B menos A), deslocada mais -->
+            <g transform="translate(208,44)">
+              <g mask="url(#bool-mask-fora)">
+                <circle cx="33" cy="0" r="21" fill="#F9FAFB" stroke="#9CA3AF" stroke-width="1.5" />
+              </g>
+              <text x="44" y="36" text-anchor="middle" font-size="9" fill="#4B5563">fora</text>
+            </g>
+          </svg>
+
           <ul id="bool-list" class="mt-3 space-y-3"></ul>
 
           <!-- Única forma de criar uma divisão, sempre no corpo da seção logo
