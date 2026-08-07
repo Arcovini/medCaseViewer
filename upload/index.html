@@ -36,27 +36,29 @@
 
         <ul id="file-list" class="mt-4 space-y-1 text-sm text-gray-700"></ul>
 
-        <!-- Interações booleanas: visível apenas com 2+ STLs selecionados -->
+        <!-- Divisão de estruturas (dentro/fora): visível apenas com 2+ STLs selecionados -->
         <section id="bool-section" hidden class="mt-6 border-t border-gray-200 pt-5">
-          <div class="flex items-center justify-between gap-4">
+          <!-- Empilha no mobile: lado a lado o título quebraria em 3 linhas a 375px -->
+          <div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
             <h2 class="text-sm font-semibold text-gray-900">
-              Interações booleanas <span class="font-normal text-gray-400">(opcional)</span>
+              Dividir uma estrutura pela outra
+              <span class="font-normal text-gray-500">(opcional)</span>
             </h2>
             <button id="btn-add-bool" type="button"
-              class="shrink-0 text-sm font-semibold text-blue-600 hover:text-blue-700
-                     disabled:text-gray-300 disabled:cursor-not-allowed">
-              + Adicionar interação
+              class="self-start shrink-0 text-sm font-semibold text-blue-600 hover:text-blue-700
+                     disabled:text-gray-400 disabled:cursor-not-allowed">
+              + Adicionar divisão
             </button>
           </div>
-          <p class="mt-1 text-xs leading-relaxed text-gray-500">
-            A estrutura <strong>principal</strong> permanece intacta. A
-            <strong>secundária</strong> é dividida em duas partes: o que fica fora da
-            principal (recorte) e a <strong>interseção</strong> entre as duas, que vira
-            uma nova estrutura destacada no visualizador.
+          <p class="mt-1 text-xs leading-relaxed text-gray-600">
+            A estrutura de <strong>referência</strong> fica inteira. A estrutura
+            <strong>a dividir</strong> é separada em duas peças: dentro e fora da
+            referência. A parte de dentro vira uma nova estrutura destacada no
+            visualizador. Ex.: a porção do tumor que está dentro do rim.
           </p>
           <ul id="bool-list" class="mt-3 space-y-3"></ul>
           <p id="bool-warning" hidden class="mt-2 text-xs font-medium text-red-600">
-            Há interações duplicadas — remova a repetição para processar.
+            Há divisões repetidas. Remova a repetição para processar.
           </p>
         </section>
 
