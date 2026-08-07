@@ -10,11 +10,13 @@ import * as measurement from "./measurement.js";
 import * as volume from "./volume.js";
 import * as calibre from "./calibre.js";
 import * as ar from "./ar.js";
+import * as color from "./color.js";
 
 let measurementApi = null;
 let volumeApi = null;
 let calibreApi = null;
 let fab = null;
+let colorPicker = null;
 
 async function bootstrap() {
   const params = new URLSearchParams(window.location.search);
@@ -116,7 +118,24 @@ async function bootstrap() {
     color: world.getMeshColor(name),
   }));
 
+  // Popover de cor — uma única instância DOM reusada por todas as linhas.
+  // `onPick` é chamado ao vivo (inclusive durante o arraste no seletor
+  // nativo), então a malha repinta em tempo real na cena.
+  colorPicker = color.mountColorPicker({
+    onPick: (name, hex) => {
+      if (world.setMeshColor(name, hex)) dom.setSwatchColor(name, hex);
+    },
+  });
+
   dom.renderStructures(structures, {
+    onColorClick: (name, anchorEl) => {
+      colorPicker.openFor({
+        anchorEl,
+        name,
+        currentHex: world.getMeshColor(name),
+        originalHex: world.getMeshOriginalColor(name),
+      });
+    },
     onToggle: (name, visible) => {
       // setVisibility(true) re-applies the restored opacity to material; must precede getMeshOpacity.
       world.setVisibility(name, visible);
@@ -349,4 +368,5 @@ if (window.__playwrightTest) {
   Object.defineProperty(window, "__measurement", { get: () => measurementApi });
   Object.defineProperty(window, "__volume", { get: () => volumeApi });
   Object.defineProperty(window, "__calibre", { get: () => calibreApi });
+  Object.defineProperty(window, "__colorPicker", { get: () => colorPicker });
 }

@@ -70,6 +70,7 @@ Chrome debugging is pre-configured in `.vscode/launch.json` for `http://localhos
 
 **Upload flow (`/upload/`)**: Two-phase to accommodate Sketchfab's async server-side processing:
 1. `POST /upload` with a `FormData` containing each STL under the repeated field name `files` (not `files[]`). Response is immediate and contains `{uid, viewer_url, ...}`.
+   - **Interações booleanas** (STL-only, 2+ files): an optional section lets the clinician configure ordered pairs (principal A, secondary B). The backend keeps A intact, replaces B with B−A and adds a highlighted `Intersecao B x A` mesh. The pairs travel in the optional `boolean_ops` form field as JSON `[{"principal": "<filename>", "secondary": "<filename>"}]` (original filenames); old backends ignore the field. Duplicate pairs block the Processar button; changing the file selection drops orphaned pairs.
 2. Poll `GET /status/{uid}` every 3s until `ready: true`; only then present the viewer URL to the clinician.
 
 The backend URL is auto-detected from `window.location.hostname`: `localhost`/`127.0.0.1` → `http://localhost:8000` (dev), anything else → the Railway production URL. One constant at the top of `upload.js`; changing hosts is a one-line edit. Client-side file-size cap is 60MB total (mirrors the server). Error messages are rendered as-is from the backend's `detail` field — the backend writes them in Portuguese for the clinician.

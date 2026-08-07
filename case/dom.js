@@ -24,16 +24,42 @@ export function clearError() {
 }
 
 export function renderStructures(structures, callbacks) {
-  const { onToggle, onOpacityChange } = callbacks;
+  const { onToggle, onOpacityChange, onColorClick } = callbacks;
   list.innerHTML = "";
 
   for (const { name, color } of structures) {
     const li = document.createElement("li");
+    li.dataset.structureName = name;
     if (color) li.style.setProperty("--struct-color", color);
 
-    // Linha 1: nome + olho
+    // Linha 1: swatch + nome + olho
     const rowMain = document.createElement("div");
     rowMain.className = "structure-row-main";
+
+    // A barrinha colorida à esquerda da linha é o botão de troca de cor.
+    // Só existe pra malha de cor chapada — a texturizada não tem cor editável
+    // (world.getMeshColor devolve null), então a linha fica sem faixa.
+    if (color && onColorClick) {
+      const swatch = document.createElement("button");
+      swatch.type = "button";
+      swatch.className = "struct-swatch";
+      swatch.dataset.structureName = name;
+      swatch.dataset.testid = "struct-swatch";
+      swatch.setAttribute("aria-label", `Alterar cor de ${name}`);
+      swatch.setAttribute("aria-haspopup", "dialog");
+      swatch.setAttribute("aria-expanded", "false");
+      swatch.title = "Alterar cor";
+      swatch.innerHTML = `<span class="struct-swatch-bar"></span>`;
+      swatch.addEventListener("click", () => onColorClick(name, swatch));
+      li.appendChild(swatch);
+    } else if (color) {
+      // Sem handler de cor (ex.: testes que montam o painel isolado) a faixa
+      // continua sendo desenhada, só que inerte.
+      const bar = document.createElement("span");
+      bar.className = "struct-swatch struct-swatch-static";
+      bar.innerHTML = `<span class="struct-swatch-bar"></span>`;
+      li.appendChild(bar);
+    }
 
     const labelEl = document.createElement("span");
     labelEl.className = "structure-name";
@@ -96,6 +122,14 @@ export function setEyeState(name, visible) {
     img.src = visible ? EYE_ON : EYE_OFF;
     img.alt = visible ? "Visível" : "Oculto";
   }
+}
+
+// A faixa colorida lê `--struct-color` do <li>, então trocar a variável
+// atualiza o swatch sem tocar em nenhum outro nó.
+export function setSwatchColor(name, hex) {
+  const li = list.querySelector(`li[data-structure-name="${CSS.escape(name)}"]`);
+  if (!li) return;
+  li.style.setProperty("--struct-color", hex);
 }
 
 export function setSliderValue(name, value) {

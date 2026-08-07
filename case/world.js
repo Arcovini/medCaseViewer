@@ -24,6 +24,7 @@ let aoPass;              // N8AOPass — ambient occlusion screen-space moderno;
 let pmremGenerator;
 const namedMeshes = new Map();
 const lastOpacity = new Map();   // name -> último valor não-zero (default fallback é 1.0)
+const originalColors = new Map(); // name -> hex do GLB, capturado no mount (null se texturizada)
 const lineMaterials = new Set(); // pra atualizar resolution no resize (Line2 precisa disso)
 let mountedRoot = null;
 let _initialCameraDistance = null;
@@ -238,6 +239,7 @@ export function mount(rootObject) {
 
   namedMeshes.clear();
   lastOpacity.clear();
+  originalColors.clear();
   rootObject.traverse((child) => {
     if (child.isMesh && child.name) {
       // Clone material per-mesh so opacity changes on one mesh cannot
@@ -250,6 +252,14 @@ export function mount(rootObject) {
       child.material.transparent = true;
       child.material.depthWrite = true;
       namedMeshes.set(child.name, child);
+      // Guarda a cor original do GLB antes de qualquer recolorização do painel,
+      // pra que "Restaurar" volte ao que o mesh-processor pintou no upload.
+      originalColors.set(
+        child.name,
+        (child.material.color && !child.material.map)
+          ? "#" + child.material.color.getHexString()
+          : null,
+      );
     }
   });
 }
@@ -321,6 +331,31 @@ export function getMeshColor(name) {
   // skip the --struct-color override and fall through to neutral chrome.
   if (mesh.material.map) return null;
   return "#" + mesh.material.color.getHexString();
+}
+
+// Cor com que o GLB chegou (antes de qualquer edição no painel), ou null se a
+// malha for texturizada / sem `material.color`. Alimenta o botão "Restaurar".
+export function getMeshOriginalColor(name) {
+  return originalColors.get(name) ?? null;
+}
+
+// Só malhas de cor chapada podem ser repintadas. Numa malha texturizada o
+// `material.color` é só um fator multiplicativo sobre o baseColorTexture —
+// mexer nele tingiria a textura em vez de trocar a cor, então bloqueamos.
+export function isMeshRecolorable(name) {
+  const mesh = namedMeshes.get(name);
+  return !!(mesh && mesh.material.color && !mesh.material.map);
+}
+
+// Repinta a malha. `hex` é uma string CSS sRGB ("#RRGGBB"); Color.set converte
+// pro working color space do renderer, então o round-trip com getMeshColor()
+// (getHexString, também sRGB) é consistente. Retorna false se a malha não
+// existe ou não é recolorível.
+export function setMeshColor(name, hex) {
+  const mesh = namedMeshes.get(name);
+  if (!mesh || !mesh.material.color || mesh.material.map) return false;
+  mesh.material.color.set(hex);
+  return true;
 }
 
 export function getMeshNames() {
