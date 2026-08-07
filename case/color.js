@@ -3,6 +3,8 @@
 // Não conhece Three.js: fala em nome da estrutura (string) e hex sRGB
 // ("#RRGGBB"). main.js liga o callback `onPick` ao world.setMeshColor.
 
+import { displayLabel } from "./dom.js";
+
 // Espelha a paleta do backend (mesh-processor/processor.py: COLORS_BY_KEYWORD,
 // METAL_COLOR e FALLBACK_COLORS). Manter os mesmos hexes garante que uma
 // estrutura repintada à mão no viewer fique idêntica a uma que já tivesse
@@ -121,7 +123,7 @@ export function mountColorPicker({ onPick }) {
     _originalHex = norm(originalHex);
     _currentHex = norm(currentHex) || _originalHex || "#ffffff";
 
-    nameEl.textContent = name;
+    nameEl.textContent = displayLabel(name);
     customEl.value = _currentHex;
     markSelection();
 

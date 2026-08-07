@@ -9,6 +9,13 @@ const errorEl = document.getElementById("error");
 const EYE_ON = "./eye_icon.svg";
 const EYE_OFF = "./eye_off_icon.svg";
 
+// O GLTFLoader do Three.js sanitiza nomes de nó (PropertyBinding.sanitizeNodeName)
+// trocando espaços por "_", para não quebrar o binding de animação. O backend
+// grava nomes com espaço ("Tumor dentro de Rim", "arteria renal"), então sem
+// isto o painel mostraria "Tumor_dentro_de_Rim". O nome sanitizado continua
+// sendo o identificador (dataset, lookups, world.js); só o texto visível muda.
+export const displayLabel = (name) => name.replace(/_/g, " ");
+
 export function showLoading(visible) {
   loadingEl.hidden = !visible;
 }
@@ -28,6 +35,7 @@ export function renderStructures(structures, callbacks) {
   list.innerHTML = "";
 
   for (const { name, color } of structures) {
+    const label = displayLabel(name);
     const li = document.createElement("li");
     li.dataset.structureName = name;
     if (color) li.style.setProperty("--struct-color", color);
@@ -45,7 +53,7 @@ export function renderStructures(structures, callbacks) {
       swatch.className = "struct-swatch";
       swatch.dataset.structureName = name;
       swatch.dataset.testid = "struct-swatch";
-      swatch.setAttribute("aria-label", `Alterar cor de ${name}`);
+      swatch.setAttribute("aria-label", `Alterar cor de ${label}`);
       swatch.setAttribute("aria-haspopup", "dialog");
       swatch.setAttribute("aria-expanded", "false");
       swatch.title = "Alterar cor";
@@ -63,7 +71,8 @@ export function renderStructures(structures, callbacks) {
 
     const labelEl = document.createElement("span");
     labelEl.className = "structure-name";
-    labelEl.textContent = name;
+    labelEl.textContent = label;
+    labelEl.title = label; // nomes de divisão são longos e o painel trunca com ellipsis
 
     const btn = document.createElement("button");
     btn.type = "button";
@@ -99,7 +108,7 @@ export function renderStructures(structures, callbacks) {
     slider.value = "1";
     slider.className = "opacity-slider";
     slider.dataset.structureName = name;
-    slider.setAttribute("aria-label", `Opacidade de ${name}`);
+    slider.setAttribute("aria-label", `Opacidade de ${label}`);
 
     slider.addEventListener("input", () => {
       onOpacityChange(name, parseFloat(slider.value));
@@ -517,7 +526,8 @@ export function mountLoupe() {
     },
     setLabel(text) {
       if (text) {
-        labelEl.textContent = text;
+        // Recebe o nome da malha; mesma dessanitização do painel de estruturas.
+        labelEl.textContent = displayLabel(text);
         labelEl.hidden = false;
       } else {
         labelEl.hidden = true;
