@@ -148,6 +148,11 @@ function renderBoolSection() {
   boolOps.forEach((op, i) => {
     list.appendChild(buildBoolCard(op, i, counts[opKey(op)] > 1, previews[i]));
   });
+  // Vazio: o botão é o convite a configurar. Com divisões já criadas, ele passa
+  // a ser "adicionar outra".
+  $("btn-add-bool-label").textContent = boolOps.length
+    ? "Adicionar outra divisão"
+    : "Escolher estruturas para dividir";
   $("btn-add-bool").disabled = firstUnusedPair() === null;
   updateProcessState();
 }
