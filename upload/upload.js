@@ -103,6 +103,27 @@ function firstUnusedPair() {
   return null;
 }
 
+// Nomes finais de cada peça, na ordem em que o backend aplica as divisões
+// (processor._apply_boolean_ops). Divisões encadeadas compõem: dividir o tumor
+// pelo rim e depois pela coluna dá "Tumor fora de Rim fora de Coluna", não
+// "Tumor fora de Coluna" — por isso a prévia acompanha o nome corrente de cada
+// estrutura em vez de usar o nome do arquivo.
+//
+// Previsão de melhor caso: se a peça de fora sair vazia (a estrutura está toda
+// dentra da referência) o backend a descarta e só a peça de dentro permanece.
+// Isso depende da geometria, que a tela não conhece.
+function previewNames(ops) {
+  const atual = {};
+  for (const f of selectedFiles) atual[f.name] = displayName(f.name);
+  return ops.map((op) => {
+    const a = atual[op.principal] ?? displayName(op.principal);
+    const b = atual[op.secondary] ?? displayName(op.secondary);
+    const fora = `${b} fora de ${a}`;
+    atual[op.secondary] = fora;
+    return { a, b, fora, dentro: `${b} dentro de ${a}` };
+  });
+}
+
 function renderBoolSection() {
   const section = $("bool-section");
   if (!boolAvailable()) {
@@ -121,10 +142,11 @@ function renderBoolSection() {
   const counts = {};
   for (const op of boolOps) counts[opKey(op)] = (counts[opKey(op)] || 0) + 1;
 
+  const previews = previewNames(boolOps);
   const list = $("bool-list");
   list.innerHTML = "";
   boolOps.forEach((op, i) => {
-    list.appendChild(buildBoolCard(op, i, counts[opKey(op)] > 1));
+    list.appendChild(buildBoolCard(op, i, counts[opKey(op)] > 1, previews[i]));
   });
   $("btn-add-bool").disabled = firstUnusedPair() === null;
   updateProcessState();
@@ -158,7 +180,7 @@ function buildBoolChip(text, colorClasses) {
   return span;
 }
 
-function buildBoolCard(op, index, duplicated) {
+function buildBoolCard(op, index, duplicated, preview) {
   const names = selectedFiles.map((f) => f.name);
   // `relative` + `pr-9` reservam o canto para o botão remover posicionado
   // abaixo: ancorado no cartão, ele lê como "remover esta divisão" nos dois
@@ -198,8 +220,7 @@ function buildBoolCard(op, index, duplicated) {
     field("A dividir · dentro e fora", selSecondary),
   );
 
-  const a = displayName(op.principal);
-  const b = displayName(op.secondary);
+  const { a, b, fora, dentro } = preview;
   const remove = document.createElement("button");
   remove.type = "button";
   remove.textContent = "✕";
@@ -216,17 +237,17 @@ function buildBoolCard(op, index, duplicated) {
     renderBoolSection();
   });
 
-  // Os dois últimos chips mostram exatamente os nomes que as novas peças terão
-  // na lista de estruturas do visualizador.
-  const preview = document.createElement("div");
-  preview.className = "mt-2 flex flex-wrap gap-1.5";
-  preview.append(
+  // Os dois últimos chips mostram os nomes que as peças terão na lista de
+  // estruturas do visualizador, já com o encadeamento aplicado (ver previewNames).
+  const chips = document.createElement("div");
+  chips.className = "mt-2 flex flex-wrap gap-1.5";
+  chips.append(
     buildBoolChip(`${a} · fica inteira`, "border-blue-200 bg-blue-50 text-blue-700"),
-    buildBoolChip(`${b} fora de ${a}`, "border-gray-300 bg-white text-gray-600"),
-    buildBoolChip(`${b} dentro de ${a} · destaque`, "border-yellow-300 bg-yellow-50 text-yellow-800"),
+    buildBoolChip(fora, "border-gray-300 bg-white text-gray-600"),
+    buildBoolChip(`${dentro} · destaque`, "border-yellow-300 bg-yellow-50 text-yellow-800"),
   );
 
-  li.append(remove, row, preview);
+  li.append(remove, row, chips);
   return li;
 }
 
