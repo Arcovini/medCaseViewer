@@ -8,6 +8,14 @@
   <meta name="description"
     content="Envio de estruturas anatômicas 3D para geração de link de visualização." />
   <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* O atributo `hidden` vale display:none por estilo do navegador, que perde
+       para qualquer classe de display do Tailwind (`flex`, `grid`, `block`).
+       Sem isto, um elemento com `hidden class="flex"` continua visível — foi o
+       que aconteceu com a trilha de passos. Esta página toda controla
+       visibilidade por `hidden`, então a regra vale para todos. */
+    [hidden] { display: none !important; }
+  </style>
 </head>
 
 <body class="bg-white min-h-screen flex flex-col">
@@ -19,28 +27,49 @@
     <div class="w-full max-w-xl bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
 
       <h1 class="text-2xl font-bold text-gray-900 mb-2">Enviar um novo caso</h1>
-      <p class="text-sm text-gray-600 mb-6">
+      <p id="intro-files" class="text-sm text-gray-600 mb-6">
         Selecione os arquivos <strong>STL</strong> ou <strong>OBJ</strong> das estruturas anatômicas deste caso.
         Eles serão combinados em um único modelo 3D interativo.
       </p>
 
-      <!-- STATE: IDLE -->
+      <!-- STATE: IDLE — dois passos: arquivos, depois divisão de estruturas -->
       <section id="state-idle">
-        <label for="file-input" class="block mb-2 text-sm font-medium text-gray-700">Arquivos do caso</label>
-        <input id="file-input" type="file"
-          accept=".stl,.STL,.obj,.OBJ,.mtl,.MTL,.jpg,.JPG,.jpeg,.JPEG,.png,.PNG,.zip,.ZIP" multiple
-          class="block w-full text-sm text-gray-600
-                 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0
-                 file:text-sm file:font-semibold
-                 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer" />
 
-        <ul id="file-list" class="mt-4 space-y-1 text-sm text-gray-700"></ul>
+        <!-- Trilha de passos. Só aparece quando o passo 2 existe (2+ STLs): num
+             envio de um arquivo só, ou num bundle OBJ, não há o que dividir e a
+             numeração seria ruído. <ol> porque é uma sequência de verdade. -->
+        <ol id="stepper" hidden class="mb-6 flex items-center gap-2 text-xs font-medium">
+          <li id="step-1-chip" class="flex items-center gap-1.5">
+            <span data-role="num"
+              class="flex h-5 w-5 items-center justify-center rounded-full text-[11px]">1</span>
+            <span data-role="text">Arquivos</span>
+          </li>
+          <li aria-hidden="true" class="h-px w-6 bg-gray-300"></li>
+          <li id="step-2-chip" class="flex items-center gap-1.5">
+            <span data-role="num"
+              class="flex h-5 w-5 items-center justify-center rounded-full text-[11px]">2</span>
+            <span data-role="text">Divisões</span>
+          </li>
+        </ol>
 
-        <!-- Divisão de estruturas (dentro/fora): visível apenas com 2+ STLs selecionados -->
-        <section id="bool-section" hidden class="mt-6 border-t border-gray-200 pt-5">
-          <h2 class="text-sm font-semibold text-gray-900">
+        <!-- PASSO 1 -->
+        <div id="step-files">
+          <label for="file-input" class="block mb-2 text-sm font-medium text-gray-700">Arquivos do caso</label>
+          <input id="file-input" type="file"
+            accept=".stl,.STL,.obj,.OBJ,.mtl,.MTL,.jpg,.JPG,.jpeg,.JPEG,.png,.PNG,.zip,.ZIP" multiple
+            class="block w-full text-sm text-gray-600
+                   file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0
+                   file:text-sm file:font-semibold
+                   file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer" />
+
+          <ul id="file-list" class="mt-4 space-y-1 text-sm text-gray-700"></ul>
+        </div>
+
+        <!-- PASSO 2 — divisão de estruturas (dentro/fora) -->
+        <section id="bool-section" hidden>
+          <h2 class="text-base font-semibold text-gray-900">
             Dividir uma estrutura pela outra
-            <span class="font-normal text-gray-500">(opcional)</span>
+            <span class="text-sm font-normal text-gray-500">(opcional)</span>
           </h2>
           <p class="mt-1 text-xs leading-relaxed text-gray-600">
             A estrutura de <strong>referência</strong> fica inteira. A estrutura
@@ -122,11 +151,27 @@
           </p>
         </section>
 
-        <button id="btn-process" disabled
-          class="mt-6 w-full bg-blue-600 text-white font-semibold py-3 rounded-md
-                 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition">
-          Processar
-        </button>
+        <!-- Rodapé compartilhado pelos dois passos: a ação primária fica sempre
+             no mesmo lugar, e só um botão de processar existe no documento. -->
+        <div class="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
+          <button id="btn-back" type="button" hidden
+            class="rounded-md border border-gray-300 px-4 py-3 text-sm font-semibold
+                   text-gray-700 hover:bg-gray-50 sm:w-auto">
+            Voltar
+          </button>
+          <button id="btn-continue" type="button" hidden
+            class="flex-1 rounded-md bg-blue-600 py-3 font-semibold text-white
+                   transition hover:bg-blue-700
+                   disabled:cursor-not-allowed disabled:bg-gray-300">
+            Continuar
+          </button>
+          <button id="btn-process" disabled
+            class="flex-1 rounded-md bg-blue-600 py-3 font-semibold text-white
+                   transition hover:bg-blue-700
+                   disabled:cursor-not-allowed disabled:bg-gray-300">
+            Processar
+          </button>
+        </div>
       </section>
 
       <!-- STATE: PROCESSING -->

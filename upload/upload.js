@@ -35,12 +35,68 @@ const sections = {
 
 let selectedFiles = [];
 let boolOps = []; // [{principal: filename, secondary: filename}] — ver seção abaixo
+let step = "files"; // "files" | "divide"
 let messageTimer = null;
 let longWaitTimer = null;
 let pollTimer = null;
 
 function show(state) {
   for (const [name, el] of Object.entries(sections)) el.hidden = name !== state;
+}
+
+/* ---------------- Passos ----------------
+ * Passo 1 escolhe os arquivos, passo 2 configura as divisões. É só navegação de
+ * tela: o envio continua sendo UM único POST /upload no fim, com os arquivos e
+ * o campo boolean_ops juntos. O backend é stateless (sem sessão nem banco), e
+ * subir os arquivos já no passo 1 exigiria estado no servidor.
+ *
+ * O passo 2 só existe quando há o que dividir (2+ STLs). Num arquivo único ou
+ * num bundle OBJ o fluxo é de uma tela só, como antes.
+ */
+
+const STEP_CHIP_ON = "bg-blue-600 text-white";
+const STEP_CHIP_OFF = "bg-gray-200 text-gray-600";
+const STEP_TEXT_ON = "text-gray-900";
+const STEP_TEXT_OFF = "text-gray-500";
+
+function paintStepChip(chipId, active) {
+  const chip = $(chipId);
+  const num = chip.querySelector('[data-role="num"]');
+  const text = chip.querySelector('[data-role="text"]');
+  num.className = `flex h-5 w-5 items-center justify-center rounded-full text-[11px] ${
+    active ? STEP_CHIP_ON : STEP_CHIP_OFF
+  }`;
+  text.className = active ? STEP_TEXT_ON : STEP_TEXT_OFF;
+  chip.setAttribute("aria-current", active ? "step" : "false");
+}
+
+function renderStep() {
+  const dividable = boolAvailable();
+  const onDivide = step === "divide" && dividable;
+
+  $("stepper").hidden = !dividable;
+  $("step-files").hidden = onDivide;
+  $("intro-files").hidden = onDivide;
+  $("bool-section").hidden = !onDivide;
+
+  paintStepChip("step-1-chip", !onDivide);
+  paintStepChip("step-2-chip", onDivide);
+
+  // Passo 1 com divisão possível avança; sem divisão possível processa direto,
+  // para não impor um passo vazio a quem envia um arquivo só ou um OBJ.
+  const showContinue = !onDivide && dividable;
+  $("btn-continue").hidden = !showContinue;
+  $("btn-continue").disabled = selectedFiles.length === 0;
+  $("btn-process").hidden = showContinue;
+  $("btn-back").hidden = !onDivide;
+}
+
+function goToStep(next) {
+  step = next;
+  renderStep();
+  renderBoolSection();
+  // A tela troca de conteúdo: sem isto o clínico cai no meio do passo novo.
+  window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 function renderFileList() {
@@ -58,7 +114,7 @@ function renderFileList() {
     li.append(name, size);
     list.appendChild(li);
   }
-  renderBoolSection(); // também atualiza o estado do botão Processar
+  renderBoolSection(); // também atualiza o estado dos botões do rodapé
 }
 
 /* ---------------- Divisão de estruturas (dentro/fora) ----------------
@@ -110,7 +166,7 @@ function firstUnusedPair() {
 // estrutura em vez de usar o nome do arquivo.
 //
 // Previsão de melhor caso: se a peça de fora sair vazia (a estrutura está toda
-// dentra da referência) o backend a descarta e só a peça de dentro permanece.
+// dentro da referência) o backend a descarta e só a peça de dentro permanece.
 // Isso depende da geometria, que a tela não conhece.
 function previewNames(ops) {
   const atual = {};
@@ -124,11 +180,16 @@ function previewNames(ops) {
   });
 }
 
+// Monta a lista de divisões. Quem decide a visibilidade da seção é renderStep;
+// aqui só cuidamos do conteúdo e do estado dos botões.
 function renderBoolSection() {
-  const section = $("bool-section");
   if (!boolAvailable()) {
     boolOps = [];
-    section.hidden = true;
+    // Seleção deixou de ser divisível (ex.: trocou os STLs por um OBJ) enquanto
+    // o passo 2 estava aberto: volta para os arquivos em vez de travar numa
+    // tela sem sentido.
+    if (step === "divide") step = "files";
+    renderStep();
     updateProcessState();
     return;
   }
@@ -137,7 +198,7 @@ function renderBoolSection() {
   boolOps = boolOps.filter(
     (op) => names.includes(op.principal) && names.includes(op.secondary),
   );
-  section.hidden = false;
+  renderStep();
 
   const counts = {};
   for (const op of boolOps) counts[opKey(op)] = (counts[opKey(op)] || 0) + 1;
@@ -303,6 +364,7 @@ function reset() {
   resetTimers();
   selectedFiles = [];
   boolOps = [];
+  step = "files";
   $("file-input").value = "";
   renderFileList();
   show("idle");
@@ -380,9 +442,14 @@ async function process() {
 // Wire up events
 $("file-input").addEventListener("change", (e) => {
   selectedFiles = Array.from(e.target.files);
+  // Trocar os arquivos recomeça do passo 1: as divisões antigas não valem mais.
+  boolOps = [];
+  step = "files";
   renderFileList();
 });
 
+$("btn-continue").addEventListener("click", () => goToStep("divide"));
+$("btn-back").addEventListener("click", () => goToStep("files"));
 $("btn-process").addEventListener("click", process);
 $("btn-new").addEventListener("click", reset);
 $("btn-retry").addEventListener("click", reset);
@@ -410,3 +477,6 @@ $("btn-copy").addEventListener("click", async () => {
     btn.textContent = original;
   }, 2000);
 });
+
+// Estado inicial: passo 1, sem trilha de passos (nada selecionado ainda).
+renderStep();

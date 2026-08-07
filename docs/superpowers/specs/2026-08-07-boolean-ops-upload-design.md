@@ -102,9 +102,22 @@ boolean_ops = '[{"principal": "<filename.stl>", "secondary": "<filename.stl>"}]'
 
 ## UI (`/upload/index.html` + `upload.js`)
 
-Seção **"Dividir uma estrutura pela outra (opcional)"** entre a lista de
-arquivos e o botão Processar, visível apenas quando ≥2 STLs estão selecionados
-(some no fluxo OBJ).
+**Assistente de dois passos** dentro da mesma página: passo 1 escolhe os
+arquivos, passo 2 configura as divisões. É só navegação de tela — o envio
+continua sendo um único `POST /upload` no fim, com arquivos e `boolean_ops`
+juntos, porque o backend é stateless (subir no passo 1 exigiria sessão/banco).
+
+O passo 2 e a trilha de passos só existem quando há o que dividir (≥2 STLs);
+com um arquivo só ou um bundle OBJ o fluxo é de uma tela, com `Processar` já no
+passo 1, sem impor um passo vazio. `Voltar` preserva as divisões configuradas;
+trocar os arquivos recomeça do passo 1 e descarta as divisões.
+
+A trilha usa numeração (1 Arquivos → 2 Divisões) porque é uma sequência real, e
+`aria-current="step"` marca onde o clínico está.
+
+Seção **"Dividir uma estrutura pela outra (opcional)"** no passo 2, com um
+diagrama SVG antes→depois (dois círculos sobrepostos viram referência inteira,
+lente "dentro" amarela e crescente "fora" cinza; recortes reais via clip/mask).
 
 - Um cartão por divisão: select **Referência · fica inteira** + select
   **A dividir · dentro e fora** + botão remover.
@@ -113,8 +126,11 @@ arquivos e o botão Processar, visível apenas quando ≥2 STLs estão seleciona
 - Prévia em chips com os **nomes finais** das peças: `A · fica inteira` /
   `B fora de A` / `B dentro de A · destaque` (amarelo).
 - Par repetido → cartão em vermelho + Processar desabilitado + aviso.
-- "+ Adicionar divisão" cria um cartão com o primeiro par ainda não usado;
-  desabilita quando todos os pares foram usados.
+- O botão de criar divisão fica no corpo da seção, largura cheia e borda
+  tracejada: "Escolher estruturas para dividir" quando não há nenhuma,
+  "Adicionar outra divisão" depois. Como link discreto no canto do título,
+  ninguém o associava a "escolher quais estruturas" e rolava a tela procurando
+  controles inexistentes. Desabilita quando todos os pares foram usados.
 - Trocar a seleção de arquivos reconcilia: divisões órfãs são descartadas.
 - "Dividindo estruturas em dentro e fora..." entra no rotator de status quando
   há divisões configuradas.
