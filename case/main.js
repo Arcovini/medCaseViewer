@@ -11,6 +11,7 @@ import * as volume from "./volume.js";
 import * as calibre from "./calibre.js";
 import * as ar from "./ar.js";
 import * as color from "./color.js";
+import { initTheme, toggleTheme, onThemeChange } from "../theme.js";
 
 let measurementApi = null;
 let volumeApi = null;
@@ -223,34 +224,18 @@ function updateZoomPct() {
   setBind("zoom-pct", `${pct}%`);
 }
 
-const THEME_STORAGE_KEY = "medcase-viewer-theme";
-
-function initTheme() {
-  let saved = null;
-  try { saved = localStorage.getItem(THEME_STORAGE_KEY); } catch (_) {}
-  // Dark is the default; honor an explicit "light" override saved by the user.
-  setTheme(saved === "light" ? "light" : "dark");
-}
-
-function toggleTheme() {
-  const next = (document.documentElement.getAttribute("data-theme") === "dark") ? "light" : "dark";
-  setTheme(next);
-  try { localStorage.setItem(THEME_STORAGE_KEY, next); } catch (_) {}
-}
-
-function setTheme(theme) {
-  document.documentElement.setAttribute("data-theme", theme);
-  // Icon swap (sun ↔ moon) lives in CSS — keyed off html[data-theme="dark"].
-  // Three.js can't react to CSS vars on its own, so we read --w-canvas-bg
-  // (which the CSS variables block updates per html[data-theme]) and push
-  // that hex into the scene's clear color. Keeping the renderer opaque
-  // (rather than transparent) preserves correct blending for translucent
-  // meshes — see commit d20a0cd.
+// A mecânica do tema (chave, persistência, troca) mora em ../theme.js, que a
+// tela de upload também usa. Aqui só a parte que é do visualizador: o Three.js
+// não reage a variáveis CSS, então lemos --w-canvas-bg a cada troca e
+// empurramos o hex para a cor de fundo da cena. Manter o renderer opaco (em
+// vez de transparente) preserva o blending correto de malhas translúcidas —
+// ver commit d20a0cd.
+onThemeChange(() => {
   const cssBg = getComputedStyle(document.documentElement)
     .getPropertyValue("--w-canvas-bg")
     .trim();
   if (cssBg) world.setSceneBackground(cssBg);
-}
+});
 
 // Mobile overflow popover — hamburger pill opens a menu with theme + share.
 function initOverflowMenu() {

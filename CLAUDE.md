@@ -32,6 +32,9 @@ Chrome debugging is pre-configured in `.vscode/launch.json` for `http://localhos
 ### Project Structure
 
 - `/index.html` - Marketing/landing page (standalone, uses Tailwind CSS via CDN)
+- `/colors_and_type.css` - Brand primitives: webfont import, type scale, spacing, radius, brand palette. Loaded by every page.
+- `/app.css` - **The app surface layer, shared by `/case/` and `/upload/`.** Theme tokens (`--w-*`, light + dark), reset, the 56px top bar and brand lockup, the `.pill` system, `.btn` / `.input` / `.select` / `.field-label` / `.struct-tag` / `.note`, the link+copy row, and the stage vignette (`--w-vignette`). The landing page does NOT load it, which is why it can style bare elements. See "Design system" below.
+- `/theme.js` - Shared `initTheme`/`setTheme`/`toggleTheme`/`onThemeChange`, one `localStorage` key for both screens.
 - `/case/` - The 3D viewer application (native Three.js r0.164)
   - `index.html` - Viewer template: Three.js `<canvas>` + importmap (three, addons, n8ao)
   - `main.js` - Bootstrap: reads `?id`, loads the GLB, wires the measurement FAB, structures panel, theme toggle, share/AR
@@ -42,15 +45,23 @@ Chrome debugging is pre-configured in `.vscode/launch.json` for `http://localhos
   - `ar.js` - "Ver em AR" handoff (model-viewer)
   - `legacy/` - the old Sketchfab-iframe viewer (`main.js`, `measure.js`, `opacity.js`, `mudaCor.js`, `laudo.js`, `mainLinhaLaudo.js`, `botao_video.js`), served as a fallback for cases that exist only on Sketchfab
 - `/upload/` - Clinician self-service upload page (talks to the `mesh-processor` backend)
-  - `index.html` - Multi-file STL input, 4-state UI (idle / processing / done / error) with Tailwind CDN
-  - `upload.js` - Posts files to `POST /upload`, then polls `GET /status/{uid}` until ready
+  - `index.html` - Multi-file STL input, 4-state UI (idle / processing / done / error). Same CSS stack as the viewer (`colors_and_type.css → app.css → upload.css`); no Tailwind.
+  - `upload.css` - Only what is specific to this screen: stage + sheet, dropzone, step track, division rows, progress rail.
+  - `upload.js` - ES module. Posts files to `POST /upload`, then polls `GET /status/{uid}` until ready
 
 ### Key Technical Details
 
 **URL Parameters**:
 - `?id=UID` - Load a case by UID. `loader.js` fetches `cases/{uid}.glb` from Cloudflare R2; on a 404 it probes the Sketchfab API and, if found, redirects to the `legacy/` Sketchfab viewer.
 
-**Theme System (`/case/`)**: `main.js` (`initTheme`/`setTheme`/`toggleTheme`) toggles `html[data-theme]` — **dark by default**, persisted in `localStorage` under `medcase-viewer-theme`. CSS variables (`--w-*`, in `style.css`) flip per theme; `setTheme` also reads `--w-canvas-bg` and pushes it into the Three.js `scene.background` so the WebGL clear color tracks the CSS.
+**Design system**: the viewer is the source of truth and `/app.css` is where its vocabulary lives; `/upload/` consumes it rather than inventing its own. Consequences to respect when adding UI:
+- Never introduce a raw hex or a foreign gray in an app screen. Everything comes from `--w-*` (theme-aware) or `colors_and_type.css` (`--space-*`, `--radius-*`, `--font-*`, `--ease-*`).
+- Coral has two tokens because it plays two roles: `--w-accent` is the **fill** (measurement pills, progress rail) and stays constant across themes so white text on it keeps contrast; `--w-accent-fg` is coral as **text/border** on an app surface and lightens in the dark theme to clear 4.5:1. Use `--w-accent-fg` for anything you're only tinting.
+- The primary action is ink-filled (`.pill.primary` / `.btn-primary`), not colored. Coral is reserved for measurement and clinical highlight; `--w-highlight` (`#FFE100`) is reserved for the "dentro de" piece and must match `processor.COLORS_BY_KEYWORD` in `mesh-processor`.
+- Signals use `--w-ok` / `--w-warn` / `--w-err`, not the brand's `--signal-*` (those are calibrated for a light background only and vanish on the dark canvas).
+- `[hidden] { display: none !important; }` lives in `app.css`. Both screens drive visibility through the `hidden` attribute, whose UA `display:none` loses to any class that declares `display` (`.btn`, `.note`, `.link-row`). Without that rule a `<button class="btn" hidden>` stays on screen.
+
+**Theme System**: `/theme.js` (`initTheme`/`setTheme`/`toggleTheme`/`onThemeChange`) toggles `html[data-theme]` — **dark by default**, persisted in `localStorage` under `medcase-viewer-theme`, shared by both screens. Each page also writes `data-theme` in an inline `<head>` script so there is no flash before the module loads. CSS variables (`--w-*`, in `app.css`) flip per theme; `case/main.js` subscribes via `onThemeChange` to read `--w-canvas-bg` and push it into the Three.js `scene.background`, since WebGL can't react to CSS variables.
 
 **Legacy Sketchfab viewer (`/case/legacy/`)**: the pre-Three.js viewer. Uses Sketchfab Viewer API v1.9.0 (global `api`), `mudaCor.js` for theming, and an SVG-overlay measurement tool via `getWorldToScreenCoordinates`. Supports `?autospin=` and `?yt=` params. Reached only via the R2-miss → Sketchfab fallback above.
 
@@ -74,8 +85,6 @@ Chrome debugging is pre-configured in `.vscode/launch.json` for `http://localhos
    - **Dividir uma estrutura pela outra** (STL-only, 2+ files): step 2 lets the clinician pair a **referência** (A, stays whole) with a structure **a dividir** (B). The backend renames B to `B fora de A` (geometry B−A) and adds a highlighted `B dentro de A` mesh (B ∩ A). Those phrases are literally the node names the viewer shows, so the upload label and the viewer label are the same text. The pairs travel in the optional `boolean_ops` form field as JSON `[{"principal": "<filename>", "secondary": "<filename>"}]` (original filenames; the field/key names are frozen API contract, not UI wording) — old backends ignore the field. Repeated pairs block the Processar button; changing the file selection drops orphaned pairs. Never call this "booleana" in user-facing text: radiologists think anatomy, not set operations.
 2. Poll `GET /status/{uid}` every 3s until `ready: true`; only then present the viewer URL to the clinician.
 
-**`[hidden]` needs a CSS override on Tailwind pages.** `upload/index.html` controls visibility via the `hidden` attribute, whose `display:none` comes from a UA stylesheet and therefore loses to any Tailwind display class (`flex`, `grid`, `block`). A `[hidden] { display: none !important; }` rule in the page's `<style>` makes the attribute authoritative; without it an element like `<ol hidden class="flex">` renders anyway.
-
 The backend URL is auto-detected from `window.location.hostname`: `localhost`/`127.0.0.1` → `http://localhost:8000` (dev), anything else → the Railway production URL. One constant at the top of `upload.js`; changing hosts is a one-line edit. Client-side file-size cap is 60MB total (mirrors the server). Error messages are rendered as-is from the backend's `detail` field — the backend writes them in Portuguese for the clinician.
 
 ### Dependencies (CDN-loaded)
@@ -84,8 +93,8 @@ The backend URL is auto-detected from `window.location.hostname`: `localhost`/`1
 - n8ao 1.9.4 (esm.sh, `?external=three`) - screen-space ambient occlusion pass
 - Polyhaven `studio_small_09_1k.hdr` - studio IBL fetched at runtime from `dl.polyhaven.org` (RoomEnvironment fallback if it fails)
 - Sketchfab Viewer API 1.9.0 - legacy `/case/legacy/` viewer only
-- Tailwind CSS (landing page only)
-- Google Fonts (Nunito Sans, Open Sans)
+- Tailwind CSS (landing page only — `/case/` and `/upload/` use `app.css`)
+- Google Fonts (Plus Jakarta Sans, Inter, JetBrains Mono — imported by `colors_and_type.css`; Nunito Sans / Open Sans on the landing page)
 - Google Tag Manager / Google Ads conversion tracking
 
 ## Code Patterns

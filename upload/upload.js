@@ -1,3 +1,5 @@
+import { initTheme, toggleTheme } from "../theme.js";
+
 // Backend auto-detection:
 //   localhost / 127.0.0.1 -> local uvicorn on :8000 (dev)
 //   anything else         -> Railway (prod)
@@ -54,20 +56,10 @@ function show(state) {
  * num bundle OBJ o fluxo é de uma tela só, como antes.
  */
 
-const STEP_CHIP_ON = "bg-blue-600 text-white";
-const STEP_CHIP_OFF = "bg-gray-200 text-gray-600";
-const STEP_TEXT_ON = "text-gray-900";
-const STEP_TEXT_OFF = "text-gray-500";
-
+// O passo corrente é marcado só por aria-current; o CSS pinta a partir dele.
+// Sem estado duplicado entre atributo de acessibilidade e classe visual.
 function paintStepChip(chipId, active) {
-  const chip = $(chipId);
-  const num = chip.querySelector('[data-role="num"]');
-  const text = chip.querySelector('[data-role="text"]');
-  num.className = `flex h-5 w-5 items-center justify-center rounded-full text-[11px] ${
-    active ? STEP_CHIP_ON : STEP_CHIP_OFF
-  }`;
-  text.className = active ? STEP_TEXT_ON : STEP_TEXT_OFF;
-  chip.setAttribute("aria-current", active ? "step" : "false");
+  $(chipId).setAttribute("aria-current", active ? "step" : "false");
 }
 
 function renderStep() {
@@ -104,13 +96,12 @@ function renderFileList() {
   list.innerHTML = "";
   for (const f of selectedFiles) {
     const li = document.createElement("li");
-    li.className = "flex justify-between";
     const name = document.createElement("span");
     name.textContent = f.name;
-    name.className = "truncate mr-2";
+    name.className = "up-file-name";
     const size = document.createElement("span");
     size.textContent = `${(f.size / 1024).toFixed(1)} KB`;
-    size.className = "text-gray-400 shrink-0";
+    size.className = "up-file-size";
     li.append(name, size);
     list.appendChild(li);
   }
@@ -218,14 +209,34 @@ function renderBoolSection() {
   updateProcessState();
 }
 
+const SVG_NS = "http://www.w3.org/2000/svg";
+
+function svgIcon(paths, { width = 13, height = 13, strokeWidth = 1.8 } = {}) {
+  const svg = document.createElementNS(SVG_NS, "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", String(strokeWidth));
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("width", String(width));
+  svg.setAttribute("height", String(height));
+  svg.setAttribute("aria-hidden", "true");
+  for (const d of paths) {
+    const path = document.createElementNS(SVG_NS, "path");
+    path.setAttribute("d", d);
+    svg.appendChild(path);
+  }
+  return svg;
+}
+
+// A seta do select é nossa (o .select tem appearance:none): a nativa é
+// desenhada pelo SO e destoa entre plataformas e entre temas.
 function buildBoolSelect(names, exclude, value, onChange) {
+  const wrap = document.createElement("span");
+  wrap.className = "select-wrap";
+
   const sel = document.createElement("select");
-  // focus:outline-none só é aceitável porque o ring abaixo substitui o anel do
-  // navegador; sem ele o select ficaria sem indicação de foco no teclado.
-  sel.className =
-    "w-full rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm " +
-    "text-gray-800 hover:border-gray-400 focus:border-blue-500 " +
-    "focus:ring-2 focus:ring-blue-200 focus:outline-none";
+  sel.className = "select";
   for (const n of names) {
     if (n === exclude) continue;
     const opt = document.createElement("option");
@@ -235,34 +246,40 @@ function buildBoolSelect(names, exclude, value, onChange) {
     sel.appendChild(opt);
   }
   sel.addEventListener("change", () => onChange(sel.value));
-  return sel;
+
+  const chevron = svgIcon(["M6 9l6 6 6-6"], { width: 12, height: 12, strokeWidth: 2 });
+  chevron.classList.add("select-chevron");
+
+  wrap.append(sel, chevron);
+  return wrap;
 }
 
-function buildBoolChip(text, colorClasses) {
+// Etiqueta de uma peça, no mesmo formato do painel de estruturas do
+// visualizador: barra de cor + nome. `color` é a cor da barra; `highlight`
+// marca a peça que o backend pinta de amarelo (--w-highlight).
+function buildStructTag(text, { color, highlight = false } = {}) {
   const span = document.createElement("span");
-  span.className =
-    `inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${colorClasses}`;
+  span.className = "struct-tag";
+  if (color) span.style.setProperty("--tag-color", color);
+  if (highlight) span.dataset.highlight = "true";
   span.textContent = text;
   return span;
 }
 
 function buildBoolCard(op, index, duplicated, preview) {
   const names = selectedFiles.map((f) => f.name);
-  // `relative` + `pr-9` reservam o canto para o botão remover posicionado
-  // abaixo: ancorado no cartão, ele lê como "remover esta divisão" nos dois
-  // layouts. Alinhado a um dos campos (mobile empilhado) leria como "remover a
-  // referência".
+  // O botão remover é ancorado na linha inteira (canto superior direito), e o
+  // padding-right reserva o espaço. Alinhado a um dos campos (mobile
+  // empilhado) ele leria como "remover a referência".
   const li = document.createElement("li");
-  li.className =
-    "relative rounded-lg border p-3 pr-9 " +
-    (duplicated ? "border-red-300 bg-red-50" : "border-gray-200 bg-gray-50");
+  li.className = "up-division";
+  if (duplicated) li.dataset.duplicated = "true";
 
   const field = (labelText, select) => {
     const label = document.createElement("label");
-    label.className = "block";
+    label.className = "up-division-field";
     const caption = document.createElement("span");
-    caption.className =
-      "mb-1 block text-[11px] font-medium uppercase tracking-wide text-gray-500";
+    caption.className = "field-label";
     caption.textContent = labelText;
     label.append(caption, select);
     return label;
@@ -280,7 +297,7 @@ function buildBoolCard(op, index, duplicated, preview) {
   });
 
   const row = document.createElement("div");
-  row.className = "grid gap-2 sm:grid-cols-2";
+  row.className = "up-division-fields";
   row.append(
     field("Referência · fica inteira", selPrincipal),
     field("A dividir · dentro e fora", selSecondary),
@@ -289,31 +306,35 @@ function buildBoolCard(op, index, duplicated, preview) {
   const { a, b, fora, dentro } = preview;
   const remove = document.createElement("button");
   remove.type = "button";
-  remove.textContent = "✕";
-  // O aria-label nomeia a divisão: um leitor de tela num cartão entre vários
+  remove.className = "up-division-remove";
+  remove.appendChild(svgIcon(["M5 5l14 14", "M19 5L5 19"]));
+  // O aria-label nomeia a divisão: um leitor de tela numa lista de várias
   // ouviria só "Remover divisão" e não saberia qual.
   const removeLabel = `Remover a divisão de ${b} por ${a}`;
   remove.title = removeLabel;
   remove.setAttribute("aria-label", removeLabel);
-  remove.className =
-    "absolute right-1.5 top-1.5 rounded p-1 text-sm leading-none text-gray-500 " +
-    "hover:bg-gray-200 hover:text-gray-800";
   remove.addEventListener("click", () => {
     boolOps.splice(index, 1);
     renderBoolSection();
   });
 
-  // Os dois últimos chips mostram os nomes que as peças terão na lista de
-  // estruturas do visualizador, já com o encadeamento aplicado (ver previewNames).
-  const chips = document.createElement("div");
-  chips.className = "mt-2 flex flex-wrap gap-1.5";
-  chips.append(
-    buildBoolChip(`${a} · fica inteira`, "border-blue-200 bg-blue-50 text-blue-700"),
-    buildBoolChip(fora, "border-gray-300 bg-white text-gray-600"),
-    buildBoolChip(`${dentro} · destaque`, "border-yellow-300 bg-yellow-50 text-yellow-800"),
+  // A prévia mostra os nomes que as peças terão na lista de estruturas do
+  // visualizador, já com o encadeamento aplicado (ver previewNames). A barra
+  // de cor faz o mesmo ramp de importância: a referência fica inteira (tinta
+  // cheia), a peça de fora é o resto (fio apagado), a de dentro é o destaque
+  // amarelo — a mesma cor que o modelo vai ter.
+  const preview3 = document.createElement("div");
+  preview3.className = "up-division-preview";
+  preview3.append(
+    buildStructTag(`${a} · fica inteira`, { color: "var(--w-ink-2)" }),
+    buildStructTag(fora, { color: "var(--w-ink-3)" }),
+    buildStructTag(`${dentro} · destaque`, {
+      color: "var(--w-highlight)",
+      highlight: true,
+    }),
   );
 
-  li.append(remove, row, chips);
+  li.append(remove, row, preview3);
   return li;
 }
 
@@ -462,21 +483,51 @@ $("btn-add-bool").addEventListener("click", () => {
   }
 });
 
+// Copiar o link — mesmo componente e mesmo retorno visual do modal de
+// compartilhar do visualizador (main.js copyShareLink).
 $("btn-copy").addEventListener("click", async () => {
-  const url = $("viewer-url").value;
+  const input = $("viewer-url");
   const btn = $("btn-copy");
-  const original = btn.textContent;
+  const label = btn.querySelector(".link-copy-label");
   try {
-    await navigator.clipboard.writeText(url);
+    await navigator.clipboard?.writeText(input.value);
   } catch {
-    $("viewer-url").select();
-    document.execCommand("copy");
+    input.removeAttribute("readonly");
+    input.select();
+    try { document.execCommand("copy"); } catch { /* sem clipboard: o link fica selecionado */ }
+    input.setAttribute("readonly", "");
   }
-  btn.textContent = "Copiado!";
+  btn.classList.add("ok");
+  const previous = label.textContent;
+  label.textContent = "Copiado";
   setTimeout(() => {
-    btn.textContent = original;
-  }, 2000);
+    btn.classList.remove("ok");
+    label.textContent = previous;
+  }, 1600);
 });
+
+/* ---------------- Arrastar e soltar ----------------
+ * O <input type=file> cobre a área toda e já aceita o drop nativamente (ele
+ * dispara change sozinho). Aqui só pintamos o estado de arraste — e cancelamos
+ * o dragover, sem o qual o navegador abriria o arquivo numa nova aba.
+ */
+const dropzone = document.querySelector(".up-drop");
+const setDragging = (on) => { dropzone.dataset.drag = on ? "true" : "false"; };
+
+dropzone.addEventListener("dragover", (e) => { e.preventDefault(); setDragging(true); });
+dropzone.addEventListener("dragenter", () => setDragging(true));
+dropzone.addEventListener("dragleave", (e) => {
+  // relatedTarget nulo/externo = o ponteiro saiu da zona de verdade, e não
+  // apenas passou por cima de um filho (ícone, texto).
+  if (!e.relatedTarget || !dropzone.contains(e.relatedTarget)) setDragging(false);
+});
+dropzone.addEventListener("drop", () => setDragging(false));
+
+// Tema: mesma chave e mesmo comportamento do visualizador.
+initTheme();
+document
+  .querySelectorAll('[data-action="theme-toggle"]')
+  .forEach((el) => el.addEventListener("click", toggleTheme));
 
 // Estado inicial: passo 1, sem trilha de passos (nada selecionado ainda).
 renderStep();

@@ -1,77 +1,112 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-theme="dark">
 
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Biodesignlab | Novo caso</title>
+  <title>Medcase — novo caso</title>
   <meta name="description"
     content="Envio de estruturas anatômicas 3D para geração de link de visualização." />
-  <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    /* O atributo `hidden` vale display:none por estilo do navegador, que perde
-       para qualquer classe de display do Tailwind (`flex`, `grid`, `block`).
-       Sem isto, um elemento com `hidden class="flex"` continua visível — foi o
-       que aconteceu com a trilha de passos. Esta página toda controla
-       visibilidade por `hidden`, então a regra vale para todos. */
-    [hidden] { display: none !important; }
-  </style>
+
+  <!-- Mesma pilha do visualizador: primitivas de marca, camada de app,
+       folha da tela. A tela de upload não tem design próprio; ela consome
+       o do app. -->
+  <link rel="stylesheet" href="../colors_and_type.css" />
+  <link rel="stylesheet" href="../app.css" />
+  <link rel="stylesheet" href="./upload.css" />
+
+  <!-- Tema antes da primeira pintura, mesma chave do visualizador. -->
+  <script>
+    try {
+      document.documentElement.dataset.theme =
+        localStorage.getItem("medcase-viewer-theme") === "light" ? "light" : "dark";
+    } catch (e) { /* storage bloqueado: fica no escuro, que é o padrão */ }
+  </script>
 </head>
 
-<body class="bg-white min-h-screen flex flex-col">
-  <header class="p-6 border-b border-gray-200">
-    <a href="/" class="text-xl font-semibold text-gray-900">Biodesignlab 3D viewer</a>
+<body class="up">
+
+  <header class="vw-top">
+    <div class="vw-top-left">
+      <a class="vw-brand" href="/" aria-label="Medcase por Biodesignlab">
+        <span class="vw-brand-stack">
+          <span class="vw-brand-product">Medcase</span>
+          <span class="vw-brand-company">por Biodesignlab</span>
+        </span>
+      </a>
+      <span class="vw-sep">/</span>
+      <span class="vw-case-id">Novo caso</span>
+    </div>
+
+    <div class="vw-top-right">
+      <button class="pill icon-only theme-toggle" data-action="theme-toggle" aria-label="Alternar tema">
+        <svg class="ic-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+        <svg class="ic-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      </button>
+    </div>
   </header>
 
-  <main class="flex-1 flex items-center justify-center p-6">
-    <div class="w-full max-w-xl bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-
-      <h1 class="text-2xl font-bold text-gray-900 mb-2">Enviar um novo caso</h1>
-      <p id="intro-files" class="text-sm text-gray-600 mb-6">
-        Selecione os arquivos <strong>STL</strong> ou <strong>OBJ</strong> das estruturas anatômicas deste caso.
-        Eles serão combinados em um único modelo 3D interativo.
-      </p>
+  <main class="up-stage">
+    <div class="up-sheet">
 
       <!-- STATE: IDLE — dois passos: arquivos, depois divisão de estruturas -->
       <section id="state-idle">
 
+        <h1 class="t-title">Enviar um novo caso</h1>
+        <p id="intro-files" class="t-body up-intro">
+          Escolha os arquivos das estruturas anatômicas deste caso. Eles são
+          combinados em um único modelo 3D com link para compartilhar.
+        </p>
+
         <!-- Trilha de passos. Só aparece quando o passo 2 existe (2+ STLs): num
              envio de um arquivo só, ou num bundle OBJ, não há o que dividir e a
              numeração seria ruído. <ol> porque é uma sequência de verdade. -->
-        <ol id="stepper" hidden class="mb-6 flex items-center gap-2 text-xs font-medium">
-          <li id="step-1-chip" class="flex items-center gap-1.5">
-            <span data-role="num"
-              class="flex h-5 w-5 items-center justify-center rounded-full text-[11px]">1</span>
-            <span data-role="text">Arquivos</span>
+        <ol id="stepper" hidden class="up-steps">
+          <li id="step-1-chip" class="up-step">
+            <span data-role="num" class="up-step-num">1</span>
+            <span data-role="text" class="up-step-text">Arquivos</span>
           </li>
-          <li aria-hidden="true" class="h-px w-6 bg-gray-300"></li>
-          <li id="step-2-chip" class="flex items-center gap-1.5">
-            <span data-role="num"
-              class="flex h-5 w-5 items-center justify-center rounded-full text-[11px]">2</span>
-            <span data-role="text">Divisões</span>
+          <li aria-hidden="true" class="up-step-rule"></li>
+          <li id="step-2-chip" class="up-step">
+            <span data-role="num" class="up-step-num">2</span>
+            <span data-role="text" class="up-step-text">Divisões</span>
           </li>
         </ol>
 
         <!-- PASSO 1 -->
         <div id="step-files">
-          <label for="file-input" class="block mb-2 text-sm font-medium text-gray-700">Arquivos do caso</label>
-          <input id="file-input" type="file"
-            accept=".stl,.STL,.obj,.OBJ,.mtl,.MTL,.jpg,.JPG,.jpeg,.JPEG,.png,.PNG,.zip,.ZIP" multiple
-            class="block w-full text-sm text-gray-600
-                   file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0
-                   file:text-sm file:font-semibold
-                   file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer" />
+          <span class="field-label">Arquivos do caso</span>
 
-          <ul id="file-list" class="mt-4 space-y-1 text-sm text-gray-700"></ul>
+          <!-- O input cobre a área inteira com opacity 0: clique e arrastar-e-
+               soltar ficam nativos, sem JS de dropzone. O JS só pinta o estado
+               de arraste. -->
+          <label class="up-drop" for="file-input" data-drag="false">
+            <svg class="up-drop-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 16V4"/><path d="M8 8l4-4 4 4"/>
+              <path d="M4 14v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/>
+            </svg>
+            <!-- Em tablet (o aparelho de plantão) não há o que arrastar: o
+                 rótulo troca por ponteiro grosso. -->
+            <span class="up-drop-title">
+              <span class="up-pointer-fine">Arraste os arquivos aqui ou clique para escolher</span>
+              <span class="up-pointer-coarse">Toque para escolher os arquivos</span>
+            </span>
+            <span class="up-drop-hint">STL ou OBJ · até 60 MB no total</span>
+            <input id="file-input" type="file"
+              accept=".stl,.STL,.obj,.OBJ,.mtl,.MTL,.jpg,.JPG,.jpeg,.JPEG,.png,.PNG,.zip,.ZIP" multiple
+              class="up-drop-input" />
+          </label>
+
+          <ul id="file-list" class="up-files"></ul>
         </div>
 
         <!-- PASSO 2 — divisão de estruturas (dentro/fora) -->
         <section id="bool-section" hidden>
-          <h2 class="text-base font-semibold text-gray-900">
+          <h2 class="t-section">
             Dividir uma estrutura pela outra
-            <span class="text-sm font-normal text-gray-500">(opcional)</span>
+            <span class="up-optional">opcional</span>
           </h2>
-          <p class="mt-1 text-xs leading-relaxed text-gray-600">
+          <p class="t-body up-intro">
             A estrutura de <strong>referência</strong> fica inteira. A estrutura
             <strong>a dividir</strong> é separada em duas peças: dentro e fora da
             referência. A parte de dentro vira uma nova estrutura destacada no
@@ -80,11 +115,11 @@
             é criada.
           </p>
 
-          <!-- Diagrama antes → depois. Mesmas cores dos chips de prévia:
-               azul = referência, cinza = peça de fora, amarelo = destaque.
-               As formas "depois" são recortes reais (clip/mask dos dois círculos),
-               não desenhos aproximados. -->
-          <svg viewBox="0 0 300 96" role="img" class="mx-auto mt-3 block w-full max-w-[340px]"
+          <!-- Diagrama antes → depois. As cores são as do produto: a peça de
+               dentro usa o mesmo amarelo (--w-highlight) que o modelo vai ter
+               no visualizador. As formas "depois" são recortes reais (clip/mask
+               dos dois círculos), não desenhos aproximados. -->
+          <svg viewBox="0 0 300 96" role="img" class="up-diagram"
             aria-label="Duas estruturas sobrepostas viram três peças: a referência inteira, a parte de fora e a parte de dentro destacada.">
             <defs>
               <clipPath id="bool-clip-dentro"><circle cx="0" cy="0" r="28" /></clipPath>
@@ -97,137 +132,124 @@
 
             <!-- Antes: as duas estruturas sobrepostas -->
             <g transform="translate(48,44)">
-              <circle cx="0" cy="0" r="28" fill="#EFF6FF" stroke="#60A5FA" stroke-width="1.5" />
-              <circle cx="33" cy="0" r="21" fill="#F9FAFB" fill-opacity="0.75"
-                stroke="#9CA3AF" stroke-width="1.5" />
-              <text x="-4" y="42" text-anchor="middle" font-size="9" fill="#1D4ED8">referência</text>
-              <text x="40" y="-28" text-anchor="middle" font-size="9" fill="#4B5563">a dividir</text>
+              <circle cx="0" cy="0" r="28" class="dgm-ref" />
+              <circle cx="33" cy="0" r="21" class="dgm-out" />
+              <text x="-4" y="42" text-anchor="middle" class="dgm-label">referência</text>
+              <text x="40" y="-28" text-anchor="middle" class="dgm-label">a dividir</text>
             </g>
 
             <!-- Seta -->
-            <g stroke="#9CA3AF" stroke-width="1.5" fill="none" stroke-linecap="round">
+            <g class="dgm-arrow" fill="none" stroke-linecap="round">
               <path d="M118 44 h18" />
               <path d="M132 39 l6 5 l-6 5" />
             </g>
 
             <!-- Depois: três peças separadas -->
             <g transform="translate(172,44)">
-              <circle cx="0" cy="0" r="28" fill="#EFF6FF" stroke="#60A5FA" stroke-width="1.5" />
-              <text x="0" y="42" text-anchor="middle" font-size="9" fill="#1D4ED8">fica inteira</text>
+              <circle cx="0" cy="0" r="28" class="dgm-ref" />
+              <text x="0" y="42" text-anchor="middle" class="dgm-label">fica inteira</text>
             </g>
             <!-- dentro: lente (B recortada por A), deslocada para separar -->
             <g transform="translate(190,44)">
               <g clip-path="url(#bool-clip-dentro)">
-                <circle cx="33" cy="0" r="21" fill="#FDE047" stroke="#CA8A04" stroke-width="1.5" />
+                <circle cx="33" cy="0" r="21" class="dgm-in" />
               </g>
-              <text x="20" y="-28" text-anchor="middle" font-size="9" font-weight="600" fill="#A16207">dentro</text>
+              <text x="20" y="-28" text-anchor="middle" class="dgm-label dgm-label-in">dentro</text>
             </g>
             <!-- fora: crescente (B menos A), deslocada mais -->
             <g transform="translate(208,44)">
               <g mask="url(#bool-mask-fora)">
-                <circle cx="33" cy="0" r="21" fill="#F9FAFB" stroke="#9CA3AF" stroke-width="1.5" />
+                <circle cx="33" cy="0" r="21" class="dgm-piece" />
               </g>
-              <text x="44" y="36" text-anchor="middle" font-size="9" fill="#4B5563">fora</text>
+              <text x="44" y="36" text-anchor="middle" class="dgm-label">fora</text>
             </g>
           </svg>
 
-          <ul id="bool-list" class="mt-3 space-y-3"></ul>
+          <ul id="bool-list" class="up-divisions"></ul>
 
           <!-- Única forma de criar uma divisão, sempre no corpo da seção logo
                abaixo da lista: como link discreto no canto do título, ninguém
                associava este botão a "escolher quais estruturas". -->
-          <button id="btn-add-bool" type="button"
-            class="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg border
-                   border-dashed border-gray-400 px-3 py-2.5 text-sm font-semibold
-                   text-blue-700 hover:border-blue-500 hover:bg-blue-50
-                   disabled:border-gray-200 disabled:text-gray-400
-                   disabled:hover:bg-transparent disabled:cursor-not-allowed">
-            <span aria-hidden="true" class="text-base leading-none">+</span>
+          <button id="btn-add-bool" type="button" class="up-add">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
             <span id="btn-add-bool-label">Escolher estruturas para dividir</span>
           </button>
 
-          <p id="bool-warning" hidden class="mt-2 text-xs font-medium text-red-600">
+          <p id="bool-warning" hidden class="note note-err up-note">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 16.5v.01"/></svg>
             Há divisões repetidas. Remova a repetição para processar.
           </p>
         </section>
 
         <!-- Rodapé compartilhado pelos dois passos: a ação primária fica sempre
              no mesmo lugar, e só um botão de processar existe no documento. -->
-        <div class="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
-          <button id="btn-back" type="button" hidden
-            class="rounded-md border border-gray-300 px-4 py-3 text-sm font-semibold
-                   text-gray-700 hover:bg-gray-50 sm:w-auto">
+        <div class="up-actions">
+          <button id="btn-back" type="button" hidden class="btn btn-ghost btn-lg">
             Voltar
           </button>
-          <button id="btn-continue" type="button" hidden
-            class="flex-1 rounded-md bg-blue-600 py-3 font-semibold text-white
-                   transition hover:bg-blue-700
-                   disabled:cursor-not-allowed disabled:bg-gray-300">
+          <button id="btn-continue" type="button" hidden class="btn btn-primary btn-lg up-grow">
             Continuar
           </button>
-          <button id="btn-process" disabled
-            class="flex-1 rounded-md bg-blue-600 py-3 font-semibold text-white
-                   transition hover:bg-blue-700
-                   disabled:cursor-not-allowed disabled:bg-gray-300">
+          <button id="btn-process" disabled class="btn btn-primary btn-lg up-grow">
             Processar
           </button>
         </div>
       </section>
 
       <!-- STATE: PROCESSING -->
-      <section id="state-processing" hidden class="text-center py-6">
-        <div class="inline-block w-10 h-10 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mb-4">
-        </div>
-        <p id="status-message" class="text-gray-800 font-medium">Recebendo os arquivos...</p>
-        <p id="status-hint" hidden class="mt-3 text-sm text-gray-500 max-w-sm mx-auto">
-          Está demorando um pouco mais que o usual — mantenha esta página aberta mais um momento.
+      <section id="state-processing" hidden class="up-state">
+        <h1 class="t-title">Processando o caso</h1>
+        <div class="up-progress" role="progressbar" aria-label="Processando o caso"><span></span></div>
+        <p id="status-message" class="t-body">Recebendo os arquivos...</p>
+        <p id="status-hint" hidden class="t-meta">
+          Está demorando um pouco mais que o usual. Mantenha esta página aberta
+          mais um momento.
         </p>
       </section>
 
       <!-- STATE: DONE -->
-      <section id="state-done" hidden>
-        <div class="mb-4 text-green-600 text-sm font-semibold flex items-center gap-2">
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
-            <path fill-rule="evenodd"
-              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-              clip-rule="evenodd" />
-          </svg>
+      <section id="state-done" hidden class="up-state">
+        <h1 class="t-title up-title-ok">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"/></svg>
           Caso processado
+        </h1>
+        <p class="t-body up-intro">
+          O link abaixo abre o modelo 3D no visualizador. Quem receber o link
+          não precisa instalar nada.
+        </p>
+
+        <div>
+          <label class="field-label up-field-label" for="viewer-url">Link do visualizador</label>
+          <div class="link-row">
+            <input id="viewer-url" class="link-input" readonly />
+            <button id="btn-copy" class="link-copy" type="button">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>
+              <span class="link-copy-label">Copiar</span>
+            </button>
+          </div>
         </div>
 
-        <label class="block text-sm text-gray-600 mb-1" for="viewer-url">Link do visualizador</label>
-        <input id="viewer-url" readonly
-          class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-700 bg-gray-50" />
-
-        <div class="mt-4 flex flex-col sm:flex-row gap-2">
-          <a id="btn-open" target="_blank" rel="noopener"
-            class="flex-1 bg-blue-600 text-white font-semibold py-3 rounded-md text-center hover:bg-blue-700 transition">
-            Abrir no visualizador
-          </a>
-          <button id="btn-copy"
-            class="flex-1 bg-white text-blue-600 font-semibold py-3 rounded-md border border-blue-600 hover:bg-blue-50 transition">
-            Copiar link
-          </button>
-        </div>
-
-        <button id="btn-new" class="mt-4 w-full text-sm text-gray-500 underline hover:text-gray-700">
-          Processar outro caso
+        <a id="btn-open" target="_blank" rel="noopener" class="btn btn-primary btn-lg btn-block">
+          Abrir no visualizador
+        </a>
+        <button id="btn-new" type="button" class="btn btn-quiet btn-block">
+          Enviar outro caso
         </button>
       </section>
 
       <!-- STATE: ERROR -->
-      <section id="state-error" hidden class="text-center py-6">
-        <div class="text-red-600 font-semibold mb-2">Não foi possível processar</div>
-        <p id="error-message" class="text-sm text-gray-600 mb-4 break-words"></p>
-        <button id="btn-retry"
-          class="bg-blue-600 text-white font-semibold py-3 px-6 rounded-md hover:bg-blue-700 transition">
+      <section id="state-error" hidden class="up-state">
+        <h1 class="t-title up-title-err">Não foi possível processar</h1>
+        <!-- O texto vem do backend, que escreve em pt-BR para o clínico. -->
+        <p id="error-message" class="t-body"></p>
+        <button id="btn-retry" type="button" class="btn btn-primary btn-lg btn-block">
           Tentar novamente
         </button>
       </section>
     </div>
   </main>
 
-  <script src="upload.js"></script>
+  <script type="module" src="upload.js"></script>
 </body>
 
 </html>

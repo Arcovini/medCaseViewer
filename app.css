@@ -1,0 +1,525 @@
+/* ============================================================
+   app.css — camada de superfície do aplicativo
+   Compartilhada por /case/ (visualizador) e /upload/ (envio).
+
+   Ordem de carregamento nas duas telas:
+     colors_and_type.css  → primitivas de marca (fontes, escala, paleta)
+     app.css              → esta camada: tema, cromo e componentes de app
+     <tela>.css           → o que só existe naquela tela
+
+   O visualizador é a fonte do design: os tokens --w-* e o sistema de
+   pills nasceram lá e foram promovidos para cá sem mudar de valor. A
+   tela de upload consome esta camada em vez de reinventar a sua.
+
+   Esta folha NÃO é carregada pela landing page (/index.html), que fica
+   no registro de marca — por isso pode redefinir elementos à vontade.
+   ============================================================ */
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* O atributo `hidden` vale display:none por folha do navegador, e perde para
+   qualquer classe que declare display (.btn, .note, .link-row...). Sem esta
+   regra, um <button class="btn" hidden> continua na tela. Como as duas telas
+   controlam visibilidade por `hidden`, ela vale para todas. */
+[hidden] { display: none !important; }
+
+/* ---------- TOKENS DE TEMA ------------------------------------
+   Claro é o default do CSS; escuro é o default do produto (as duas
+   telas escrevem data-theme antes da primeira pintura). O bloco
+   escuro só sobrescreve o que lê diferente sobre fundo escuro.
+   Nomes --w-* preservados do handoff do visualizador. */
+:root {
+  color-scheme: light;
+
+  --w-base:         #FFFFFF;
+  --w-soft:         #FAFAFA;
+  --w-recess:       #F5F5F5;
+  --w-ink:          #15171A;
+  --w-ink-2:        #4A5058;
+  --w-ink-3:        #6B7177;
+  --w-rule:         rgba(21,23,26,0.10);
+  --w-rule-strong:  rgba(21,23,26,0.18);
+  --w-muted-fill:   rgba(21,23,26,0.04);
+  --w-track-dim:    rgba(21,23,26,0.10);
+  --w-canvas-bg:    #EDEFF2;
+  --w-pill-bg:      rgba(255,255,255,0.78);
+  --w-pill-blur:    blur(14px) saturate(140%);
+  --w-menu-bg:      rgba(255,255,255,0.96);
+  /* HUD sobre o canvas — escuro no tema claro para ler sobre o modelo. */
+  --w-hud-bg:       rgba(11,14,17,0.82);
+  --w-hud-border:   rgba(255,255,255,0.18);
+  --w-hud-fg:       #FFFFFF;
+
+  /* Acento. Dois papéis distintos, por isso dois tokens:
+     --w-accent é PREENCHIMENTO (fundo de pílula de medida, cheio, com
+     texto branco em cima) e por isso não muda com o tema — trocá-lo por
+     um coral claro no escuro derrubaria o contraste do texto branco.
+     --w-accent-fg é o acento como TEXTO/BORDA sobre a superfície do app;
+     esse precisa clarear no tema escuro para passar 4.5:1. */
+  --w-accent:       #C8412C;
+  --w-accent-fg:    #C8412C;
+  --w-accent-ink:   #FFFFFF;
+  --w-accent-soft:  rgba(200,65,44,0.10);
+  --w-accent-ring:  rgba(200,65,44,0.28);
+
+  /* Sinais. Os tokens --signal-* da marca são calibrados para fundo
+     claro; no escuro precisam de versões mais luminosas. */
+  --w-ok:           #2E7D5B;
+  --w-warn:         #C68A2C;
+  --w-err:          #A32E13;
+  --w-err-soft:     rgba(163,46,19,0.08);
+
+  /* Amarelo de destaque das peças "dentro de" — mesmo hex que o
+     mesh-processor grava no GLB (processor.COLORS_BY_KEYWORD). A prévia
+     do upload mostra a cor que a estrutura vai ter de verdade. */
+  --w-highlight:    #FFE100;
+
+  /* Vinheta do palco. Curva tipo smoothstep: a inclinação cresce
+     devagar, atinge o máximo no meio-externo e desacelera ao chegar no
+     canto, então a transição "assenta" em vez de bater no escuro.
+     Muitos stops com delta pequeno eliminam banding. */
+  --w-vignette: radial-gradient(ellipse 115% 105% at 50% 45%,
+    rgba(0, 0, 0, 0)    0%,
+    rgba(0, 0, 0, 0.03) 26%,
+    rgba(0, 0, 0, 0.08) 42%,
+    rgba(0, 0, 0, 0.16) 55%,
+    rgba(0, 0, 0, 0.27) 66%,
+    rgba(0, 0, 0, 0.40) 75%,
+    rgba(0, 0, 0, 0.53) 83%,
+    rgba(0, 0, 0, 0.66) 90%,
+    rgba(0, 0, 0, 0.75) 95%,
+    rgba(0, 0, 0, 0.82) 100%);
+}
+
+html[data-theme="dark"] {
+  color-scheme: dark;
+
+  --w-base:         #0B0E11;
+  --w-soft:         #14181C;
+  --w-recess:       #1F2429;
+  --w-ink:          #F2F3F4;
+  --w-ink-2:        #A8B0B6;
+  --w-ink-3:        #7A848C;
+  --w-rule:         rgba(242,243,244,0.10);
+  --w-rule-strong:  rgba(242,243,244,0.18);
+  --w-muted-fill:   rgba(242,243,244,0.06);
+  --w-track-dim:    rgba(242,243,244,0.10);
+  /* Neutro puro (R=G=B). Em low-luminance qualquer viés cromático é
+     amplificado pelo olho — warm vira marrom, cool vira azul-tela.
+     #181818 dá um cinza muito escuro sem temperatura aparente, e a
+     vinheta escurece os cantos até quase preto. */
+  --w-canvas-bg:    #181818;
+  --w-pill-bg:      rgba(20,24,28,0.72);
+  --w-menu-bg:      rgba(11,14,17,0.94);
+
+  --w-accent-fg:    #E8745A;
+  --w-accent-soft:  rgba(232,116,90,0.14);
+  --w-accent-ring:  rgba(232,116,90,0.30);
+
+  --w-ok:           #5FCB9B;
+  --w-warn:         #E3AE5B;
+  --w-err:          #F08A72;
+  --w-err-soft:     rgba(240,138,114,0.10);
+}
+
+html, body {
+  background: var(--w-base);
+  color: var(--w-ink);
+  font-family: var(--font-text);
+  font-size: 14px;
+  line-height: 1.5;
+  transition: background 200ms var(--ease-standard);
+}
+
+::selection { background: var(--w-accent); color: var(--w-accent-ink); }
+
+/* ============================================================
+   TIPOGRAFIA DE PRODUTO
+   Escala fixa (não fluida): o app é usado em DPI constante e um
+   título que encolhe dentro de um painel fica pior, não melhor.
+   Razão ~1.2 entre degraus — muitos elementos de texto por tela,
+   contraste exagerado viraria ruído.
+   ============================================================ */
+.t-title {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 20px;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  color: var(--w-ink);
+  text-wrap: balance;
+}
+.t-section {
+  font-family: var(--font-text);
+  font-weight: 600;
+  font-size: 15px;
+  line-height: 1.3;
+  letter-spacing: -0.005em;
+  color: var(--w-ink);
+}
+.t-body {
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--w-ink-2);
+  max-width: 68ch;
+  text-wrap: pretty;
+}
+.t-meta {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--w-ink-3);
+}
+/* Rótulo micro em mono maiúsculo — a voz de "dado clínico" do app.
+   Usado nos campos do modal de compartilhar e nos campos do upload. */
+.field-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--w-ink-3);
+  display: block;
+}
+
+/* ============================================================
+   BARRA SUPERIOR — 56px, marca à esquerda, controles à direita
+   ============================================================ */
+.vw-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 56px;
+  flex: 0 0 56px;
+  padding: 0 var(--space-5);
+  border-bottom: 1px solid var(--w-rule);
+  background: var(--w-base);
+}
+.vw-top-left, .vw-top-right { display: flex; align-items: center; gap: 14px; }
+
+.vw-brand {
+  display: inline-flex;
+  align-items: center;
+  color: var(--w-ink);
+  text-decoration: none;
+}
+.vw-brand-stack { display: flex; flex-direction: column; line-height: 1; gap: 3px; }
+.vw-brand-product {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 15px;
+  letter-spacing: -0.02em;
+  color: var(--w-ink);
+}
+.vw-brand-company {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--w-ink-3);
+  font-weight: 500;
+}
+.vw-sep { color: var(--w-ink-3); margin: 0 4px; font-weight: 300; }
+/* Slot de contexto: o caso aberto no visualizador, a tarefa no upload. */
+.vw-case-id {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--w-ink-2);
+  text-transform: uppercase;
+}
+.vw-case-id b { color: var(--w-ink); font-weight: 600; }
+
+@media (max-width: 600px) {
+  .vw-sep, .vw-case-id { display: none; }
+  .vw-brand-company { display: none; }
+}
+
+/* Visibilidade responsiva do cromo da barra. !important vence o
+   display:inline-flex base de .pill.
+   Desktop ≥769px: pills próprias. Mobile <769px: vão para o popover. */
+.vw-mobile-only { display: none !important; }
+@media (max-width: 768px) {
+  .vw-desktop-only { display: none !important; }
+  button.vw-mobile-only { display: inline-flex !important; }
+  /* O popover usa display por dataset, então zera a regra base e deixa
+     [data-open] decidir. */
+  div.vw-mobile-only { display: none !important; }
+  div.vw-mobile-only[data-open="true"] { display: block !important; }
+}
+
+@media (max-width: 768px) {
+  .vw-top { padding: 0 var(--space-4); }
+  .vw-top-right { gap: 8px; }
+  .vw-top .pill { padding: 0; width: 36px; }
+  .vw-top .pill .label { display: none; }
+}
+
+/* ============================================================
+   PILLS — cromo do topo (AR / Medir / tema / Compartilhar).
+   Piso de 36px para alvo de toque em tablet.
+   ============================================================ */
+.pill {
+  height: 36px;
+  min-width: 36px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--w-rule-strong);
+  background: transparent;
+  color: var(--w-ink);
+  font-family: var(--font-text);
+  font-weight: 500;
+  font-size: 13px;
+  letter-spacing: 0;
+  cursor: pointer;
+  transition: background 120ms, border-color 120ms, color 120ms;
+}
+.pill[hidden] { display: none; }
+.pill svg { width: 17px; height: 17px; flex-shrink: 0; }
+.pill.icon-only { padding: 0; width: 36px; }
+.pill:hover { background: var(--w-soft); }
+.pill.active,
+.pill[aria-expanded="true"] {
+  background: var(--w-ink);
+  color: var(--w-base);
+  border-color: var(--w-ink);
+}
+.pill.primary {
+  background: var(--w-ink);
+  color: var(--w-base);
+  border-color: var(--w-ink);
+  font-weight: 600;
+  padding: 0 16px;
+}
+.pill.primary:hover {
+  background: var(--w-ink-2);
+  border-color: var(--w-ink-2);
+}
+.pill:focus-visible { outline: 2px solid var(--w-ink-3); outline-offset: 2px; }
+
+/* Troca de ícone do tema — puro CSS. Sol no claro, lua no escuro.
+   Evita o piscar dos dois ícones sobrepostos. */
+.theme-toggle .ic-moon { display: none; }
+html[data-theme="dark"] .theme-toggle .ic-sun { display: none; }
+html[data-theme="dark"] .theme-toggle .ic-moon { display: inline-block; }
+
+/* ============================================================
+   BOTÕES — mesma linguagem das pills (cápsula, tinta cheia no
+   primário), em tamanho de formulário. O acento coral fica
+   reservado para medição e destaque clínico: a ação primária do
+   app é tinta, não cor.
+   ============================================================ */
+.btn {
+  height: 40px;
+  padding: 0 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: var(--radius-pill);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--w-ink);
+  font-family: var(--font-text);
+  font-weight: 500;
+  font-size: 13px;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 140ms var(--ease-standard),
+              border-color 140ms var(--ease-standard),
+              color 140ms var(--ease-standard);
+}
+.btn svg { width: 16px; height: 16px; flex-shrink: 0; }
+.btn:focus-visible { outline: 2px solid var(--w-ink-3); outline-offset: 2px; }
+.btn-lg { height: 46px; padding: 0 24px; font-size: 14px; }
+.btn-block { width: 100%; }
+
+.btn-primary {
+  background: var(--w-ink);
+  color: var(--w-base);
+  border-color: var(--w-ink);
+  font-weight: 600;
+}
+.btn-primary:hover { background: var(--w-ink-2); border-color: var(--w-ink-2); }
+
+.btn-ghost { border-color: var(--w-rule-strong); color: var(--w-ink); }
+.btn-ghost:hover { background: var(--w-soft); border-color: var(--w-ink-3); }
+
+.btn-quiet { color: var(--w-ink-3); }
+.btn-quiet:hover { color: var(--w-ink); background: var(--w-muted-fill); }
+
+/* Desabilitado sem cinza estrangeiro: a mesma tinta, apagada, para
+   ler como "ainda não" em vez de "quebrado". */
+.btn:disabled,
+.btn[aria-disabled="true"] {
+  background: var(--w-muted-fill);
+  color: var(--w-ink-3);
+  border-color: var(--w-rule);
+  cursor: not-allowed;
+}
+
+/* ============================================================
+   CAMPOS
+   ============================================================ */
+.input,
+.select {
+  width: 100%;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--w-rule-strong);
+  border-radius: 8px;
+  background: var(--w-base);
+  color: var(--w-ink);
+  font-family: var(--font-text);
+  font-size: 13px;
+  transition: border-color 140ms var(--ease-standard),
+              box-shadow 140ms var(--ease-standard);
+}
+.input::placeholder { color: var(--w-ink-3); }
+.input:hover, .select:hover { border-color: var(--w-ink-3); }
+/* :focus e não :focus-visible: em campo de formulário o anel é sempre
+   bem-vindo, inclusive quando o foco vem do mouse ou de JS. */
+.input:focus, .select:focus {
+  outline: none;
+  border-color: var(--w-accent-fg);
+  box-shadow: 0 0 0 3px var(--w-accent-ring);
+}
+.input[readonly] { background: var(--w-soft); color: var(--w-ink-2); }
+
+/* Select com seta própria: a seta nativa é desenhada pelo SO e destoa
+   entre plataformas (e entre temas). O chevron abaixo é um SVG no
+   markup, herda currentColor e acompanha o tema. */
+.select-wrap { position: relative; display: block; }
+.select { appearance: none; -webkit-appearance: none; padding-right: 32px; }
+.select-chevron {
+  position: absolute;
+  right: 11px;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  margin-top: -6px;
+  color: var(--w-ink-3);
+  pointer-events: none;
+}
+
+/* ============================================================
+   LINHA DE LINK + COPIAR
+   Mesmo componente no modal de compartilhar do visualizador e no
+   estado "caso processado" do upload: é o mesmo objeto (o link do
+   caso) e a mesma ação.
+   ============================================================ */
+.link-row {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--w-rule-strong);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.link-input {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  padding: 0 12px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--w-ink);
+  letter-spacing: 0;
+  outline: none;
+  min-width: 0;
+  height: 40px;
+}
+.link-copy {
+  border: 0;
+  border-left: 1px solid var(--w-rule);
+  background: var(--w-soft);
+  padding: 0 14px;
+  font-family: var(--font-text);
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--w-ink);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: background 120ms;
+}
+.link-copy:hover { background: var(--w-recess); }
+.link-copy.ok { background: var(--w-ink); color: var(--w-base); }
+.link-copy svg { width: 13px; height: 13px; }
+
+/* ============================================================
+   ETIQUETA DE ESTRUTURA
+   Espelha a linha do painel de estruturas do visualizador: barra de
+   cor de 3px + nome em tinta. A cor identifica; o texto informa. É
+   assim que o clínico vai ver a estrutura depois de processada.
+   ============================================================ */
+.struct-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 5px 10px 5px 8px;
+  border: 1px solid var(--w-rule);
+  border-radius: 8px;
+  background: var(--w-base);
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--w-ink);
+}
+.struct-tag::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 3px;
+  align-self: stretch;
+  min-height: 14px;
+  border-radius: 2px;
+  background: var(--tag-color, var(--w-ink-3));
+}
+.struct-tag[data-highlight="true"] {
+  border-color: color-mix(in srgb, var(--w-highlight) 45%, transparent);
+  background: color-mix(in srgb, var(--w-highlight) 10%, var(--w-base));
+}
+
+/* ============================================================
+   NOTAS DE ESTADO — erro, alerta, sucesso
+   ============================================================ */
+.note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  font-weight: 500;
+}
+.note svg { width: 15px; height: 15px; flex-shrink: 0; margin-top: 1px; }
+.note-err  { color: var(--w-err); }
+.note-ok   { color: var(--w-ok); }
+.note-warn { color: var(--w-warn); }
+
+/* ============================================================
+   MOVIMENTO
+   Entradas curtas (180–220ms) com ease de saída exponencial. Nada
+   coreografado: o app carrega dentro de uma tarefa.
+   ============================================================ */
+@keyframes app-rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.app-rise { animation: app-rise 220ms var(--ease-entrance) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .app-rise { animation: none; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

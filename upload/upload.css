@@ -1,0 +1,341 @@
+/* ============================================================
+   upload — envio de um novo caso
+   Carrega depois de /colors_and_type.css e /app.css. Tudo que é
+   cromo de app (barra superior, pills, botões, campos, link+copiar,
+   etiquetas de estrutura, tema) vem do /app.css: aqui fica só o que
+   é desta tela.
+
+   A arquitetura repete a do visualizador: barra superior fixa, um
+   palco recuado com a mesma vinheta, e uma superfície de trabalho
+   clara por cima. Quem sai do upload e entra no viewer reconhece a
+   mesma sala.
+   ============================================================ */
+
+body.up {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---------- PALCO ---------- */
+.up-stage {
+  position: relative;
+  flex: 1 1 auto;
+  display: flex;
+  overflow-y: auto;
+  background: var(--w-canvas-bg);
+  padding: clamp(16px, 4vh, 44px) 16px;
+}
+/* A vinheta é fixa na viewport (não rola com o conteúdo) — é o
+   ambiente, não parte da folha. Mesma curva do palco 3D, a meia força:
+   lá ela existe para assentar o modelo no centro; aqui, na força total,
+   o palco vazio viraria um poço preto e a folha perderia o chão. */
+.up-stage::before {
+  content: "";
+  position: fixed;
+  inset: 56px 0 0 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.5;
+  background: var(--w-vignette);
+}
+
+/* margin:auto em vez de align-items:center — centraliza sem cortar o
+   topo quando a folha fica mais alta que a viewport. */
+.up-sheet {
+  position: relative;
+  z-index: 1;
+  margin: auto;
+  width: min(560px, 100%);
+  padding: 28px;
+  background: var(--w-base);
+  border: 1px solid var(--w-rule);
+  border-radius: 14px;
+  box-shadow: 0 24px 64px -24px rgba(0,0,0,0.30), 0 2px 8px -4px rgba(0,0,0,0.10);
+}
+@media (max-width: 560px) {
+  .up-sheet { padding: 22px 18px; border-radius: 12px; }
+}
+
+.up-intro { margin-top: 8px; }
+
+/* ---------- TRILHA DE PASSOS ----------
+   Numeração porque isto é uma sequência de verdade (arquivos, depois
+   divisões), não um enfeite de seção. */
+.up-steps {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 22px;
+}
+.up-step { display: flex; align-items: center; gap: 8px; }
+.up-step-num {
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--w-rule-strong);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--w-ink-3);
+  transition: background 160ms var(--ease-standard), color 160ms var(--ease-standard);
+}
+.up-step-text { font-size: 12px; color: var(--w-ink-3); }
+.up-step[aria-current="step"] .up-step-num {
+  background: var(--w-ink);
+  border-color: var(--w-ink);
+  color: var(--w-base);
+}
+.up-step[aria-current="step"] .up-step-text { color: var(--w-ink); font-weight: 500; }
+.up-step-rule { width: 24px; height: 1px; background: var(--w-rule-strong); }
+
+/* ---------- PASSO 1: ARQUIVOS ---------- */
+#step-files > .field-label { margin: 22px 0 8px; }
+
+/* O <input type=file> cobre a área inteira com opacity 0: o clique e o
+   arrastar-e-soltar ficam nativos (input de arquivo aceita drop e
+   dispara change sozinho). O JS só pinta data-drag. */
+.up-drop {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 26px 20px;
+  text-align: center;
+  border: 1px dashed var(--w-rule-strong);
+  border-radius: 12px;
+  background: var(--w-muted-fill);
+  cursor: pointer;
+  transition: border-color 160ms var(--ease-standard),
+              background 160ms var(--ease-standard);
+}
+.up-drop:hover { border-color: var(--w-ink-3); background: var(--w-soft); }
+.up-drop:focus-within {
+  border-color: var(--w-accent-fg);
+  box-shadow: 0 0 0 3px var(--w-accent-ring);
+}
+.up-drop[data-drag="true"] {
+  border-color: var(--w-accent-fg);
+  border-style: solid;
+  background: var(--w-accent-soft);
+}
+.up-drop-icon { width: 22px; height: 22px; color: var(--w-ink-3); margin-bottom: 2px; }
+.up-drop-title { font-size: 13px; font-weight: 500; color: var(--w-ink); }
+.up-pointer-coarse { display: none; }
+@media (hover: none), (pointer: coarse) {
+  .up-pointer-fine { display: none; }
+  .up-pointer-coarse { display: inline; }
+}
+/* ink-2 e não ink-3: a zona tem um preenchimento translúcido por cima do
+   fundo, e ink-3 ali cai para ~4.4:1 — abaixo do piso para 10.5px. */
+.up-drop-hint {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  color: var(--w-ink-2);
+}
+.up-drop-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.up-files { list-style: none; }
+.up-files:not(:empty) { margin-top: 16px; border-top: 1px solid var(--w-rule); }
+.up-files li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 2px;
+  border-bottom: 1px solid var(--w-rule);
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--w-ink);
+}
+.up-file-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.up-file-size {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--w-ink-3);
+}
+
+/* ---------- PASSO 2: DIVISÕES ---------- */
+#bool-section { margin-top: 22px; }
+
+.up-optional {
+  margin-left: 8px;
+  padding: 2px 7px;
+  border: 1px solid var(--w-rule);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--w-ink-3);
+  vertical-align: 2px;
+}
+
+/* Diagrama antes → depois. Cores por CSS (não por atributo) para
+   acompanhar o tema: um #EFF6FF fixo brilharia na tela escura. */
+.up-diagram { display: block; width: 100%; max-width: 320px; margin: 16px auto 4px; }
+/* A referência é um disco cheio (matéria que fica), a estrutura a dividir é
+   um contorno vazado (matéria que vai ser cortada) — a diferença é de forma,
+   não de cor, e sobrevive aos dois temas. */
+.dgm-ref { fill: var(--w-recess); stroke: var(--w-rule-strong); stroke-width: 1.5; }
+.dgm-out { fill: none; stroke: var(--w-ink-2); stroke-width: 1.5; }
+/* Depois do corte as três peças são matéria: a de fora volta a ter
+   preenchimento, senão o crescente lê como círculo quebrado. */
+.dgm-piece { fill: var(--w-recess); stroke: var(--w-ink-3); stroke-width: 1.5; }
+.dgm-in {
+  fill: var(--w-highlight);
+  stroke: color-mix(in srgb, var(--w-highlight) 65%, #000);
+  stroke-width: 1.5;
+}
+.dgm-arrow { stroke: var(--w-ink-3); stroke-width: 1.5; }
+.dgm-label { font-family: var(--font-text); font-size: 9px; fill: var(--w-ink-3); }
+.dgm-label-in { fill: var(--w-ink-2); font-weight: 600; }
+
+/* Linhas separadas por fio de cabelo, como o painel de estruturas do
+   visualizador. Cartão dentro de cartão seria uma caixa a mais para o
+   olho resolver. */
+.up-divisions { list-style: none; margin-top: 14px; }
+.up-division {
+  position: relative;
+  padding: 14px 36px 14px 0;
+  border-top: 1px solid var(--w-rule);
+}
+.up-division[data-duplicated="true"] {
+  margin-inline: -10px;
+  padding-inline: 10px 46px;
+  border-radius: 8px;
+  border-top-color: transparent;
+  background: var(--w-err-soft);
+}
+.up-division-fields { display: grid; gap: 10px; }
+@media (min-width: 520px) {
+  .up-division-fields { grid-template-columns: 1fr 1fr; }
+}
+.up-division-field > .field-label { margin-bottom: 6px; }
+.up-division-remove {
+  position: absolute;
+  top: 12px;
+  right: 0;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--w-rule);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--w-ink-3);
+  cursor: pointer;
+  transition: background 120ms, color 120ms;
+}
+.up-division[data-duplicated="true"] .up-division-remove { right: 10px; }
+.up-division-remove:hover { background: var(--w-soft); color: var(--w-ink); }
+.up-division-remove:focus-visible { outline: 2px solid var(--w-ink-3); outline-offset: 2px; }
+.up-division-remove svg { width: 13px; height: 13px; }
+
+/* Prévia: as três peças com o nome e a cor que vão ter no visualizador. */
+.up-division-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.up-add {
+  width: 100%;
+  height: 42px;
+  margin-top: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px dashed var(--w-rule-strong);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--w-ink);
+  font-family: var(--font-text);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 140ms var(--ease-standard),
+              background 140ms var(--ease-standard);
+}
+.up-add svg { width: 14px; height: 14px; }
+.up-add:hover:not(:disabled) { border-color: var(--w-ink-3); background: var(--w-soft); }
+.up-add:focus-visible { outline: 2px solid var(--w-ink-3); outline-offset: 2px; }
+.up-add:disabled { color: var(--w-ink-3); border-color: var(--w-rule); cursor: not-allowed; }
+
+.up-note { margin-top: 12px; }
+
+/* ---------- RODAPÉ DE AÇÕES ----------
+   column-reverse: no celular a ação primária fica em cima (o polegar
+   alcança primeiro) sem inverter a ordem de leitura do teclado. */
+.up-actions {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 10px;
+  margin-top: 26px;
+}
+.up-grow { flex: 1; }
+@media (min-width: 520px) {
+  .up-actions { flex-direction: row; align-items: center; }
+}
+
+/* ---------- ESTADOS PROCESSANDO / PRONTO / ERRO ---------- */
+.up-state {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  animation: app-rise 220ms var(--ease-entrance) both;
+}
+.up-state .up-intro { margin-top: -8px; }
+
+/* Trilho de 2px, igual ao do controle de opacidade do visualizador. O
+   varrido é indeterminado de propósito: o backend não reporta progresso,
+   e uma barra que finge porcentagem mente para o clínico. */
+.up-progress {
+  position: relative;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--w-track-dim);
+  overflow: hidden;
+}
+.up-progress > span {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  width: 32%;
+  border-radius: 1px;
+  background: var(--w-accent-fg);
+  animation: up-sweep 1.6s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+@keyframes up-sweep {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(320%); }
+}
+/* Sem movimento, o trilho vira presença estática e quem informa
+   progresso é o texto que se alterna abaixo. */
+@media (prefers-reduced-motion: reduce) {
+  .up-state { animation: none; }
+  .up-progress > span { animation: none; width: 100%; opacity: 0.55; }
+}
+
+.up-title-ok { display: flex; align-items: center; gap: 10px; }
+.up-title-ok svg { width: 19px; height: 19px; color: var(--w-ok); flex-shrink: 0; }
+.up-title-err { color: var(--w-err); }
+.up-field-label { margin-bottom: 8px; }

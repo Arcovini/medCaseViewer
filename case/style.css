@@ -1,68 +1,15 @@
 /* ============================================================
    case — viewer styles (Medcase redesign — v5 simplified)
-   Tokens come from /colors_and_type.css (loaded before this file).
-   Theme: dark by default; html[data-theme="light"] flips a small
-   set of viewer-local tokens for the dark variant. The design
-   system's accent (#C8412C) is shared across themes.
+   Carrega depois de /colors_and_type.css (primitivas de marca) e de
+   /app.css (camada de app: tokens --w-*, tema, barra superior, pills,
+   botões, campos). Aqui fica só o que é do visualizador: o palco 3D,
+   o painel de estruturas, medição, cor e AR.
+   Tema escuro por padrão; os tokens viram no /app.css.
    ============================================================ */
-
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
-/* ---------- VIEWER-LOCAL THEME TOKENS ------------------------
-   Light is default. The dark variant only overrides what reads
-   differently on a dark canvas. Names mirror mockup conventions
-   (--w-*) for fidelity to the handoff. */
-:root {
-  --w-base:         #FFFFFF;
-  --w-soft:         #FAFAFA;
-  --w-recess:       #F5F5F5;
-  --w-ink:          #15171A;
-  --w-ink-2:        #4A5058;
-  --w-ink-3:        #6B7177;
-  --w-rule:         rgba(21,23,26,0.10);
-  --w-rule-strong:  rgba(21,23,26,0.18);
-  --w-muted-fill:   rgba(21,23,26,0.04);
-  --w-track-dim:    rgba(21,23,26,0.10);
-  --w-canvas-bg:    #EDEFF2;
-  --w-pill-bg:      rgba(255,255,255,0.78);
-  --w-pill-blur:    blur(14px) saturate(140%);
-  --w-menu-bg:      rgba(255,255,255,0.96);
-  /* HUD over canvas — dark in light theme to read on the video. */
-  --w-hud-bg:       rgba(11,14,17,0.82);
-  --w-hud-border:   rgba(255,255,255,0.18);
-  --w-hud-fg:       #FFFFFF;
-}
-html[data-theme="dark"] {
-  --w-base:         #0B0E11;
-  --w-soft:         #14181C;
-  --w-recess:       #1F2429;
-  --w-ink:          #F2F3F4;
-  --w-ink-2:        #A8B0B6;
-  --w-ink-3:        #7A848C;
-  --w-rule:         rgba(242,243,244,0.10);
-  --w-rule-strong:  rgba(242,243,244,0.18);
-  --w-muted-fill:   rgba(242,243,244,0.06);
-  --w-track-dim:    rgba(242,243,244,0.10);
-  /* Neutro puro (R=G=B). Em low-luminance qualquer viés cromático é
-     amplificado pelo olho — warm vira marrom, cool vira azul-tela.
-     #181818 dá um cinza muito escuro sem temperatura aparente, e a
-     vignette escurece os cantos até quase preto. */
-  --w-canvas-bg:    #181818;
-  --w-pill-bg:      rgba(20,24,28,0.72);
-  --w-menu-bg:      rgba(11,14,17,0.94);
-}
 
 html, body {
   height: 100%;
-  background: var(--w-base);
-  color: var(--w-ink);
-  font-family: var(--font-text);
   overflow: hidden;
-  transition: background 200ms;
 }
 
 #canvas {
@@ -98,74 +45,9 @@ html, body {
   .vw-right { display: contents; }
 }
 
-/* ============================================================
-   TOP BAR
-   ============================================================ */
-.vw-top {
-  grid-area: top;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 var(--space-5);
-  border-bottom: 1px solid var(--w-rule);
-  background: var(--w-base);
-}
-.vw-top-left, .vw-top-right { display: flex; align-items: center; gap: 14px; }
-
-.vw-brand { display: inline-flex; align-items: center; color: var(--w-ink); }
-.vw-brand-stack { display: flex; flex-direction: column; line-height: 1; gap: 3px; }
-.vw-brand-product {
-  font-family: var(--font-display);
-  font-weight: 500;
-  font-size: 15px;
-  letter-spacing: -0.02em;
-  color: var(--w-ink);
-}
-.vw-brand-company {
-  font-family: var(--font-mono);
-  font-size: 9px;
-  letter-spacing: 0.10em;
-  text-transform: uppercase;
-  color: var(--w-ink-3);
-  font-weight: 500;
-}
-.vw-sep { color: var(--w-ink-3); margin: 0 4px; font-weight: 300; }
-.vw-case-id {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.06em;
-  color: var(--w-ink-2);
-  text-transform: uppercase;
-}
-.vw-case-id b { color: var(--w-ink); font-weight: 600; }
-
-@media (max-width: 600px) {
-  .vw-sep, .vw-case-id { display: none; }
-  .vw-brand-company { display: none; }
-}
-
-/* Responsive visibility helpers for top-bar chrome. !important wins over
-   the .pill base display:inline-flex defined later in this file.
-   Desktop ≥769px: theme + Compartilhar pills are visible; hamburger hidden.
-   Mobile  <769px: theme + Compartilhar move into the hamburger popover. */
-.vw-mobile-only { display: none !important; }
-@media (max-width: 768px) {
-  .vw-desktop-only { display: none !important; }
-  button.vw-mobile-only { display: inline-flex !important; }
-  /* The popover div itself uses dataset-driven display, so reset its
-     base hiding rule and let [data-open] decide. */
-  div.vw-mobile-only { display: none !important; }
-  div.vw-mobile-only[data-open="true"] { display: block !important; }
-}
-
-/* Mobile top-bar polish — pills tighten up and AR/Medir lose their
-   text labels (the hamburger handles the rest). */
-@media (max-width: 768px) {
-  .vw-top { padding: 0 var(--space-4); }
-  .vw-top-right { gap: 8px; }
-  .pill { padding: 0; width: 36px; }
-  .pill .label { display: none; }
-}
+/* A barra em si (marca, pills, comportamento responsivo) mora no
+   /app.css — as duas telas usam a mesma. Aqui só o encaixe na grade. */
+.viewer > .vw-top { grid-area: top; }
 
 /* ============================================================
    OVERFLOW MENU (mobile) — opens from the hamburger pill, lists
@@ -242,64 +124,15 @@ html[data-theme="dark"] .overflow-item .sub-dark  { display: inline; }
 html[data-theme="dark"] .overflow-item .ic .ic-moon { display: none; }
 html[data-theme="dark"] .overflow-item .ic .ic-sun  { display: inline-block; }
 
-/* ============================================================
-   PILL SYSTEM — used by AR / Medir / Theme / Compartilhar
-   All four chrome controls share this primitive. 36px floor.
-   ============================================================ */
-.pill {
-  height: 36px;
-  min-width: 36px;
-  padding: 0 12px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  border-radius: 999px;
-  border: 1px solid var(--w-rule-strong);
-  background: transparent;
-  color: var(--w-ink);
-  font-family: var(--font-text);
-  font-weight: 500;
-  font-size: 13px;
-  letter-spacing: 0;
-  cursor: pointer;
-  transition: background 120ms, border-color 120ms, color 120ms;
-}
-.pill[hidden] { display: none; }
-.pill svg { width: 17px; height: 17px; flex-shrink: 0; }
-.pill.icon-only { padding: 0; width: 36px; }
-
-/* Theme-toggle icon swap — pure CSS, no JS needed. Sun shows in light,
-   moon in dark. Avoids the "both icons render briefly" overlap glitch. */
-.theme-toggle .ic-moon { display: none; }
-html[data-theme="dark"] .theme-toggle .ic-sun { display: none; }
-html[data-theme="dark"] .theme-toggle .ic-moon { display: inline-block; }
-.pill:hover { background: var(--w-soft); }
-.pill.active,
-.pill[aria-expanded="true"] {
-  background: var(--w-ink);
-  color: var(--w-base);
-  border-color: var(--w-ink);
-}
-.pill.primary {
-  background: var(--w-ink);
-  color: var(--w-base);
-  border-color: var(--w-ink);
-  font-weight: 600;
-  padding: 0 16px;
-}
-.pill.primary:hover {
-  background: var(--w-ink-2);
-  border-color: var(--w-ink-2);
-}
-
 /* AR pill specifics — visibility is driven by ar.js via data-visible.
    .pill base hides via [hidden]; here we layer [data-visible="false"]
-   to also hide. data-loading dims with a wait cursor. */
-.ar-button { color: var(--w-accent); border-color: var(--w-accent); }
+   to also hide. data-loading dims with a wait cursor.
+   Coral como texto/borda usa --w-accent-fg (clareia no tema escuro);
+   no hover o preenchimento é o coral cheio com tinta branca. */
+.ar-button { color: var(--w-accent-fg); border-color: var(--w-accent-fg); }
 .ar-button:hover {
   background: var(--w-accent);
-  color: var(--w-base);
+  color: var(--w-accent-ink);
   border-color: var(--w-accent);
 }
 .ar-button[data-visible="false"] { display: none; }
@@ -325,23 +158,11 @@ html[data-theme="dark"] .theme-toggle .ic-moon { display: inline-block; }
   inset: 0;
   pointer-events: none;
   z-index: 1;
-  /* Vignette radial puro, centrado, fixo na viewport. A cor base vem do
-     canvas (--w-canvas-bg); o gradiente só escurece os cantos pra dar
-     profundidade fotográfica. Curva tipo smoothstep (ease-in-out): a
-     inclinação cresce devagar, atinge o máximo no meio-externo e DESACELERA
-     ao chegar no canto — assim a transição "assenta" suave em vez de bater
-     no escuro. Muitos stops + delta pequeno entre eles eliminam banding. */
-  background: radial-gradient(ellipse 115% 105% at 50% 45%,
-    rgba(0, 0, 0, 0)    0%,
-    rgba(0, 0, 0, 0.03) 26%,
-    rgba(0, 0, 0, 0.08) 42%,
-    rgba(0, 0, 0, 0.16) 55%,
-    rgba(0, 0, 0, 0.27) 66%,
-    rgba(0, 0, 0, 0.40) 75%,
-    rgba(0, 0, 0, 0.53) 83%,
-    rgba(0, 0, 0, 0.66) 90%,
-    rgba(0, 0, 0, 0.75) 95%,
-    rgba(0, 0, 0, 0.82) 100%);
+  /* Vinheta radial pura, centrada. A cor base vem do canvas
+     (--w-canvas-bg); o gradiente só escurece os cantos pra dar
+     profundidade fotográfica. A curva está em --w-vignette (/app.css),
+     compartilhada com o palco da tela de upload. */
+  background: var(--w-vignette);
 }
 
 /* ============================================================
@@ -585,9 +406,11 @@ html[data-theme="dark"] .eye-toggle img { filter: invert(1); }
   box-shadow: 0 12px 32px -12px rgba(21,23,26,0.20);
   z-index: 100;
 }
+/* --w-err e não --signal-err: o token da marca é calibrado para fundo
+   claro e sumiria sobre o canvas escuro. */
 .overlay.error {
-  border-color: var(--signal-err);
-  color: var(--signal-err);
+  border-color: var(--w-err);
+  color: var(--w-err);
 }
 
 /* ============================================================
@@ -1150,51 +973,7 @@ html[data-theme="dark"] .eye-toggle img { filter: invert(1); }
 }
 .modal-close:hover { background: var(--w-soft); color: var(--w-ink); }
 .modal-body { padding: 20px 24px; display: flex; flex-direction: column; gap: 18px; }
-.modal-field-label {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--w-ink-3);
-  font-weight: 500;
-  margin-bottom: 8px;
-  display: block;
-}
-.link-row {
-  display: flex;
-  align-items: stretch;
-  border: 1px solid var(--w-rule-strong);
-  border-radius: 8px;
-  overflow: hidden;
-}
-.link-input {
-  flex: 1;
-  border: 0;
-  background: transparent;
-  padding: 0 12px;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  color: var(--w-ink);
-  letter-spacing: 0;
-  outline: none;
-  min-width: 0;
-  height: 40px;
-}
-.link-copy {
-  border: 0;
-  border-left: 1px solid var(--w-rule);
-  background: var(--w-soft);
-  padding: 0 14px;
-  font-family: var(--font-text);
-  font-weight: 500;
-  font-size: 12px;
-  color: var(--w-ink);
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  transition: background 120ms;
-}
-.link-copy:hover { background: var(--w-recess); }
-.link-copy.ok { background: var(--w-ink); color: var(--w-base); }
-.link-copy svg { width: 13px; height: 13px; }
+.modal-body .field-label { margin-bottom: 8px; }
+/* .field-label, .link-row, .link-input e .link-copy moram no /app.css:
+   o "link do caso + copiar" é o mesmo objeto e a mesma ação aqui e no
+   estado final da tela de upload. */
