@@ -43,3 +43,13 @@ build/
 playwright-report/
 test-results/
 /playwright/.cache/
+
+# GLBs gravados pelo backend local em DRY_RUN (DRY_RUN_GLB_DIR); em produção os
+# casos vêm do R2, nunca do repositório.
+/cases/
+
+# Área de rascunho dos agentes (Conductor): scripts de apoio, screenshots de
+# conferência, STLs de teste. Nada aqui é servido em produção, e as imagens
+# pesam mais que o site inteiro.
+.context/
+/blob-report/

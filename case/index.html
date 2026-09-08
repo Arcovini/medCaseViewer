@@ -6,13 +6,25 @@
     <title>Medcase — visualizador 3D</title>
 
     <link rel="stylesheet" href="../colors_and_type.css" />
+    <link rel="stylesheet" href="../app.css" />
     <link rel="stylesheet" href="./style.css" />
+
+    <!-- Tema antes da primeira pintura: sem isto, quem salvou "claro"
+         vê o app escuro até o módulo carregar. Mesma chave nas duas telas. -->
+    <script>
+      try {
+        document.documentElement.dataset.theme =
+          localStorage.getItem("medcase-viewer-theme") === "light" ? "light" : "dark";
+      } catch (e) { /* storage bloqueado: fica no escuro, que é o padrão */ }
+    </script>
 
     <script type="importmap">
     {
       "imports": {
         "three": "https://unpkg.com/three@0.164.0/build/three.module.js",
-        "three/addons/": "https://unpkg.com/three@0.164.0/examples/jsm/"
+        "three/addons/": "https://unpkg.com/three@0.164.0/examples/jsm/",
+        "three/examples/jsm/": "https://unpkg.com/three@0.164.0/examples/jsm/",
+        "n8ao": "https://esm.sh/n8ao@1.9.4?external=three"
       }
     }
     </script>
@@ -146,7 +158,7 @@
         </div>
         <div class="modal-body">
           <div>
-            <span class="modal-field-label">Link</span>
+            <span class="field-label">Link</span>
             <div class="link-row">
               <input class="link-input" data-bind="share-link" readonly />
               <button class="link-copy" data-action="share-copy">

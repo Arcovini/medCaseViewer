@@ -14,6 +14,29 @@ export function buildGlbUrl(uid) {
   return `${R2_PUBLIC_BASE}/cases/${uid}.glb`;
 }
 
+// Dev local: um backend em DRY_RUN não sobe nada para o R2, então o link que ele
+// devolve nunca abriria o caso recém-processado. Com DRY_RUN_GLB_DIR apontando
+// para a raiz servida, o GLB fica em /cases/{uid}.glb aqui mesmo; tentamos esse
+// caminho primeiro e caímos no R2 se não existir (permite abrir casos reais
+// localmente). Restrito a localhost: em produção resolve direto no R2, sem
+// requisição extra.
+const IS_LOCALHOST = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+
+export async function resolveGlbUrl(uid) {
+  if (!IS_LOCALHOST) return buildGlbUrl(uid);
+  const local = `/cases/${uid}.glb`;
+  try {
+    const r = await fetch(local, { method: "HEAD", cache: "no-cache" });
+    if (r.ok) {
+      console.info(`[dev] carregando GLB local ${local}`);
+      return local;
+    }
+  } catch (_) {
+    // Servidor estático sem o arquivo (ou sem suporte a HEAD): usa o R2.
+  }
+  return buildGlbUrl(uid);
+}
+
 export async function loadGlb(url) {
   // `cache: "no-cache"` forces a conditional revalidation on every load.
   // The browser still serves the cached GLB body via 304 Not Modified for

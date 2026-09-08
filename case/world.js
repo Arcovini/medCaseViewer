@@ -4,6 +4,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+import { RGBELoader } from "three/addons/loaders/RGBELoader.js";
 import { CSS2DRenderer, CSS2DObject } from "three/addons/renderers/CSS2DRenderer.js";
 import { Line2 } from "three/addons/lines/Line2.js";
 import { LineMaterial } from "three/addons/lines/LineMaterial.js";
@@ -12,15 +13,18 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { OutlinePass } from "three/addons/postprocessing/OutlinePass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
+import { N8AOPass } from "n8ao";
 import { pickNearestSegment } from "./calibre-geom.js";
 
 let renderer, scene, camera, controls;
 let css2dRenderer;
 let composer;            // EffectComposer pra outline pass
 let outlinePass;         // OutlinePass — desenha contorno reliable em malhas selecionadas
+let aoPass;              // N8AOPass — ambient occlusion screen-space moderno; mais bonito e mais rápido que SSAOPass nativa
 let pmremGenerator;
 const namedMeshes = new Map();
 const lastOpacity = new Map();   // name -> último valor não-zero (default fallback é 1.0)
+const originalColors = new Map(); // name -> hex do GLB, capturado no mount (null se texturizada)
 const lineMaterials = new Set(); // pra atualizar resolution no resize (Line2 precisa disso)
 let mountedRoot = null;
 let _initialCameraDistance = null;
@@ -57,8 +61,14 @@ export function init(canvasEl) {
   const _h0 = _r0.height || window.innerHeight;
   renderer.setSize(_w0, _h0, false);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.0;
+  // NeutralToneMapping (r161+) é o padrão recomendado para visualização
+  // de produto/medicina: preserva cores fiéis e dá rolloff suave em
+  // highlights, sem a dessaturação cinematográfica do ACESFilmic.
+  renderer.toneMapping = THREE.NeutralToneMapping;
+  // Exposure ligeiramente abaixo de 1.0 pra que os highlights muito brilhantes
+  // do HDR (softboxes brancos puros do studio_small_09) entrem na zona de
+  // rolloff suave do Neutral tone mapping — evita clipping em branco puro.
+  renderer.toneMappingExposure = 0.85;
 
   scene = new THREE.Scene();
   // Opaque background — required for the transparent-mesh fix
@@ -69,19 +79,56 @@ export function init(canvasEl) {
   // to the CSS var --w-canvas-bg whenever the theme flips.
   scene.background = new THREE.Color(0xEDEFF2);
 
+  // IBL inicial: RoomEnvironment sintética como fallback enquanto o HDR
+  // de estúdio carrega async. Garante que os primeiros frames já vejam
+  // o modelo iluminado em vez de preto.
   pmremGenerator = new THREE.PMREMGenerator(renderer);
   scene.environment = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
-  pmremGenerator.dispose();
+  // 1.0 (e não 2.0) — a 2.0 o HDR de estúdio estourava a pele e os reflexos do
+  // metal em branco puro, mesmo com exposure 0.85. 1.0 mantém os softboxes como
+  // highlights nítidos sem clipar.
+  scene.environmentIntensity = 1.0;
 
-  // Luzes explícitas como fallback. A IBL via PMREMGenerator é gerada
-  // pelo renderer principal e não compartilha bem entre WebGLRenderers
-  // (lupa usa um segundo renderer). Estas luzes garantem que ambos os
-  // contextos vejam a cena iluminada de forma consistente.
-  const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-  const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-  dirLight.position.set(5, 10, 7);
-  scene.add(ambientLight);
-  scene.add(dirLight);
+  // HDR studio (Polyhaven studio_small_09 — 3 softboxes visíveis no
+  // equirect). Cada softbox vira um highlight nítido na superfície da
+  // malha — é o que dá a leitura de "produto fotografado em estúdio"
+  // que faltava: pontos de luz específicos, não só wash uniforme do
+  // RoomEnvironment sintético. ~1.6MB, carrega em paralelo ao GLB.
+  new RGBELoader().load(
+    "https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/studio_small_09_1k.hdr",
+    (hdrTexture) => {
+      hdrTexture.mapping = THREE.EquirectangularReflectionMapping;
+      const envMap = pmremGenerator.fromEquirectangular(hdrTexture).texture;
+      // Substitui o env do RoomEnvironment. scene.background continua sendo
+      // a cor sólida (setSceneBackground) — só usamos o HDR para iluminar,
+      // não pra mostrar o equirect como skybox.
+      scene.environment?.dispose?.();
+      scene.environment = envMap;
+      hdrTexture.dispose();
+      pmremGenerator.dispose();
+    },
+    undefined,
+    (err) => {
+      // Falha de rede: ficamos com a RoomEnvironment fallback, sem crash.
+      console.warn("HDR studio falhou ao carregar; usando RoomEnvironment.", err);
+    },
+  );
+
+  // IBL faz o trabalho principal; estas luzes dão uma direção sutil (key
+  // pra acentuar o lado iluminado) + um lift do hemisfério, e garantem
+  // que a lupa (segundo WebGLRenderer, não compartilha PMREM) também
+  // tenha alguma iluminação. Mantemos intensidades moderadas pra não
+  // ofuscar o env nem matar o AO.
+  const hemiLight = new THREE.HemisphereLight(0xffffff, 0x4a4f57, 0.45);
+  scene.add(hemiLight);
+
+  const keyLight = new THREE.DirectionalLight(0xffffff, 0.6);
+  keyLight.position.set(6, 8, 7);
+  scene.add(keyLight);
+
+  const fillLight = new THREE.DirectionalLight(0xffffff, 0.3);
+  fillLight.position.set(-7, 2, -3);
+  scene.add(fillLight);
 
   camera = new THREE.PerspectiveCamera(45, _w0 / _h0, 0.1, 1000);
   camera.position.set(0, 0, 3);
@@ -96,14 +143,35 @@ export function init(canvasEl) {
   css2dRenderer.domElement.style.position = "absolute";
   css2dRenderer.domElement.style.top = "0";
   css2dRenderer.domElement.style.left = "0";
+  // z-index 2 deixa pílulas de medição acima de qualquer overlay CSS futuro
+  // (.vw-stage::before reservado pra vignette/gradient se quisermos reativar).
+  css2dRenderer.domElement.style.zIndex = "2";
   css2dRenderer.domElement.style.pointerEvents = "none";   // taps caem no canvas
   canvasEl.parentElement.appendChild(css2dRenderer.domElement);
 
-  // EffectComposer + OutlinePass: desenha contorno cyan consistente nas malhas
-  // selecionadas via setMeshHighlight. Substituiu o inverted-hull (que ficava
-  // deslocado em geometrias com vértices fora do origem local).
+  // EffectComposer + N8AOPass + OutlinePass:
+  // - N8AOPass: ambient occlusion screen-space moderno (pmndrs/N8python).
+  //   Mais bonito que SSAOPass nativa (rolloff suave, sem ruído) e mais
+  //   rápido (sampling otimizado + half-res accumulation). É o que dá a
+  //   profundidade real nas concavidades — sem ele o modelo fica "chapado"
+  //   mesmo bem iluminado. aoRadius/distanceFalloff são ajustados em
+  //   frameToScene() proporcionais ao tamanho do modelo carregado.
+  // - OutlinePass: contorno coral consistente nas malhas selecionadas via
+  //   setMeshHighlight. Substituiu o inverted-hull (que ficava deslocado em
+  //   geometrias com vértices fora do origem local).
   composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
+
+  aoPass = new N8AOPass(scene, camera, _w0, _h0);
+  aoPass.configuration.aoRadius = 5.0;             // ajustado em frameToScene
+  aoPass.configuration.distanceFalloff = 1.0;      // ajustado em frameToScene
+  aoPass.configuration.intensity = 8.0;            // marcado mas sem queimar
+  aoPass.configuration.aoSamples = 16;
+  aoPass.configuration.denoiseSamples = 8;
+  aoPass.configuration.denoiseRadius = 12;
+  aoPass.setQualityMode("Medium");                 // Low/Medium/High/Ultra
+  composer.addPass(aoPass);
+
   outlinePass = new OutlinePass(
     new THREE.Vector2(_w0, _h0),
     scene,
@@ -131,6 +199,7 @@ function onResize() {
   css2dRenderer.setSize(w, h);
   if (composer) composer.setSize(w, h);
   if (outlinePass) outlinePass.setSize(w, h);
+  if (aoPass) aoPass.setSize(w, h);
   // Line2/LineMaterial precisa da resolution pra calcular linewidth em pixels.
   for (const mat of lineMaterials) mat.resolution.set(w, h);
   camera.aspect = w / h;
@@ -170,6 +239,7 @@ export function mount(rootObject) {
 
   namedMeshes.clear();
   lastOpacity.clear();
+  originalColors.clear();
   rootObject.traverse((child) => {
     if (child.isMesh && child.name) {
       // Clone material per-mesh so opacity changes on one mesh cannot
@@ -182,6 +252,14 @@ export function mount(rootObject) {
       child.material.transparent = true;
       child.material.depthWrite = true;
       namedMeshes.set(child.name, child);
+      // Guarda a cor original do GLB antes de qualquer recolorização do painel,
+      // pra que "Restaurar" volte ao que o mesh-processor pintou no upload.
+      originalColors.set(
+        child.name,
+        (child.material.color && !child.material.map)
+          ? "#" + child.material.color.getHexString()
+          : null,
+      );
     }
   });
 }
@@ -218,6 +296,15 @@ export function frameToScene() {
   controls.update();
 
   _initialCameraDistance = camera.position.distanceTo(controls.target);
+
+  // N8AO: escala raio e falloff proporcionais ao tamanho do modelo.
+  // aoRadius ~8% do raio capta contatos macro (lobos, vasos contra órgão)
+  // sem virar halo. distanceFalloff controla a suavidade da queda — 25%
+  // do aoRadius dá um rolloff natural.
+  if (aoPass) {
+    aoPass.configuration.aoRadius = Math.max(1.0, radius * 0.08);
+    aoPass.configuration.distanceFalloff = aoPass.configuration.aoRadius * 0.25;
+  }
 }
 
 export function setOpacity(name, value) {
@@ -237,7 +324,38 @@ export function getMeshOpacity(name) {
 export function getMeshColor(name) {
   const mesh = namedMeshes.get(name);
   if (!mesh || !mesh.material.color) return null;
+  // Textured meshes (PBR baseColorTexture / MeshStandardMaterial.map) carry
+  // their look in the texture; the material.color factor is white (1,1,1) by
+  // default and exposing it as the swatch would mislead the panel into showing
+  // a generic white chip for a photo-realistic mesh. Returning null lets dom.js
+  // skip the --struct-color override and fall through to neutral chrome.
+  if (mesh.material.map) return null;
   return "#" + mesh.material.color.getHexString();
+}
+
+// Cor com que o GLB chegou (antes de qualquer edição no painel), ou null se a
+// malha for texturizada / sem `material.color`. Alimenta o botão "Restaurar".
+export function getMeshOriginalColor(name) {
+  return originalColors.get(name) ?? null;
+}
+
+// Só malhas de cor chapada podem ser repintadas. Numa malha texturizada o
+// `material.color` é só um fator multiplicativo sobre o baseColorTexture —
+// mexer nele tingiria a textura em vez de trocar a cor, então bloqueamos.
+export function isMeshRecolorable(name) {
+  const mesh = namedMeshes.get(name);
+  return !!(mesh && mesh.material.color && !mesh.material.map);
+}
+
+// Repinta a malha. `hex` é uma string CSS sRGB ("#RRGGBB"); Color.set converte
+// pro working color space do renderer, então o round-trip com getMeshColor()
+// (getHexString, também sRGB) é consistente. Retorna false se a malha não
+// existe ou não é recolorível.
+export function setMeshColor(name, hex) {
+  const mesh = namedMeshes.get(name);
+  if (!mesh || !mesh.material.color || mesh.material.map) return false;
+  mesh.material.color.set(hex);
+  return true;
 }
 
 export function getMeshNames() {
