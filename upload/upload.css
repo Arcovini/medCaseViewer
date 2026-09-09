@@ -37,7 +37,7 @@ body.up {
   inset: 56px 0 0 0;
   pointer-events: none;
   z-index: 0;
-  opacity: 0.5;
+  opacity: 0.22;
   background: var(--w-vignette);
 }
 
@@ -60,41 +60,9 @@ body.up {
 
 .up-intro { margin-top: 8px; }
 
-/* ---------- TRILHA DE PASSOS ----------
-   Numeração porque isto é uma sequência de verdade (arquivos, depois
-   divisões), não um enfeite de seção. */
-.up-steps {
-  list-style: none;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 22px;
-}
-.up-step { display: flex; align-items: center; gap: 8px; }
-.up-step-num {
-  width: 20px;
-  height: 20px;
-  display: grid;
-  place-items: center;
-  border-radius: var(--radius-pill);
-  border: 1px solid var(--w-rule-strong);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 500;
-  color: var(--w-ink-3);
-  transition: background 160ms var(--ease-standard), color 160ms var(--ease-standard);
-}
-.up-step-text { font-size: 12px; color: var(--w-ink-3); }
-.up-step[aria-current="step"] .up-step-num {
-  background: var(--w-ink);
-  border-color: var(--w-ink);
-  color: var(--w-base);
-}
-.up-step[aria-current="step"] .up-step-text { color: var(--w-ink); font-weight: 500; }
-.up-step-rule { width: 24px; height: 1px; background: var(--w-rule-strong); }
-
-/* ---------- PASSO 1: ARQUIVOS ---------- */
-#step-files > .field-label { margin: 22px 0 8px; }
+/* ---------- ZONA DE ARRASTE ---------- */
+#pick-files > .field-label,
+#structures > .field-label { display: block; margin: 22px 0 8px; }
 
 /* O <input type=file> cobre a área inteira com opacity 0: o clique e o
    arrastar-e-soltar ficam nativos (input de arquivo aceita drop e
@@ -148,20 +116,6 @@ body.up {
   cursor: pointer;
 }
 
-.up-files { list-style: none; }
-.up-files:not(:empty) { margin-top: 16px; border-top: 1px solid var(--w-rule); }
-.up-files li {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 9px 2px;
-  border-bottom: 1px solid var(--w-rule);
-  font-size: 12.5px;
-  line-height: 1.4;
-  color: var(--w-ink);
-}
-.up-file-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .up-file-size {
   flex-shrink: 0;
   font-family: var(--font-mono);
@@ -169,23 +123,7 @@ body.up {
   color: var(--w-ink-3);
 }
 
-/* ---------- PASSO 2: DIVISÕES ---------- */
-#bool-section { margin-top: 22px; }
-
-.up-optional {
-  margin-left: 8px;
-  padding: 2px 7px;
-  border: 1px solid var(--w-rule);
-  border-radius: var(--radius-pill);
-  font-family: var(--font-mono);
-  font-size: 9px;
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--w-ink-3);
-  vertical-align: 2px;
-}
-
+/* ---------- DIAGRAMA ---------- */
 /* Diagrama antes → depois. Cores por CSS (não por atributo) para
    acompanhar o tema: um #EFF6FF fixo brilharia na tela escura. */
 .up-diagram { display: block; width: 100%; max-width: 320px; margin: 16px auto 4px; }
@@ -206,81 +144,6 @@ body.up {
 .dgm-label { font-family: var(--font-text); font-size: 9px; fill: var(--w-ink-3); }
 .dgm-label-in { fill: var(--w-ink-2); font-weight: 600; }
 
-/* Linhas separadas por fio de cabelo, como o painel de estruturas do
-   visualizador. Cartão dentro de cartão seria uma caixa a mais para o
-   olho resolver. */
-.up-divisions { list-style: none; margin-top: 14px; }
-.up-division {
-  position: relative;
-  padding: 14px 36px 14px 0;
-  border-top: 1px solid var(--w-rule);
-}
-.up-division[data-duplicated="true"] {
-  margin-inline: -10px;
-  padding-inline: 10px 46px;
-  border-radius: 8px;
-  border-top-color: transparent;
-  background: var(--w-err-soft);
-}
-.up-division-fields { display: grid; gap: 10px; }
-@media (min-width: 520px) {
-  .up-division-fields { grid-template-columns: 1fr 1fr; }
-}
-.up-division-field > .field-label { margin-bottom: 6px; }
-.up-division-remove {
-  position: absolute;
-  top: 12px;
-  right: 0;
-  width: 28px;
-  height: 28px;
-  display: grid;
-  place-items: center;
-  border: 1px solid var(--w-rule);
-  border-radius: 8px;
-  background: transparent;
-  color: var(--w-ink-3);
-  cursor: pointer;
-  transition: background 120ms, color 120ms;
-}
-.up-division[data-duplicated="true"] .up-division-remove { right: 10px; }
-.up-division-remove:hover { background: var(--w-soft); color: var(--w-ink); }
-.up-division-remove:focus-visible { outline: 2px solid var(--w-ink-3); outline-offset: 2px; }
-.up-division-remove svg { width: 13px; height: 13px; }
-
-/* Prévia: as três peças com o nome e a cor que vão ter no visualizador. */
-.up-division-preview {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 12px;
-}
-
-.up-add {
-  width: 100%;
-  height: 42px;
-  margin-top: 14px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  border: 1px dashed var(--w-rule-strong);
-  border-radius: 10px;
-  background: transparent;
-  color: var(--w-ink);
-  font-family: var(--font-text);
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: border-color 140ms var(--ease-standard),
-              background 140ms var(--ease-standard);
-}
-.up-add svg { width: 14px; height: 14px; }
-.up-add:hover:not(:disabled) { border-color: var(--w-ink-3); background: var(--w-soft); }
-.up-add:focus-visible { outline: 2px solid var(--w-ink-3); outline-offset: 2px; }
-.up-add:disabled { color: var(--w-ink-3); border-color: var(--w-rule); cursor: not-allowed; }
-
-.up-note { margin-top: 12px; }
-
 /* ---------- RODAPÉ DE AÇÕES ----------
    column-reverse: no celular a ação primária fica em cima (o polegar
    alcança primeiro) sem inverter a ordem de leitura do teclado. */
@@ -290,7 +153,6 @@ body.up {
   gap: 10px;
   margin-top: 26px;
 }
-.up-grow { flex: 1; }
 @media (min-width: 520px) {
   .up-actions { flex-direction: row; align-items: center; }
 }
@@ -339,3 +201,233 @@ body.up {
 .up-title-ok svg { width: 19px; height: 19px; color: var(--w-ok); flex-shrink: 0; }
 .up-title-err { color: var(--w-err); }
 .up-field-label { margin-bottom: 8px; }
+
+/* ============================================================
+   LISTA DE ESTRUTURAS
+   A lista É a prévia: mostra as estruturas que o caso vai ter, com as peças
+   isoladas no lugar delas. Um grupo é uma estrutura de ORIGEM — não uma
+   operação —, por isso isolar de novo acrescenta linha ao mesmo grupo em vez
+   de aninhar um trilho dentro do outro, e a profundidade nunca passa de um.
+   ============================================================ */
+.up-structures { list-style: none; margin-top: 8px; border-top: 1px solid var(--w-rule); }
+.up-group { border-bottom: 1px solid var(--w-rule); }
+.up-group[data-split="true"] { padding: 4px 0; }
+.up-group-rows { list-style: none; }
+.up-group[data-split="true"] .up-group-rows {
+  border-left: 2px solid var(--w-rule-strong);
+  padding-left: 12px;
+  margin-left: 1px;
+}
+
+.up-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 2px;
+}
+.up-group[data-split="true"] .up-row { padding: 7px 2px; }
+.up-row-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.up-row-right { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+.up-row-name {
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--w-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* A peça de fora é o resto: tinta apagada. A isolada é o que se foi buscar. */
+.up-group[data-split="true"] .up-row[data-isolated="false"] .up-row-name { color: var(--w-ink-2); }
+
+/* Só a peça isolada tem cor conhecida por esta tela (a keyword "dentro de" é
+   gerada aqui); as demais ficam neutras em vez de arriscar divergir da cor que
+   o backend vai aplicar. O fio interno existe porque o amarelo tem luminância
+   quase igual à do branco e sumiria no tema claro. */
+.up-bar {
+  flex: 0 0 auto;
+  width: 3px;
+  height: 15px;
+  border-radius: 2px;
+  background: var(--bar-color, var(--w-ink-3));
+}
+.up-row[data-isolated="true"] .up-bar { box-shadow: inset 0 0 0 1px rgba(168, 149, 0, 0.65); }
+.up-iso-tag {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8A7A00;
+}
+
+/* ---------- CONTROLES DA LINHA ---------- */
+.up-rowbtn {
+  height: 36px;
+  padding: 0 13px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--w-rule-strong);
+  background: transparent;
+  color: var(--w-ink-2);
+  font-family: var(--font-text);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 140ms var(--ease-standard), color 140ms var(--ease-standard),
+              background 140ms var(--ease-standard);
+}
+.up-rowbtn:hover { color: var(--w-ink); border-color: var(--w-ink-3); background: var(--w-soft); }
+.up-rowbtn:focus-visible { outline: 2px solid var(--w-ink-3); outline-offset: 2px; }
+
+.up-quiet {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  color: var(--w-ink-3);
+  font-family: var(--font-text);
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.up-quiet:hover { color: var(--w-ink); }
+.up-quiet:focus-visible { outline: 2px solid var(--w-ink-3); outline-offset: 2px; }
+
+/* A referência é editável dentro do próprio nome da peça: o rótulo da linha e o
+   rótulo no visualizador são o mesmo texto, e um pedaço dele é o controle. */
+.up-token {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  margin: 0 -1px;
+  border-radius: 6px;
+  border: 1px solid var(--w-rule-strong);
+  background: var(--w-base);
+  color: var(--w-ink);
+  font-family: var(--font-text);
+  font-size: 13px;
+  line-height: 1.4;
+  cursor: pointer;
+}
+.up-token:hover { border-color: var(--w-ink-3); background: var(--w-soft); }
+.up-token:focus-visible { outline: 2px solid var(--w-ink-3); outline-offset: 2px; }
+
+/* ---------- MENU DE REFERÊNCIA ---------- */
+.up-menu {
+  position: absolute;
+  z-index: 4;
+  top: calc(100% - 2px);
+  right: 0;
+  width: 268px;
+  padding: 6px;
+  background: var(--w-base);
+  border: 1px solid var(--w-rule-strong);
+  border-radius: 10px;
+  box-shadow: 0 18px 40px -12px rgba(0, 0, 0, 0.35);
+}
+.up-menu-help { padding: 10px 10px 2px; }
+.up-menu-help .up-diagram { margin: 0 auto; max-width: 100%; }
+.up-menu-help-text { margin-top: 4px; font-size: 11.5px; line-height: 1.5; color: var(--w-ink-2); }
+.up-menu-caption {
+  display: block;
+  padding: 7px 10px 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--w-ink-3);
+}
+.up-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  height: 40px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--w-ink-2);
+  font-family: var(--font-text);
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+}
+.up-menu-item:hover { background: var(--w-soft); color: var(--w-ink); }
+.up-menu-item[data-chosen="true"] { background: var(--w-muted-fill); color: var(--w-ink); }
+.up-menu-item:focus-visible { outline: 2px solid var(--w-ink-3); outline-offset: -2px; }
+
+/* ---------- AJUDA POR HESITAÇÃO ----------
+   O cartão só aparece depois de 450ms parado sobre o botão, então um clique
+   decidido nunca o vê; sai na hora. pointer-events:none para jamais interceptar
+   o clique que ele está explicando. Em tela de toque não existe — lá quem
+   ensina é o diagrama dentro do menu. */
+.up-hoverwrap { position: relative; display: inline-flex; }
+.up-hovercard {
+  position: absolute;
+  z-index: 6;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 290px;
+  padding: 12px 14px 10px;
+  background: var(--w-base);
+  border: 1px solid var(--w-rule-strong);
+  border-radius: 10px;
+  box-shadow: 0 16px 36px -12px rgba(0, 0, 0, 0.28);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(-3px);
+  transition: opacity 120ms var(--ease-standard), transform 120ms var(--ease-standard),
+              visibility 0s linear 120ms;
+}
+.up-hovercard .up-diagram { margin: 0 auto; max-width: 100%; }
+.up-hoverwrap:hover .up-hovercard {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+  transition-delay: 450ms;
+}
+@media (hover: none) { .up-hovercard { display: none; } }
+@media (prefers-reduced-motion: reduce) { .up-hovercard { transition: none; } }
+
+/* ---------- CABEÇALHO DO CARTÃO E CANCELAR ----------
+   Cancelar mora no canto do cartão, não na barra do app: ele zera o estado
+   desta tarefa, não navega para fora dela. */
+.up-head { position: relative; display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
+.up-corner {
+  background: transparent;
+  border: 0;
+  padding: 4px 0;
+  color: var(--w-ink-3);
+  font-family: var(--font-text);
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: color 140ms var(--ease-standard);
+}
+.up-corner:hover { color: var(--w-ink); }
+.up-corner:focus-visible { outline: 2px solid var(--w-ink-3); outline-offset: 3px; border-radius: 4px; }
+
+.up-confirm {
+  position: absolute;
+  z-index: 7;
+  top: 28px;
+  right: 0;
+  width: 268px;
+  padding: 14px 16px 12px;
+  background: var(--w-base);
+  border: 1px solid var(--w-rule-strong);
+  border-radius: 10px;
+  box-shadow: 0 16px 36px -12px rgba(0, 0, 0, 0.28);
+}
+.up-confirm-text { font-size: 12.5px; line-height: 1.5; color: var(--w-ink); }
+.up-confirm-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; margin-top: 12px; }
+.up-confirm-actions .up-rowbtn { height: 30px; padding: 0 12px; }

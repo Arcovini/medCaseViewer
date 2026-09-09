@@ -1,5 +1,3 @@
-import { initTheme, toggleTheme } from "../theme.js";
-
 // Backend auto-detection:
 //   localhost / 127.0.0.1 -> local uvicorn on :8000 (dev)
 //   anything else         -> Railway (prod)
@@ -11,6 +9,13 @@ const MAX_TOTAL_BYTES = 60 * 1024 * 1024;
 const POLL_INTERVAL_MS = 3000;
 const LONG_WAIT_MS = 60_000;
 const MESSAGE_ROTATE_MS = 2500;
+
+// Amarelo da peça "dentro de" — mesmo hex que o mesh-processor grava no GLB
+// (processor.COLORS_BY_KEYWORD). É a ÚNICA cor que esta tela pode saber sem
+// duplicar a tabela de keywords do backend: a keyword "dentro de" é gerada
+// aqui. As demais estruturas ficam com a barra neutra em vez de arriscar
+// mostrar uma cor diferente da que o modelo terá.
+const COLOR_ISOLATED = "#FFE100";
 
 const PHASE_UPLOAD = [
   "Recebendo os arquivos...",
@@ -36,8 +41,14 @@ const sections = {
 };
 
 let selectedFiles = [];
-let boolOps = []; // [{principal: filename, secondary: filename}] — ver seção abaixo
-let step = "files"; // "files" | "divide"
+// Cada isolamento é um par ordenado {principal, secondary} em NOMES DE ARQUIVO
+// originais — contrato do form field `boolean_ops`. O backend indexa por nome
+// original (processor._apply_boolean_ops), o que tem duas consequências na UI:
+// só estruturas originais podem ser referência, e só elas podem ser isoladas
+// de novo. A peça amarela não existe naquele índice.
+let ops = [];
+let openMenu = null; // {kind: "new"|"ref", key} — filename, ou índice da op
+let confirming = false;
 let messageTimer = null;
 let longWaitTimer = null;
 let pollTimer = null;
@@ -46,168 +57,71 @@ function show(state) {
   for (const [name, el] of Object.entries(sections)) el.hidden = name !== state;
 }
 
-/* ---------------- Passos ----------------
- * Passo 1 escolhe os arquivos, passo 2 configura as divisões. É só navegação de
- * tela: o envio continua sendo UM único POST /upload no fim, com os arquivos e
- * o campo boolean_ops juntos. O backend é stateless (sem sessão nem banco), e
- * subir os arquivos já no passo 1 exigiria estado no servidor.
- *
- * O passo 2 só existe quando há o que dividir (2+ STLs). Num arquivo único ou
- * num bundle OBJ o fluxo é de uma tela só, como antes.
- */
-
-// O passo corrente é marcado só por aria-current; o CSS pinta a partir dele.
-// Sem estado duplicado entre atributo de acessibilidade e classe visual.
-function paintStepChip(chipId, active) {
-  $(chipId).setAttribute("aria-current", active ? "step" : "false");
-}
-
-function renderStep() {
-  const dividable = boolAvailable();
-  const onDivide = step === "divide" && dividable;
-
-  $("stepper").hidden = !dividable;
-  $("step-files").hidden = onDivide;
-  $("intro-files").hidden = onDivide;
-  $("bool-section").hidden = !onDivide;
-
-  paintStepChip("step-1-chip", !onDivide);
-  paintStepChip("step-2-chip", onDivide);
-
-  // Passo 1 com divisão possível avança; sem divisão possível processa direto,
-  // para não impor um passo vazio a quem envia um arquivo só ou um OBJ.
-  const showContinue = !onDivide && dividable;
-  $("btn-continue").hidden = !showContinue;
-  $("btn-continue").disabled = selectedFiles.length === 0;
-  $("btn-process").hidden = showContinue;
-  $("btn-back").hidden = !onDivide;
-}
-
-function goToStep(next) {
-  step = next;
-  renderStep();
-  renderBoolSection();
-  // A tela troca de conteúdo: sem isto o clínico cai no meio do passo novo.
-  window.scrollTo({ top: 0, behavior: "smooth" });
-}
-
-function renderFileList() {
-  const list = $("file-list");
-  list.innerHTML = "";
-  for (const f of selectedFiles) {
-    const li = document.createElement("li");
-    const name = document.createElement("span");
-    name.textContent = f.name;
-    name.className = "up-file-name";
-    const size = document.createElement("span");
-    size.textContent = `${(f.size / 1024).toFixed(1)} KB`;
-    size.className = "up-file-size";
-    li.append(name, size);
-    list.appendChild(li);
-  }
-  renderBoolSection(); // também atualiza o estado dos botões do rodapé
-}
-
-/* ---------------- Divisão de estruturas (dentro/fora) ----------------
- * Cada divisão é um par ordenado {principal, secondary} (filenames originais,
- * enviados no form field `boolean_ops` — o nome do campo é contrato de API).
- * Semântica aplicada pelo backend: a referência (principal) fica inteira e a
- * estrutura a dividir (secondary) é separada em "B fora de A" e "B dentro de A",
- * esta última destacada em amarelo no visualizador.
- * Disponível apenas quando a seleção é 2+ arquivos, todos STL.
- */
-
-const boolAvailable = () =>
-  selectedFiles.length >= 2 && selectedFiles.every((f) => /\.stl$/i.test(f.name));
-
 const displayName = (filename) => filename.replace(/\.[^.]+$/, "");
 
-// Separador NUL, não um espaço: nomes de arquivo podem conter espaços e um
-// espaço faria o par ("a b.stl","c.stl") colidir com ("a.stl","b c.stl").
-const opKey = (op) => `${op.principal}\u0000${op.secondary}`;
+// Isolar só existe no caminho STL, com 2+ arquivos: sem uma segunda estrutura
+// não há por onde cortar, e o backend recusa o campo fora do caminho STL.
+const canIsolate = () =>
+  selectedFiles.length >= 2 && selectedFiles.every((f) => /\.stl$/i.test(f.name));
 
-function hasDuplicateBoolOps() {
-  const seen = new Set();
-  for (const op of boolOps) {
-    if (seen.has(opKey(op))) return true;
-    seen.add(opKey(op));
-  }
-  return false;
-}
+/* ---------------- Modelo de peças ----------------
+ * Resolve a lista de peças aplicando as operações NA ORDEM configurada, que é a
+ * mesma ordem em que o backend as aplica. Cada operação renomeia a estrutura
+ * alvo para "B fora de A" e insere logo depois uma peça nova "B dentro de A".
+ * Encadear compõe os nomes ("Tumor fora de Rim dentro de Coluna") porque a
+ * referência entra pelo nome CORRENTE, não pelo original.
+ *
+ * Toda peça carrega a estrutura de origem: é ela que agrupa a lista, e é por
+ * isso que encadear não cria um nível novo de indentação — só acrescenta linha
+ * ao mesmo grupo.
+ */
+function resolvePieces() {
+  const pieces = selectedFiles.map((f) => ({
+    id: f.name,
+    origin: f.name,
+    name: displayName(f.name),
+    size: f.size,
+    isolated: false,
+  }));
 
-function updateProcessState() {
-  const duplicated = hasDuplicateBoolOps();
-  $("btn-process").disabled = selectedFiles.length === 0 || duplicated;
-  $("bool-warning").hidden = !duplicated;
-}
-
-function firstUnusedPair() {
-  const names = selectedFiles.map((f) => f.name);
-  const used = new Set(boolOps.map(opKey));
-  for (const p of names)
-    for (const s of names)
-      if (p !== s && !used.has(`${p}\u0000${s}`)) return { principal: p, secondary: s };
-  return null;
-}
-
-// Nomes finais de cada peça, na ordem em que o backend aplica as divisões
-// (processor._apply_boolean_ops). Divisões encadeadas compõem: dividir o tumor
-// pelo rim e depois pela coluna dá "Tumor fora de Rim fora de Coluna", não
-// "Tumor fora de Coluna" — por isso a prévia acompanha o nome corrente de cada
-// estrutura em vez de usar o nome do arquivo.
-//
-// Previsão de melhor caso: se a peça de fora sair vazia (a estrutura está toda
-// dentro da referência) o backend a descarta e só a peça de dentro permanece.
-// Isso depende da geometria, que a tela não conhece.
-function previewNames(ops) {
-  const atual = {};
-  for (const f of selectedFiles) atual[f.name] = displayName(f.name);
-  return ops.map((op) => {
-    const a = atual[op.principal] ?? displayName(op.principal);
-    const b = atual[op.secondary] ?? displayName(op.secondary);
-    const fora = `${b} fora de ${a}`;
-    atual[op.secondary] = fora;
-    return { a, b, fora, dentro: `${b} dentro de ${a}` };
+  ops.forEach((op, index) => {
+    const ti = pieces.findIndex((p) => p.id === op.secondary);
+    const ref = pieces.find((p) => p.id === op.principal);
+    if (ti < 0 || !ref) return;
+    const target = pieces[ti];
+    const base = target.name;
+    target.name = `${base} fora de ${ref.name}`;
+    pieces.splice(ti + 1, 0, {
+      id: `dentro:${index}`,
+      origin: target.origin,
+      name: `${base} dentro de ${ref.name}`,
+      prefix: `${base} dentro de `,
+      refName: ref.name,
+      isolated: true,
+      opIndex: index,
+    });
   });
+
+  return pieces;
 }
 
-// Monta a lista de divisões. Quem decide a visibilidade da seção é renderStep;
-// aqui só cuidamos do conteúdo e do estado dos botões.
-function renderBoolSection() {
-  if (!boolAvailable()) {
-    boolOps = [];
-    // Seleção deixou de ser divisível (ex.: trocou os STLs por um OBJ) enquanto
-    // o passo 2 estava aberto: volta para os arquivos em vez de travar numa
-    // tela sem sentido.
-    if (step === "divide") step = "files";
-    renderStep();
-    updateProcessState();
-    return;
-  }
-  // Reconciliação: a seleção de arquivos mudou, descarta divisões órfãs.
-  const names = selectedFiles.map((f) => f.name);
-  boolOps = boolOps.filter(
-    (op) => names.includes(op.principal) && names.includes(op.secondary),
+// Referências possíveis para isolar `targetFile`: as outras estruturas
+// originais, menos as que já foram usadas nesse mesmo alvo (o par repetido não
+// produziria nada e o backend o recusa).
+function referenceOptions(targetFile, exceptOpIndex = null) {
+  const used = new Set(
+    ops
+      .filter((op, i) => op.secondary === targetFile && i !== exceptOpIndex)
+      .map((op) => op.principal),
   );
-  renderStep();
-
-  const counts = {};
-  for (const op of boolOps) counts[opKey(op)] = (counts[opKey(op)] || 0) + 1;
-
-  const previews = previewNames(boolOps);
-  const list = $("bool-list");
-  list.innerHTML = "";
-  boolOps.forEach((op, i) => {
-    list.appendChild(buildBoolCard(op, i, counts[opKey(op)] > 1, previews[i]));
-  });
-  // Vazio: o botão é o convite a configurar. Com divisões já criadas, ele passa
-  // a ser "adicionar outra".
-  $("btn-add-bool-label").textContent = boolOps.length
-    ? "Adicionar outra divisão"
-    : "Escolher estruturas para dividir";
-  $("btn-add-bool").disabled = firstUnusedPair() === null;
-  updateProcessState();
+  const pieces = resolvePieces();
+  return selectedFiles
+    .map((f) => f.name)
+    .filter((n) => n !== targetFile && !used.has(n))
+    .map((n) => ({ file: n, label: pieces.find((p) => p.id === n)?.name ?? displayName(n) }));
 }
+
+/* ---------------- Render ---------------- */
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 
@@ -218,6 +132,7 @@ function svgIcon(paths, { width = 13, height = 13, strokeWidth = 1.8 } = {}) {
   svg.setAttribute("stroke", "currentColor");
   svg.setAttribute("stroke-width", String(strokeWidth));
   svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("stroke-linejoin", "round");
   svg.setAttribute("width", String(width));
   svg.setAttribute("height", String(height));
   svg.setAttribute("aria-hidden", "true");
@@ -229,113 +144,207 @@ function svgIcon(paths, { width = 13, height = 13, strokeWidth = 1.8 } = {}) {
   return svg;
 }
 
-// A seta do select é nossa (o .select tem appearance:none): a nativa é
-// desenhada pelo SO e destoa entre plataformas e entre temas.
-function buildBoolSelect(names, exclude, value, onChange) {
-  const wrap = document.createElement("span");
-  wrap.className = "select-wrap";
+const diagram = () => $("tpl-diagram").content.cloneNode(true);
 
-  const sel = document.createElement("select");
-  sel.className = "select";
-  for (const n of names) {
-    if (n === exclude) continue;
-    const opt = document.createElement("option");
-    opt.value = n;
-    opt.textContent = displayName(n);
-    opt.selected = n === value;
-    sel.appendChild(opt);
+function bar(color) {
+  const el = document.createElement("span");
+  el.className = "up-bar";
+  if (color) el.style.setProperty("--bar-color", color);
+  return el;
+}
+
+// Menu de referências. Ensina com o diagrama enquanto nada foi isolado: é o
+// segundo em que a explicação é pedida, e some quando deixa de ser.
+function buildMenu(targetFile, { opIndex = null, chosen = null } = {}) {
+  const menu = document.createElement("div");
+  menu.className = "up-menu";
+
+  if (ops.length === 0) {
+    const help = document.createElement("div");
+    help.className = "up-menu-help";
+    help.appendChild(diagram());
+    const p = document.createElement("p");
+    p.className = "up-menu-help-text";
+    p.textContent =
+      "A parte que está dentro vira uma estrutura própria, em amarelo. O resto continua como estava.";
+    help.appendChild(p);
+    menu.appendChild(help);
   }
-  sel.addEventListener("change", () => onChange(sel.value));
 
-  const chevron = svgIcon(["M6 9l6 6 6-6"], { width: 12, height: 12, strokeWidth: 2 });
-  chevron.classList.add("select-chevron");
+  const caption = document.createElement("span");
+  caption.className = "up-menu-caption";
+  caption.textContent = opIndex === null ? "Isolar a parte que está dentro de" : "Isolada dentro de";
+  menu.appendChild(caption);
 
-  wrap.append(sel, chevron);
-  return wrap;
+  for (const opt of referenceOptions(targetFile, opIndex)) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "up-menu-item";
+    if (opt.file === chosen) b.dataset.chosen = "true";
+    b.append(bar(null), document.createTextNode(opt.label));
+    b.addEventListener("click", () => {
+      if (opIndex === null) ops.push({ principal: opt.file, secondary: targetFile });
+      else ops[opIndex] = { principal: opt.file, secondary: targetFile };
+      openMenu = null;
+      renderStructures();
+    });
+    menu.appendChild(b);
+  }
+  return menu;
 }
 
-// Etiqueta de uma peça, no mesmo formato do painel de estruturas do
-// visualizador: barra de cor + nome. `color` é a cor da barra; `highlight`
-// marca a peça que o backend pinta de amarelo (--w-highlight).
-function buildStructTag(text, { color, highlight = false } = {}) {
-  const span = document.createElement("span");
-  span.className = "struct-tag";
-  if (color) span.style.setProperty("--tag-color", color);
-  if (highlight) span.dataset.highlight = "true";
-  span.textContent = text;
-  return span;
+function buildRow(piece, split) {
+  const row = document.createElement("li");
+  row.className = "up-row";
+  row.dataset.isolated = piece.isolated ? "true" : "false";
+
+  const left = document.createElement("span");
+  left.className = "up-row-left";
+  left.appendChild(bar(piece.isolated ? COLOR_ISOLATED : null));
+
+  const name = document.createElement("span");
+  name.className = "up-row-name";
+  if (piece.isolated) {
+    // A referência é editável dentro do próprio nome: o rótulo da linha e o
+    // rótulo no visualizador são o mesmo texto, e um pedaço dele é o controle.
+    name.appendChild(document.createTextNode(piece.prefix));
+    const token = document.createElement("button");
+    token.type = "button";
+    token.className = "up-token";
+    token.setAttribute("aria-label", `Trocar a estrutura de referência, hoje ${piece.refName}`);
+    token.append(
+      document.createTextNode(piece.refName),
+      svgIcon(["M6 9l6 6 6-6"], { width: 10, height: 10, strokeWidth: 2.2 }),
+    );
+    token.addEventListener("click", () => {
+      const key = `ref:${piece.opIndex}`;
+      openMenu = openMenu?.key === key ? null : { kind: "ref", key, piece };
+      renderStructures();
+    });
+    name.appendChild(token);
+  } else {
+    name.textContent = piece.name;
+  }
+  left.appendChild(name);
+
+  if (piece.isolated) {
+    const tag = document.createElement("span");
+    tag.className = "up-iso-tag";
+    tag.textContent = "isolada";
+    left.appendChild(tag);
+  }
+
+  const right = document.createElement("span");
+  right.className = "up-row-right";
+
+  // Peças derivadas não são arquivos: não têm tamanho para mostrar.
+  if (!split && piece.size != null) {
+    const size = document.createElement("span");
+    size.className = "up-file-size";
+    size.textContent = `${(piece.size / 1024 / 1024).toFixed(1)} MB`;
+    right.appendChild(size);
+  }
+
+  if (piece.isolated) {
+    const undo = document.createElement("button");
+    undo.type = "button";
+    undo.className = "up-quiet";
+    undo.textContent = "Desfazer";
+    undo.setAttribute("aria-label", `Desfazer ${piece.name}`);
+    undo.addEventListener("click", () => {
+      ops.splice(piece.opIndex, 1);
+      openMenu = null;
+      renderStructures();
+    });
+    right.appendChild(undo);
+  } else if (canIsolate() && referenceOptions(piece.id).length > 0) {
+    // Só estruturas originais ganham a ação: o backend indexa por nome
+    // original, então a peça amarela não pode ser alvo nem referência.
+    const wrap = document.createElement("span");
+    wrap.className = "up-hoverwrap";
+
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "up-rowbtn";
+    btn.textContent = "Isolar parte";
+    btn.setAttribute("aria-label", `Isolar uma parte de ${piece.name}`);
+    btn.addEventListener("click", () => {
+      const key = `new:${piece.id}`;
+      openMenu = openMenu?.key === key ? null : { kind: "new", key, piece };
+      renderStructures();
+    });
+    wrap.appendChild(btn);
+
+    // Ajuda por hesitação: o cartão só aparece depois de meio segundo parado
+    // sobre o botão (transition-delay no CSS), então um clique decidido nunca o
+    // vê. Em telas de toque ele nem existe — quem ensina lá é o menu.
+    const card = document.createElement("div");
+    card.className = "up-hovercard";
+    card.setAttribute("aria-hidden", "true");
+    card.appendChild(diagram());
+    const p = document.createElement("p");
+    p.className = "up-menu-help-text";
+    p.textContent =
+      "A parte que está dentro vira uma estrutura própria, em amarelo. O resto continua como estava.";
+    card.appendChild(p);
+    wrap.appendChild(card);
+
+    right.appendChild(wrap);
+  }
+
+  row.append(left, right);
+
+  if (openMenu && openMenu.piece.id === piece.id) {
+    row.appendChild(
+      openMenu.kind === "ref"
+        ? buildMenu(ops[piece.opIndex].secondary, {
+            opIndex: piece.opIndex,
+            chosen: ops[piece.opIndex].principal,
+          })
+        : buildMenu(piece.id),
+    );
+  }
+  return row;
 }
 
-function buildBoolCard(op, index, duplicated, preview) {
-  const names = selectedFiles.map((f) => f.name);
-  // O botão remover é ancorado na linha inteira (canto superior direito), e o
-  // padding-right reserva o espaço. Alinhado a um dos campos (mobile
-  // empilhado) ele leria como "remover a referência".
-  const li = document.createElement("li");
-  li.className = "up-division";
-  if (duplicated) li.dataset.duplicated = "true";
+// Agrupa por estrutura de origem. Um grupo com mais de uma peça ganha o trilho:
+// as linhas vieram de um clique só, e "Desfazer" desfaz aquele par.
+function renderStructures() {
+  const list = $("structure-list");
+  list.innerHTML = "";
 
-  const field = (labelText, select) => {
-    const label = document.createElement("label");
-    label.className = "up-division-field";
-    const caption = document.createElement("span");
-    caption.className = "field-label";
-    caption.textContent = labelText;
-    label.append(caption, select);
-    return label;
-  };
+  const pieces = resolvePieces();
+  const groups = new Map();
+  for (const p of pieces) {
+    if (!groups.has(p.origin)) groups.set(p.origin, []);
+    groups.get(p.origin).push(p);
+  }
 
-  const selPrincipal = buildBoolSelect(names, null, op.principal, (value) => {
-    op.principal = value;
-    // A estrutura a dividir não pode ser a própria referência: troca para outra.
-    if (op.secondary === value) op.secondary = names.find((n) => n !== value);
-    renderBoolSection();
-  });
-  const selSecondary = buildBoolSelect(names, op.principal, op.secondary, (value) => {
-    op.secondary = value;
-    renderBoolSection();
-  });
+  for (const rows of groups.values()) {
+    const split = rows.length > 1;
+    const li = document.createElement("li");
+    li.className = "up-group";
+    li.dataset.split = split ? "true" : "false";
+    const inner = document.createElement("ul");
+    inner.className = "up-group-rows";
+    for (const piece of rows) inner.appendChild(buildRow(piece, split));
+    li.appendChild(inner);
+    list.appendChild(li);
+  }
 
-  const row = document.createElement("div");
-  row.className = "up-division-fields";
-  row.append(
-    field("Referência · fica inteira", selPrincipal),
-    field("A dividir · dentro e fora", selSecondary),
-  );
+  const hasFiles = selectedFiles.length > 0;
+  $("pick-files").hidden = hasFiles;
+  $("structures").hidden = !hasFiles;
+  $("btn-cancel").hidden = !hasFiles || confirming;
+  $("cancel-confirm").hidden = !confirming;
+  $("btn-process").disabled = !hasFiles;
 
-  const { a, b, fora, dentro } = preview;
-  const remove = document.createElement("button");
-  remove.type = "button";
-  remove.className = "up-division-remove";
-  remove.appendChild(svgIcon(["M5 5l14 14", "M19 5L5 19"]));
-  // O aria-label nomeia a divisão: um leitor de tela numa lista de várias
-  // ouviria só "Remover divisão" e não saberia qual.
-  const removeLabel = `Remover a divisão de ${b} por ${a}`;
-  remove.title = removeLabel;
-  remove.setAttribute("aria-label", removeLabel);
-  remove.addEventListener("click", () => {
-    boolOps.splice(index, 1);
-    renderBoolSection();
-  });
-
-  // A prévia mostra os nomes que as peças terão na lista de estruturas do
-  // visualizador, já com o encadeamento aplicado (ver previewNames). A barra
-  // de cor faz o mesmo ramp de importância: a referência fica inteira (tinta
-  // cheia), a peça de fora é o resto (fio apagado), a de dentro é o destaque
-  // amarelo — a mesma cor que o modelo vai ter.
-  const preview3 = document.createElement("div");
-  preview3.className = "up-division-preview";
-  preview3.append(
-    buildStructTag(`${a} · fica inteira`, { color: "var(--w-ink-2)" }),
-    buildStructTag(fora, { color: "var(--w-ink-3)" }),
-    buildStructTag(`${dentro} · destaque`, {
-      color: "var(--w-highlight)",
-      highlight: true,
-    }),
-  );
-
-  li.append(remove, row, preview3);
-  return li;
+  if (confirming) {
+    $("cancel-confirm-text").textContent =
+      ops.length === 1
+        ? "Descartar 1 parte isolada?"
+        : `Descartar ${ops.length} partes isoladas?`;
+  }
 }
 
 function startRotator(messages) {
@@ -383,11 +392,7 @@ function showDone(data) {
 
 function reset() {
   resetTimers();
-  selectedFiles = [];
-  boolOps = [];
-  step = "files";
-  $("file-input").value = "";
-  renderFileList();
+  clearSelection();
   show("idle");
 }
 
@@ -406,7 +411,7 @@ async function pollStatus(initial) {
 }
 
 async function process() {
-  if (selectedFiles.length === 0 || hasDuplicateBoolOps()) return;
+  if (selectedFiles.length === 0) return;
 
   const totalBytes = selectedFiles.reduce((s, f) => s + f.size, 0);
   if (totalBytes > MAX_TOTAL_BYTES) {
@@ -418,7 +423,7 @@ async function process() {
 
   show("processing");
   startRotator(
-    boolOps.length
+    ops.length
       ? [
           ...PHASE_UPLOAD.slice(0, 2),
           "Dividindo estruturas em dentro e fora...",
@@ -429,7 +434,7 @@ async function process() {
 
   const form = new FormData();
   for (const f of selectedFiles) form.append("files", f);
-  if (boolOps.length) form.append("boolean_ops", JSON.stringify(boolOps));
+  if (ops.length) form.append("boolean_ops", JSON.stringify(ops));
 
   let resp;
   try {
@@ -460,26 +465,64 @@ async function process() {
   pollStatus(data);
 }
 
-// Wire up events
+
+/* ---------------- Eventos ---------------- */
+
+function clearSelection() {
+  selectedFiles = [];
+  ops = [];
+  openMenu = null;
+  confirming = false;
+  $("file-input").value = "";
+  renderStructures();
+}
+
 $("file-input").addEventListener("change", (e) => {
   selectedFiles = Array.from(e.target.files);
-  // Trocar os arquivos recomeça do passo 1: as divisões antigas não valem mais.
-  boolOps = [];
-  step = "files";
-  renderFileList();
+  // Trocar os arquivos invalida os isolamentos: eles apontam para nomes que
+  // podem não existir mais.
+  ops = [];
+  openMenu = null;
+  confirming = false;
+  renderStructures();
 });
 
-$("btn-continue").addEventListener("click", () => goToStep("divide"));
-$("btn-back").addEventListener("click", () => goToStep("files"));
+// Cancelar volta ao início. Só pergunta quando existe algo a perder — confirmar
+// um clique que não destrói nada é atrito puro.
+$("btn-cancel").addEventListener("click", () => {
+  if (ops.length > 0) {
+    confirming = true;
+    openMenu = null;
+    renderStructures();
+  } else {
+    clearSelection();
+  }
+});
+$("btn-cancel-keep").addEventListener("click", () => {
+  confirming = false;
+  renderStructures();
+});
+$("btn-cancel-discard").addEventListener("click", clearSelection);
+
 $("btn-process").addEventListener("click", process);
 $("btn-new").addEventListener("click", reset);
 $("btn-retry").addEventListener("click", reset);
 
-$("btn-add-bool").addEventListener("click", () => {
-  const pair = firstUnusedPair();
-  if (pair) {
-    boolOps.push(pair);
-    renderBoolSection();
+// Clique fora fecha o menu aberto, como qualquer popover.
+document.addEventListener("click", (e) => {
+  if (!openMenu) return;
+  if (e.target.closest(".up-menu, .up-rowbtn, .up-token")) return;
+  openMenu = null;
+  renderStructures();
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  if (openMenu) {
+    openMenu = null;
+    renderStructures();
+  } else if (confirming) {
+    confirming = false;
+    renderStructures();
   }
 });
 
@@ -517,17 +560,9 @@ const setDragging = (on) => { dropzone.dataset.drag = on ? "true" : "false"; };
 dropzone.addEventListener("dragover", (e) => { e.preventDefault(); setDragging(true); });
 dropzone.addEventListener("dragenter", () => setDragging(true));
 dropzone.addEventListener("dragleave", (e) => {
-  // relatedTarget nulo/externo = o ponteiro saiu da zona de verdade, e não
-  // apenas passou por cima de um filho (ícone, texto).
   if (!e.relatedTarget || !dropzone.contains(e.relatedTarget)) setDragging(false);
 });
 dropzone.addEventListener("drop", () => setDragging(false));
 
-// Tema: mesma chave e mesmo comportamento do visualizador.
-initTheme();
-document
-  .querySelectorAll('[data-action="theme-toggle"]')
-  .forEach((el) => el.addEventListener("click", toggleTheme));
-
-// Estado inicial: passo 1, sem trilha de passos (nada selecionado ainda).
-renderStep();
+// Estado inicial: dropzone, sem estruturas.
+renderStructures();

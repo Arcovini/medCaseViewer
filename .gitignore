@@ -53,3 +53,5 @@ test-results/
 # pesam mais que o site inteiro.
 .context/
 /blob-report/
+.superpowers/
+docs/superpowers/

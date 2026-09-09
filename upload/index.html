@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-BR" data-theme="dark">
+<html lang="pt-BR">
 
 <head>
   <meta charset="UTF-8" />
@@ -15,13 +15,6 @@
   <link rel="stylesheet" href="../app.css" />
   <link rel="stylesheet" href="./upload.css" />
 
-  <!-- Tema antes da primeira pintura, mesma chave do visualizador. -->
-  <script>
-    try {
-      document.documentElement.dataset.theme =
-        localStorage.getItem("medcase-viewer-theme") === "light" ? "light" : "dark";
-    } catch (e) { /* storage bloqueado: fica no escuro, que é o padrão */ }
-  </script>
 </head>
 
 <body class="up">
@@ -38,43 +31,36 @@
       <span class="vw-case-id">Novo caso</span>
     </div>
 
-    <div class="vw-top-right">
-      <button class="pill icon-only theme-toggle" data-action="theme-toggle" aria-label="Alternar tema">
-        <svg class="ic-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
-        <svg class="ic-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
-      </button>
-    </div>
   </header>
 
   <main class="up-stage">
     <div class="up-sheet">
 
-      <!-- STATE: IDLE — dois passos: arquivos, depois divisão de estruturas -->
+      <!-- STATE: IDLE — uma tela só: escolher arquivos e, opcionalmente,
+           isolar partes. Sem assistente: isolar é opcional e não pode custar um
+           passo a todo mundo (o caso típico tem 4 STLs e nenhum isolamento). -->
       <section id="state-idle">
 
-        <h1 class="t-title">Enviar um novo caso</h1>
-        <p id="intro-files" class="t-body up-intro">
+        <div class="up-head">
+          <h1 class="t-title">Enviar um novo caso</h1>
+          <!-- Cancelar mora no canto do cartão, não na barra do app: ele zera o
+               estado desta tarefa, não navega para fora dela. -->
+          <button id="btn-cancel" type="button" class="up-corner" hidden>Cancelar</button>
+          <div id="cancel-confirm" class="up-confirm" hidden>
+            <p id="cancel-confirm-text" class="up-confirm-text"></p>
+            <div class="up-confirm-actions">
+              <button id="btn-cancel-keep" type="button" class="up-corner">Manter</button>
+              <button id="btn-cancel-discard" type="button" class="up-rowbtn">Descartar</button>
+            </div>
+          </div>
+        </div>
+
+        <p class="t-body up-intro">
           Escolha os arquivos das estruturas anatômicas deste caso. Eles são
           combinados em um único modelo 3D com link para compartilhar.
         </p>
 
-        <!-- Trilha de passos. Só aparece quando o passo 2 existe (2+ STLs): num
-             envio de um arquivo só, ou num bundle OBJ, não há o que dividir e a
-             numeração seria ruído. <ol> porque é uma sequência de verdade. -->
-        <ol id="stepper" hidden class="up-steps">
-          <li id="step-1-chip" class="up-step">
-            <span data-role="num" class="up-step-num">1</span>
-            <span data-role="text" class="up-step-text">Arquivos</span>
-          </li>
-          <li aria-hidden="true" class="up-step-rule"></li>
-          <li id="step-2-chip" class="up-step">
-            <span data-role="num" class="up-step-num">2</span>
-            <span data-role="text" class="up-step-text">Divisões</span>
-          </li>
-        </ol>
-
-        <!-- PASSO 1 -->
-        <div id="step-files">
+        <div id="pick-files">
           <span class="field-label">Arquivos do caso</span>
 
           <!-- O input cobre a área inteira com opacity 0: clique e arrastar-e-
@@ -85,8 +71,6 @@
               <path d="M12 16V4"/><path d="M8 8l4-4 4 4"/>
               <path d="M4 14v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/>
             </svg>
-            <!-- Em tablet (o aparelho de plantão) não há o que arrastar: o
-                 rótulo troca por ponteiro grosso. -->
             <span class="up-drop-title">
               <span class="up-pointer-fine">Arraste os arquivos aqui ou clique para escolher</span>
               <span class="up-pointer-coarse">Toque para escolher os arquivos</span>
@@ -96,105 +80,59 @@
               accept=".stl,.STL,.obj,.OBJ,.mtl,.MTL,.jpg,.JPG,.jpeg,.JPEG,.png,.PNG,.zip,.ZIP" multiple
               class="up-drop-input" />
           </label>
-
-          <ul id="file-list" class="up-files"></ul>
         </div>
 
-        <!-- PASSO 2 — divisão de estruturas (dentro/fora) -->
-        <section id="bool-section" hidden>
-          <h2 class="t-section">
-            Dividir uma estrutura pela outra
-            <span class="up-optional">opcional</span>
-          </h2>
-          <p class="t-body up-intro">
-            A estrutura de <strong>referência</strong> fica inteira. A estrutura
-            <strong>a dividir</strong> é separada em duas peças: dentro e fora da
-            referência. A parte de dentro vira uma nova estrutura destacada no
-            visualizador. Ex.: a porção do tumor que está dentro do rim.
-            Se ela estiver inteiramente dentro da referência, só a peça de dentro
-            é criada.
-          </p>
+        <!-- A lista É a prévia: mostra as estruturas que o caso vai ter, já com
+             as peças isoladas — não os arquivos que foram enviados. -->
+        <div id="structures" hidden>
+          <span class="field-label">Estruturas do caso</span>
+          <ul id="structure-list" class="up-structures"></ul>
+        </div>
 
-          <!-- Diagrama antes → depois. As cores são as do produto: a peça de
-               dentro usa o mesmo amarelo (--w-highlight) que o modelo vai ter
-               no visualizador. As formas "depois" são recortes reais (clip/mask
-               dos dois círculos), não desenhos aproximados. -->
-          <svg viewBox="0 0 300 96" role="img" class="up-diagram"
-            aria-label="Duas estruturas sobrepostas viram três peças: a referência inteira, a parte de fora e a parte de dentro destacada.">
-            <defs>
-              <clipPath id="bool-clip-dentro"><circle cx="0" cy="0" r="28" /></clipPath>
-              <mask id="bool-mask-fora">
-                <rect x="-60" y="-40" width="160" height="80" fill="white" />
-                <!-- A referência fica em (0,0) no sistema local, igual ao clip -->
-                <circle cx="0" cy="0" r="28" fill="black" />
-              </mask>
-            </defs>
-
-            <!-- Antes: as duas estruturas sobrepostas -->
-            <g transform="translate(48,44)">
-              <circle cx="0" cy="0" r="28" class="dgm-ref" />
-              <circle cx="33" cy="0" r="21" class="dgm-out" />
-              <text x="-4" y="42" text-anchor="middle" class="dgm-label">referência</text>
-              <text x="40" y="-28" text-anchor="middle" class="dgm-label">a dividir</text>
-            </g>
-
-            <!-- Seta -->
-            <g class="dgm-arrow" fill="none" stroke-linecap="round">
-              <path d="M118 44 h18" />
-              <path d="M132 39 l6 5 l-6 5" />
-            </g>
-
-            <!-- Depois: três peças separadas -->
-            <g transform="translate(172,44)">
-              <circle cx="0" cy="0" r="28" class="dgm-ref" />
-              <text x="0" y="42" text-anchor="middle" class="dgm-label">fica inteira</text>
-            </g>
-            <!-- dentro: lente (B recortada por A), deslocada para separar -->
-            <g transform="translate(190,44)">
-              <g clip-path="url(#bool-clip-dentro)">
-                <circle cx="33" cy="0" r="21" class="dgm-in" />
-              </g>
-              <text x="20" y="-28" text-anchor="middle" class="dgm-label dgm-label-in">dentro</text>
-            </g>
-            <!-- fora: crescente (B menos A), deslocada mais -->
-            <g transform="translate(208,44)">
-              <g mask="url(#bool-mask-fora)">
-                <circle cx="33" cy="0" r="21" class="dgm-piece" />
-              </g>
-              <text x="44" y="36" text-anchor="middle" class="dgm-label">fora</text>
-            </g>
-          </svg>
-
-          <ul id="bool-list" class="up-divisions"></ul>
-
-          <!-- Única forma de criar uma divisão, sempre no corpo da seção logo
-               abaixo da lista: como link discreto no canto do título, ninguém
-               associava este botão a "escolher quais estruturas". -->
-          <button id="btn-add-bool" type="button" class="up-add">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-            <span id="btn-add-bool-label">Escolher estruturas para dividir</span>
-          </button>
-
-          <p id="bool-warning" hidden class="note note-err up-note">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 16.5v.01"/></svg>
-            Há divisões repetidas. Remova a repetição para processar.
-          </p>
-        </section>
-
-        <!-- Rodapé compartilhado pelos dois passos: a ação primária fica sempre
-             no mesmo lugar, e só um botão de processar existe no documento. -->
         <div class="up-actions">
-          <button id="btn-back" type="button" hidden class="btn btn-ghost btn-lg">
-            Voltar
-          </button>
-          <button id="btn-continue" type="button" hidden class="btn btn-primary btn-lg up-grow">
-            Continuar
-          </button>
-          <button id="btn-process" disabled class="btn btn-primary btn-lg up-grow">
+          <button id="btn-process" type="button" class="btn btn-primary btn-lg btn-block" disabled>
             Processar
           </button>
         </div>
       </section>
+
+      <!-- Diagrama antes → depois, clonado no menu de escolha e no cartão de
+           hesitação. As formas "depois" são recortes reais (clip/mask dos dois
+           círculos), não desenhos aproximados; a peça de dentro usa o mesmo
+           amarelo (--w-highlight) que o modelo terá no visualizador. -->
+      <template id="tpl-diagram">
+        <svg viewBox="0 0 300 96" role="img" class="up-diagram"
+          aria-label="Duas estruturas sobrepostas viram três peças: a de referência inteira, a parte de fora e a parte de dentro isolada.">
+          <defs>
+            <clipPath id="bool-clip-dentro"><circle cx="0" cy="0" r="28" /></clipPath>
+            <mask id="bool-mask-fora">
+              <rect x="-60" y="-40" width="160" height="80" fill="white" />
+              <circle cx="0" cy="0" r="28" fill="black" />
+            </mask>
+          </defs>
+          <g transform="translate(48,44)">
+            <circle cx="0" cy="0" r="28" class="dgm-ref" />
+            <circle cx="33" cy="0" r="21" class="dgm-out" />
+            <text x="-4" y="42" text-anchor="middle" class="dgm-label">Rim</text>
+            <text x="40" y="-28" text-anchor="middle" class="dgm-label">Tumor</text>
+          </g>
+          <g class="dgm-arrow" fill="none" stroke-linecap="round">
+            <path d="M118 44 h18" /><path d="M132 39 l6 5 l-6 5" />
+          </g>
+          <g transform="translate(172,44)">
+            <circle cx="0" cy="0" r="28" class="dgm-ref" />
+            <text x="0" y="42" text-anchor="middle" class="dgm-label">não muda</text>
+          </g>
+          <g transform="translate(190,44)">
+            <g clip-path="url(#bool-clip-dentro)"><circle cx="33" cy="0" r="21" class="dgm-in" /></g>
+            <text x="20" y="-28" text-anchor="middle" class="dgm-label dgm-label-in">isolada</text>
+          </g>
+          <g transform="translate(208,44)">
+            <g mask="url(#bool-mask-fora)"><circle cx="33" cy="0" r="21" class="dgm-piece" /></g>
+            <text x="44" y="36" text-anchor="middle" class="dgm-label">fora</text>
+          </g>
+        </svg>
+      </template>
 
       <!-- STATE: PROCESSING -->
       <section id="state-processing" hidden class="up-state">
