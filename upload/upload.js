@@ -153,23 +153,12 @@ function bar(color) {
   return el;
 }
 
-// Menu de referências. Ensina com o diagrama enquanto nada foi isolado: é o
-// segundo em que a explicação é pedida, e some quando deixa de ser.
+// Menu de referências: só a lista. A explicação mora no cartão de hesitação,
+// que aparece antes do clique — quem já abriu o menu está decidido, e a
+// ilustração aqui empurrava as opções para longe do polegar.
 function buildMenu(targetFile, { opIndex = null, chosen = null } = {}) {
   const menu = document.createElement("div");
   menu.className = "up-menu";
-
-  if (ops.length === 0) {
-    const help = document.createElement("div");
-    help.className = "up-menu-help";
-    help.appendChild(diagram());
-    const p = document.createElement("p");
-    p.className = "up-menu-help-text";
-    p.textContent =
-      "A parte que está dentro vira uma estrutura própria, em amarelo. O resto continua como estava.";
-    help.appendChild(p);
-    menu.appendChild(help);
-  }
 
   const caption = document.createElement("span");
   caption.className = "up-menu-caption";
@@ -283,7 +272,7 @@ function buildRow(piece, split) {
     card.setAttribute("aria-hidden", "true");
     card.appendChild(diagram());
     const p = document.createElement("p");
-    p.className = "up-menu-help-text";
+    p.className = "up-hovercard-text";
     p.textContent =
       "A parte que está dentro vira uma estrutura própria, em amarelo. O resto continua como estava.";
     card.appendChild(p);
