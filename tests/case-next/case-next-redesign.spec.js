@@ -41,7 +41,8 @@ test.describe("case-next v5 chrome", () => {
     await expect(page.locator(".vw-brand-company")).toHaveText("por Biodesignlab");
     await expect(page.locator('[data-bind="uid-short"]')).toHaveText(TEST_UID.slice(0, 8));
 
-    // The four chrome pills: AR + Medir + Theme + Compartilhar.
+    // Chrome pills: AR + Theme + Compartilhar in the top bar; Medir lives in
+    // the tool rail on the left of the stage (same data-testid).
     // Theme & Share also appear inside the mobile overflow menu, so two
     // matches each is fine (one desktop pill + one menu item).
     await expect(page.locator('[data-testid="ar-button"]')).toHaveCount(1);

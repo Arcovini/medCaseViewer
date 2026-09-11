@@ -9,6 +9,7 @@ import * as dom from "./dom.js";
 import * as measurement from "./measurement.js";
 import * as volume from "./volume.js";
 import * as calibre from "./calibre.js";
+import * as contour from "./contour.js";
 import * as ar from "./ar.js";
 import * as color from "./color.js";
 import { initTheme, toggleTheme, onThemeChange } from "../theme.js";
@@ -16,6 +17,8 @@ import { initTheme, toggleTheme, onThemeChange } from "../theme.js";
 let measurementApi = null;
 let volumeApi = null;
 let calibreApi = null;
+let contourApi = null;
+let rail = null;
 let fab = null;
 let colorPicker = null;
 
@@ -65,7 +68,45 @@ async function bootstrap() {
   world.mount(root);
   world.frameToScene();
 
-  // FAB único compartilhado entre Linear e Volume. main.js controla.
+  // Barra à esquerda do palco: Medir (abre os três modos) + Cortar, e
+  // Desfazer depois do primeiro corte. Uma ferramenta por vez. No celular a
+  // mesma barra vira o rodapé, com Estruturas (abre/fecha a gaveta) na frente.
+  rail = dom.mountToolRail({
+    onContour: () => { menu.close(); contourApi.toggle(); },
+    onUndo: () => contourApi.undo(),
+    onStructures: () => { menu.close(); setSheet(!sheetOpen); },
+  });
+
+  // Gaveta de estruturas no celular: abre com o caso, como antes. Medir e
+  // Cortar precisam do modelo inteiro, então ela fecha ao entrar num modo e
+  // volta como estava ao sair — menos depois de um corte, que precisa ser visto.
+  const mobile = window.matchMedia("(max-width: 768px)");
+  let sheetOpen = true;
+  let sheetBeforeMode = true;
+  const setSheet = (open) => {
+    sheetOpen = open;
+    dom.setSheetOpen(open);
+    rail.setSheetOpen(open);
+  };
+  // Sem checar a largura aqui: no desktop fechar a gaveta não tem efeito
+  // (CSS), e assim girar o aparelho no meio de um modo não desencontra o
+  // estado. `mobile` só decide o que é mostrado.
+  const enterMode = () => {
+    sheetBeforeMode = sheetOpen;
+    setSheet(false);
+  };
+  const exitMode = (keepClosed = false) => {
+    if (!keepClosed) setSheet(sheetBeforeMode);
+  };
+  const exitMeasure = () => { rail.setActive(null); exitMode(); };
+
+  // Barra do modo Cortar (só aparece no celular).
+  const modeBar = dom.mountModeBar({
+    onCancel: () => contourApi.cancel(),
+    onUndo: () => contourApi.undo(),
+  });
+
+  // O botão Medir da barra (data-testid="measure-fab") abre o menu dos modos.
   fab = dom.mountMeasurementFAB({
     onClick: () => menu.toggle(),
   });
@@ -79,40 +120,66 @@ async function bootstrap() {
     world,
     dom,
     hint,
-    onExit: () => fab.setVisible(true),
+    onExit: exitMeasure,
   });
 
   volumeApi = volume.init({
     world,
     dom,
     hint,
-    onExit: () => fab.setVisible(true),
+    onExit: exitMeasure,
   });
 
   calibreApi = calibre.init({
     world,
     dom,
     hint,
-    onExit: () => fab.setVisible(true),
+    onExit: exitMeasure,
   });
 
+  contourApi = contour.init({
+    world,
+    dom,
+    hint,
+    labelFor: dom.displayLabel,
+    onStateChange: (active, info) => {
+      rail.setActive(active ? "contour" : null);
+      if (active) {
+        enterMode();
+        modeBar.show();
+      } else {
+        modeBar.hide();
+        exitMode(info?.applied);
+      }
+    },
+    onHistoryChange: ({ canUndo, cutNames, count }) => {
+      rail.setCutControlsVisible(canUndo);
+      modeBar.setCount(count);
+      for (const name of world.getMeshNames()) dom.setStructureCut(name, cutNames.has(name));
+      // O USDZ do AR no iPhone é gerado a partir da cena atual e memoizado.
+      ar.invalidateUSDZ();
+    },
+  });
+
+  // Entrar num modo de medida esconde o aviso "Parte removida · Desfazer":
+  // ele ocupa o mesmo lugar da toolbar do modo, e um clique ali desfaria o
+  // recorte sem querer.
+  const startMeasure = (startFn) => {
+    contourApi.hideToast();
+    enterMode();
+    rail.setActive("measure");
+    startFn();
+  };
   const menu = dom.mountMeasurementMenu({
     anchorEl: fab.getElement(),
-    onPickLinear: () => {
-      fab.setVisible(false);
-      measurementApi.startLinear();
-    },
-    onPickVolume: () => {
-      fab.setVisible(false);
-      volumeApi.startVolume();
-    },
-    onPickCalibre: () => {
-      fab.setVisible(false);
-      calibreApi.startCalibre();
-    },
+    placement: "right",
+    onPickLinear: () => startMeasure(() => measurementApi.startLinear()),
+    onPickVolume: () => startMeasure(() => volumeApi.startVolume()),
+    onPickCalibre: () => startMeasure(() => calibreApi.startCalibre()),
   });
 
   fab.setVisible(true);
+  rail.show();
 
   const structures = world.getMeshNames().map((name) => ({
     name,
@@ -198,8 +265,10 @@ function bindRedesignChrome(structures, uid, _byteLength) {
   if (linkInput) linkInput.value = window.location.href;
 
   // Stage zoom
-  wireAction("zoom-in", () => { world.zoomBy(1.2); updateZoomPct(); });
-  wireAction("zoom-out", () => { world.zoomBy(1 / 1.2); updateZoomPct(); });
+  // Com o Contorno ativo a câmera fica parada: o traço é em coordenadas de tela.
+  const zoom = (f) => { if (contourApi?.isActive()) return; world.zoomBy(f); updateZoomPct(); };
+  wireAction("zoom-in", () => zoom(1.2));
+  wireAction("zoom-out", () => zoom(1 / 1.2));
   world.onCameraChange(updateZoomPct);
   updateZoomPct();
 
@@ -353,5 +422,6 @@ if (window.__playwrightTest) {
   Object.defineProperty(window, "__measurement", { get: () => measurementApi });
   Object.defineProperty(window, "__volume", { get: () => volumeApi });
   Object.defineProperty(window, "__calibre", { get: () => calibreApi });
+  Object.defineProperty(window, "__contour", { get: () => contourApi });
   Object.defineProperty(window, "__colorPicker", { get: () => colorPicker });
 }

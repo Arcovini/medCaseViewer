@@ -85,7 +85,8 @@ test("calibre / cancel volta pra idle e re-mostra o FAB", async ({ page }) => {
   expect(await page.evaluate(() => window.__calibre.getState())).toBe("placing-p1");
   await page.locator('[data-testid="btn-calibre-cancel"]').click();
   expect(await page.evaluate(() => window.__calibre.getState())).toBe("idle");
-  await expect(page.locator('[data-testid="measure-fab"]')).toBeVisible();
+  await expect(page.locator('[data-testid="measure-fab"]')).toBeEnabled();
+  await expect(page.locator('[data-testid="measure-fab"]')).toHaveAttribute("aria-pressed", "false");
 });
 
 test("calibre / getMeshTriangleSoup retorna positions Float32Array em world-space pro mesh do fixture", async ({ page }) => {

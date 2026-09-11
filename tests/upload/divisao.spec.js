@@ -35,9 +35,14 @@ async function abrirUpload(page) {
   await expect(page.locator("#state-idle")).toBeVisible();
 }
 
+// Espera também a verificação de sobreposição terminar: antes disso o menu
+// ainda está preenchendo, e ler as opções daria uma lista parcial.
 async function escolher(page, arquivos) {
   await page.setInputFiles("#file-input", arquivos);
   await expect(page.locator("#structure-list .up-row")).toHaveCount(arquivos.length);
+  await expect(page.locator("#structure-list")).toHaveAttribute("data-overlaps", "done", {
+    timeout: 20_000,
+  });
 }
 
 const linha = (page, nome) =>
@@ -117,6 +122,44 @@ test.describe("limites que o backend impõe", () => {
     const opcoes = await page.locator(".up-menu-item").allInnerTexts();
     expect(opcoes.some((o) => o.includes("Coluna"))).toBe(true);
     expect(opcoes.some((o) => o.startsWith("Rim"))).toBe(false);
+  });
+
+  // Geometria dos fixtures: Rim é uma esfera; Tumor a atravessa pela borda;
+  // Coluna toca só a parte do Tumor que fica fora do Rim; Longe está isolado.
+  test("o menu só oferece estruturas que se sobrepõem ao alvo", async ({ page }) => {
+    await abrirUpload(page);
+    await escolher(page, [RIM, TUMOR, COLUNA, LONGE]);
+
+    const opcoesDe = async (alvo) => {
+      await linha(page, alvo).getByRole("button", { name: /Isolar uma parte/ }).click();
+      const opcoes = await page.locator(".up-menu-item").allInnerTexts();
+      await page.keyboard.press("Escape");
+      return opcoes.map((o) => o.trim());
+    };
+    expect(await opcoesDe("Rim")).toEqual(["Tumor"]);
+    expect(await opcoesDe("Tumor")).toEqual(["Rim", "Coluna"]);
+    expect(await opcoesDe("Coluna")).toEqual(["Tumor"]);
+  });
+
+  test("estrutura que não toca nenhuma outra não oferece isolar", async ({ page }) => {
+    await abrirUpload(page);
+    await escolher(page, [RIM, TUMOR, LONGE]);
+    await expect(
+      linha(page, "Longe").getByRole("button", { name: /Isolar uma parte/ }),
+    ).toHaveCount(0);
+    await expect(
+      linha(page, "Rim").getByRole("button", { name: /Isolar uma parte/ }),
+    ).toHaveCount(1);
+  });
+
+  test("trocar a referência pelo token também só oferece as que se sobrepõem", async ({ page }) => {
+    await abrirUpload(page);
+    await escolher(page, [RIM, TUMOR, COLUNA, LONGE]);
+    await isolar(page, "Tumor", "Rim");
+
+    await page.locator(".up-token").click();
+    const opcoes = (await page.locator(".up-menu-item").allInnerTexts()).map((o) => o.trim());
+    expect(opcoes).toEqual(["Rim", "Coluna"]);
   });
 
   test("sem 2+ STLs não há o que isolar", async ({ page }) => {
@@ -246,7 +289,7 @@ test.describe("envio ao backend", () => {
     expect(await page.inputValue("#viewer-url")).toBeTruthy();
   });
 
-  test("a peça de dentro chega com a cor de destaque", async ({ page }) => {
+  test("a peça de dentro chega num tom mais claro da cor de origem", async ({ page }) => {
     test.skip(!backendUp, COMO_SUBIR);
     await abrirUpload(page);
     await escolher(page, [RIM, TUMOR]);
@@ -257,21 +300,13 @@ test.describe("envio ao backend", () => {
       page.click("#btn-process"),
     ]);
     const meshes = (await resp.json()).stats.meshes;
-    expect(meshes.find((m) => m.name.includes("dentro de")).color).toBe("#FFE100");
-    // A peça de fora mantém a cor da estrutura de origem (verde de tumor).
+    // A peça de fora mantém a cor da estrutura de origem (verde de tumor); a de
+    // dentro é o mesmo verde, mais claro (processor._isolated_piece_material).
     expect(meshes.find((m) => m.name.includes("fora de")).color).toBe("#08E700");
+    expect(meshes.find((m) => m.name.includes("dentro de")).color).toBe("#52EE4C");
   });
-
-  test("estruturas que não se sobrepõem mostram erro em português", async ({ page }) => {
-    test.skip(!backendUp, COMO_SUBIR);
-    await abrirUpload(page);
-    await escolher(page, [RIM, LONGE]);
-    await isolar(page, "Longe", "Rim");
-    await page.click("#btn-process");
-
-    await expect(page.locator("#state-error")).toBeVisible({ timeout: 30_000 });
-    await expect(page.locator("#error-message")).toContainText("não se sobrepõem");
-  });
+  // O par sem sobreposição não é mais alcançável pela tela (o menu não o
+  // oferece); a recusa do backend segue coberta em mesh-processor/test_boolean.py.
 });
 
 test.describe("responsivo", () => {

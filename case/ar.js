@@ -104,6 +104,13 @@ function _waitForReady(el, timeoutMs = MODEL_VIEWER_LOAD_TIMEOUT_MS) {
   });
 }
 
+// O Contorno muda a geometria em cena: o USDZ memoizado passa a mostrar o
+// modelo de antes. main.js chama isto a cada recorte/desfazer/restaurar.
+export function invalidateUSDZ() {
+  if (_usdzObjectUrl) URL.revokeObjectURL(_usdzObjectUrl);
+  _usdzObjectUrl = null;
+}
+
 async function _generateUSDZBlobUrl() {
   if (_usdzObjectUrl) return _usdzObjectUrl;
 
@@ -115,6 +122,10 @@ async function _generateUSDZBlobUrl() {
   // pode confundir o USDZExporter — exportar sem esses flags em materiais
   // 100% opacos produz um USDZ mais limpo no AR Quick Look.
   const sceneClone = root.clone(true);
+  // A prévia translúcida do Contorno não faz parte do modelo.
+  const ghosts = [];
+  sceneClone.traverse((obj) => { if (obj.userData?.contourGhost) ghosts.push(obj); });
+  for (const g of ghosts) g.removeFromParent();
   sceneClone.traverse((obj) => {
     if (obj.isMesh && obj.material) {
       const mats = Array.isArray(obj.material) ? obj.material : [obj.material];

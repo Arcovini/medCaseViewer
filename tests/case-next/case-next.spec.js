@@ -469,8 +469,10 @@ test("3b.2 / tap no FAB+Linear transiciona pra placing-p1", async ({ page }) => 
   await openLinearViaMenu(page);
   expect(await getMeasurementState(page)).toBe("placing-p1");
   await expect(page.locator('[data-testid="measure-hint"]')).toBeVisible();
-  // FAB fica oculto durante placing — toolbar inferior cuida do cancelar.
-  await expect(page.locator('[data-testid="measure-fab"]')).toBeHidden();
+  // Na barra lateral, Medir fica pressionado (e travado) durante o modo — a
+  // toolbar inferior cuida do cancelar.
+  await expect(page.locator('[data-testid="measure-fab"]')).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator('[data-testid="measure-fab"]')).toBeDisabled();
 });
 
 test("3b.2 / tap no canvas cria candidato e mostra toolbar de confirmação", async ({ page }) => {
@@ -498,6 +500,9 @@ test("3b.2 / Confirmar P1 transiciona pra placing-p2 com endpoint fixado", async
 });
 
 test("3b.2 / fluxo completo até pílula com formato XX,X mm", async ({ page }) => {
+  // Dois toques + duas confirmações: no desktop (WebGL por software) o fluxo
+  // passa dos 45 s sem nenhum passo falhar — cada clique espera ~3–10 s.
+  test.slow();
   await setupCaseNext(page);
   await openLinearViaMenu(page);
   await tapCanvasCenter(page);

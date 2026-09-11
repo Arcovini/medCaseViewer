@@ -10,13 +10,6 @@ const POLL_INTERVAL_MS = 3000;
 const LONG_WAIT_MS = 60_000;
 const MESSAGE_ROTATE_MS = 2500;
 
-// Amarelo da peça "dentro de" — mesmo hex que o mesh-processor grava no GLB
-// (processor.COLORS_BY_KEYWORD). É a ÚNICA cor que esta tela pode saber sem
-// duplicar a tabela de keywords do backend: a keyword "dentro de" é gerada
-// aqui. As demais estruturas ficam com a barra neutra em vez de arriscar
-// mostrar uma cor diferente da que o modelo terá.
-const COLOR_ISOLATED = "#FFE100";
-
 const PHASE_UPLOAD = [
   "Recebendo os arquivos...",
   "Simplificando a geometria...",
@@ -47,6 +40,13 @@ let selectedFiles = [];
 // só estruturas originais podem ser referência, e só elas podem ser isoladas
 // de novo. A peça amarela não existe naquele índice.
 let ops = [];
+// Quais pares de arquivos se sobrepõem (overlap-worker.js). Chave: pairKey.
+// Valor: true | false | null — null = não deu para saber, e a estrutura
+// continua oferecida (o backend decide, como antes). Par ausente enquanto
+// overlapDone é false = ainda sendo verificado.
+let overlaps = new Map();
+let overlapDone = true;
+let overlapWorker = null;
 let openMenu = null; // {kind: "new"|"ref", key} — filename, ou índice da op
 let confirming = false;
 let messageTimer = null;
@@ -105,9 +105,61 @@ function resolvePieces() {
   return pieces;
 }
 
+/* ---------------- Sobreposição ----------------
+ * Isolar B dentro de A só produz algo se A e B se sobrepõem — senão o backend
+ * recusa o par. O worker mede isso nos próprios arquivos assim que são
+ * escolhidos, e o menu passa a oferecer só as estruturas que se tocam.
+ * Mede-se entre os arquivos ORIGINAIS: ao encadear, "Tumor fora de Rim" herda
+ * as sobreposições do Tumor inteiro (aproximação — o backend ainda confere).
+ */
+const pairKey = (a, b) => (a < b ? `${a}\u0000${b}` : `${b}\u0000${a}`);
+
+// true | false | null como em `overlaps`; undefined = ainda verificando.
+function overlapStatus(a, b) {
+  const key = pairKey(a, b);
+  if (overlaps.has(key)) return overlaps.get(key);
+  return overlapDone ? null : undefined;
+}
+
+function analyzeOverlaps() {
+  overlapWorker?.terminate();
+  overlapWorker = null;
+  overlaps = new Map();
+  overlapDone = true;
+  if (!canIsolate()) return;
+
+  let worker;
+  try {
+    worker = new Worker(new URL("./overlap-worker.js", import.meta.url), { type: "module" });
+  } catch {
+    return; // sem worker: tudo em aberto, menu completo como antes
+  }
+  overlapWorker = worker;
+  overlapDone = false;
+
+  const finish = () => {
+    overlapDone = true;
+    overlapWorker = null;
+    worker.terminate();
+  };
+  worker.onmessage = ({ data }) => {
+    if (worker !== overlapWorker) return; // resposta de uma seleção antiga
+    if (data.done) finish();
+    else overlaps.set(pairKey(data.a, data.b), data.overlaps);
+    renderStructures();
+  };
+  worker.onerror = () => {
+    if (worker !== overlapWorker) return;
+    finish();
+    renderStructures();
+  };
+  worker.postMessage({ files: selectedFiles });
+}
+
 // Referências possíveis para isolar `targetFile`: as outras estruturas
-// originais, menos as que já foram usadas nesse mesmo alvo (o par repetido não
-// produziria nada e o backend o recusa).
+// originais que se sobrepõem a ela, menos as que já foram usadas nesse mesmo
+// alvo (o par repetido não produziria nada e o backend o recusa). `pending`
+// marca as que ainda estão sendo verificadas.
 function referenceOptions(targetFile, exceptOpIndex = null) {
   const used = new Set(
     ops
@@ -118,7 +170,13 @@ function referenceOptions(targetFile, exceptOpIndex = null) {
   return selectedFiles
     .map((f) => f.name)
     .filter((n) => n !== targetFile && !used.has(n))
-    .map((n) => ({ file: n, label: pieces.find((p) => p.id === n)?.name ?? displayName(n) }));
+    .map((n) => ({ file: n, status: overlapStatus(targetFile, n) }))
+    .filter(({ status }) => status !== false)
+    .map(({ file, status }) => ({
+      file,
+      pending: status === undefined,
+      label: pieces.find((p) => p.id === file)?.name ?? displayName(file),
+    }));
 }
 
 /* ---------------- Render ---------------- */
@@ -165,7 +223,8 @@ function buildMenu(targetFile, { opIndex = null, chosen = null } = {}) {
   caption.textContent = opIndex === null ? "Isolar a parte que está dentro de" : "Isolada dentro de";
   menu.appendChild(caption);
 
-  for (const opt of referenceOptions(targetFile, opIndex)) {
+  const options = referenceOptions(targetFile, opIndex);
+  for (const opt of options.filter((o) => !o.pending)) {
     const b = document.createElement("button");
     b.type = "button";
     b.className = "up-menu-item";
@@ -179,6 +238,15 @@ function buildMenu(targetFile, { opIndex = null, chosen = null } = {}) {
     });
     menu.appendChild(b);
   }
+  // Verificação ainda em curso: as confirmadas já aparecem acima e as demais
+  // entram sozinhas quando o worker responder (renderStructures mantém o menu).
+  if (options.some((o) => o.pending)) {
+    const wait = document.createElement("span");
+    wait.className = "up-menu-pending";
+    wait.setAttribute("role", "status");
+    wait.textContent = "Procurando estruturas que se sobrepõem…";
+    menu.appendChild(wait);
+  }
   return menu;
 }
 
@@ -189,7 +257,11 @@ function buildRow(piece, split) {
 
   const left = document.createElement("span");
   left.className = "up-row-left";
-  left.appendChild(bar(piece.isolated ? COLOR_ISOLATED : null));
+  // Barra neutra para todas: as cores vêm da tabela de keywords do backend, e a
+  // peça isolada é um tom mais claro da cor da origem — que esta tela não sabe
+  // sem duplicar a tabela. A barra da isolada é a neutra clareada (CSS), o
+  // mesmo gesto que o modelo fará com a cor de verdade.
+  left.appendChild(bar(null));
 
   const name = document.createElement("span");
   name.className = "up-row-name";
@@ -274,7 +346,7 @@ function buildRow(piece, split) {
     const p = document.createElement("p");
     p.className = "up-hovercard-text";
     p.textContent =
-      "A parte que está dentro vira uma estrutura própria, em amarelo. O resto continua como estava.";
+      "A parte que está dentro vira uma estrutura própria, num tom mais claro da mesma cor. O resto continua como estava.";
     card.appendChild(p);
     wrap.appendChild(card);
 
@@ -301,6 +373,7 @@ function buildRow(piece, split) {
 function renderStructures() {
   const list = $("structure-list");
   list.innerHTML = "";
+  list.dataset.overlaps = overlapDone ? "done" : "pending";
 
   const pieces = resolvePieces();
   const groups = new Map();
@@ -463,6 +536,7 @@ function clearSelection() {
   openMenu = null;
   confirming = false;
   $("file-input").value = "";
+  analyzeOverlaps();
   renderStructures();
 }
 
@@ -473,6 +547,7 @@ $("file-input").addEventListener("change", (e) => {
   ops = [];
   openMenu = null;
   confirming = false;
+  analyzeOverlaps();
   renderStructures();
 });
 

@@ -24,7 +24,8 @@
         "three": "https://unpkg.com/three@0.164.0/build/three.module.js",
         "three/addons/": "https://unpkg.com/three@0.164.0/examples/jsm/",
         "three/examples/jsm/": "https://unpkg.com/three@0.164.0/examples/jsm/",
-        "n8ao": "https://esm.sh/n8ao@1.9.4?external=three"
+        "n8ao": "https://esm.sh/n8ao@1.9.4?external=three",
+        "manifold-3d": "https://unpkg.com/manifold-3d@3.5.3/manifold.js"
       }
     }
     </script>
@@ -63,17 +64,6 @@
                   aria-label="Ver em AR">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V5a1 1 0 0 1 1-1h2"/><path d="M17 4h2a1 1 0 0 1 1 1v2"/><path d="M20 17v2a1 1 0 0 1-1 1h-2"/><path d="M7 20H5a1 1 0 0 1-1-1v-2"/><path d="M12 8l5 3v6l-5 3-5-3v-6z"/><path d="M12 8v6"/><path d="M17 11l-5 3-5-3"/></svg>
             <span class="label">AR</span>
-          </button>
-
-          <button class="pill measure-fab"
-                  data-testid="measure-fab"
-                  data-state="idle"
-                  aria-label="Medir"
-                  aria-haspopup="menu"
-                  aria-expanded="false"
-                  hidden>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17L17 3l4 4L7 21z"/><path d="M7 13l2 2M11 9l2 2M15 5l2 2"/></svg>
-            <span class="label">Medir</span>
           </button>
 
           <!-- Desktop chrome: theme toggle + Compartilhar live as their own pills. -->
@@ -127,6 +117,43 @@
           <span class="vw-zoom-value" data-bind="zoom-pct">100%</span>
           <button class="vw-zoom-btn" data-action="zoom-in" aria-label="Aumentar">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+        </div>
+
+        <!-- Barra de ferramentas: o que age sobre o modelo fica junto dele, à
+             esquerda do palco. Desfazer só aparece depois do primeiro corte
+             (contour.js). -->
+        <div class="vw-rail" data-testid="tool-rail" role="toolbar" aria-label="Ferramentas" aria-orientation="vertical" hidden>
+          <!-- Só no celular: a barra vira o rodapé e Estruturas abre/fecha a gaveta. -->
+          <button type="button" class="vw-rail-btn vw-rail-mobile-only"
+                  data-testid="sheet-toggle"
+                  aria-label="Estruturas"
+                  aria-pressed="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 13l9 5 9-5"/></svg>
+            <span>Estruturas</span>
+          </button>
+          <button type="button" class="vw-rail-btn"
+                  data-testid="measure-fab"
+                  data-state="idle"
+                  aria-label="Medir"
+                  aria-haspopup="menu"
+                  aria-expanded="false"
+                  aria-pressed="false"
+                  hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17L17 3l4 4L7 21z"/><path d="M7 13l2 2M11 9l2 2M15 5l2 2"/></svg>
+            <span>Medir</span>
+          </button>
+          <button type="button" class="vw-rail-btn"
+                  data-testid="contour-button"
+                  aria-label="Cortar: desenhe um contorno e corte a parte da estrutura"
+                  aria-pressed="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6.5" r="2.6"/><circle cx="6" cy="17.5" r="2.6"/><path d="M8.3 8L20 18.5M8.3 16L20 5.5"/></svg>
+            <span>Cortar</span>
+          </button>
+          <span class="vw-rail-sep" data-rail="cut" hidden></span>
+          <button type="button" class="vw-rail-btn" data-testid="cut-undo" data-rail="cut" aria-label="Desfazer o último corte" hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>
+            <span>Desfazer</span>
           </button>
         </div>
 

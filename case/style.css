@@ -138,10 +138,6 @@ html[data-theme="dark"] .overflow-item .ic .ic-sun  { display: inline-block; }
 .ar-button[data-visible="false"] { display: none; }
 .ar-button[data-loading="true"] { opacity: 0.65; cursor: progress; }
 
-/* Measurement pill — same shape; coral active state when popover open. */
-.measure-fab[data-state="placing-p1"],
-.measure-fab[data-state="placing-p2"],
-.measure-fab[data-state="result"] { display: none !important; }
 
 /* ============================================================
    STAGE — paper-gray canvas surround with a soft top vignette
@@ -423,11 +419,13 @@ html[data-theme="dark"] .eye-toggle img { filter: invert(1); }
     top: auto;
     right: 0;
     left: 0;
-    bottom: 0;
+    bottom: var(--mbar-h, 0px);   /* apoiada em cima da barra do rodapé */
     width: 100%;
     max-width: 100%;
     height: var(--panel-height, 30vh);
-    max-height: 90vh;
+    /* Nunca passa da barra do topo: desconta o rodapé e os 56px do topo. */
+    max-height: calc(100vh - var(--mbar-h, 0px) - 56px);
+    max-height: calc(100dvh - var(--mbar-h, 0px) - 56px);
     border-radius: 16px 16px 0 0;
     box-shadow: 0 -4px 20px -4px rgba(21,23,26,0.12);
     transition: height 0.25s ease-out;
@@ -540,6 +538,23 @@ html[data-theme="dark"] .eye-toggle img { filter: invert(1); }
   -webkit-backdrop-filter: blur(14px);
 }
 .measure-hint[hidden] { display: none; }
+/* Dicas longas (o Contorno lista as estruturas afetadas) quebram linha em
+   vez de vazar da tela no celular. */
+@media (max-width: 768px) {
+  /* left+right+fit-content centraliza sem o translateX, que limitava a
+     largura disponível à metade da tela. */
+  .measure-hint {
+    left: 12px;
+    right: 12px;
+    width: fit-content;
+    max-width: calc(100vw - 24px);
+    margin-inline: auto;
+    transform: none;
+    white-space: normal;
+    text-align: center;
+    border-radius: 16px;
+  }
+}
 
 /* Mini-toolbar bottom-center (confirm row / result row). */
 .measure-toolbar {
@@ -553,8 +568,9 @@ html[data-theme="dark"] .eye-toggle img { filter: invert(1); }
 }
 .measure-toolbar[hidden] { display: none; }
 @media (max-width: 768px) {
+  /* Durante um modo o rodapé e a gaveta saem: a toolbar desce. */
   .measure-toolbar {
-    bottom: calc(30vh + 16px);
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
     width: calc(100% - 16px);
     max-width: 480px;
   }
@@ -661,8 +677,9 @@ html[data-theme="dark"] .eye-toggle img { filter: invert(1); }
 }
 .measure-loupe-label[hidden] { display: none; }
 
-/* Measure menu — popover anchored to the Medir pill in the top bar.
-   main.js positions it on open; CSS handles the visual treatment. */
+/* Measure menu — popover anchored to the Medir button in the tool rail
+   (opens to its right). dom.js positions it on open; CSS handles the
+   visual treatment. */
 .measure-menu {
   position: fixed;
   z-index: 1000;
@@ -704,7 +721,8 @@ html[data-theme="dark"] .eye-toggle img { filter: invert(1); }
   color: var(--w-ink-2);
 }
 .measure-menu-item .ic svg { width: 18px; height: 18px; }
-.measure-menu-item .lbl { flex: 1; }
+/* Coluna: o nome em cima, a unidade embaixo (spans soltos caíam na mesma linha). */
+.measure-menu-item .lbl { flex: 1; display: flex; flex-direction: column; }
 .measure-menu-item .lbl .l1 {
   font-size: 14px;
   font-weight: 500;
@@ -977,3 +995,363 @@ html[data-theme="dark"] .eye-toggle img { filter: invert(1); }
 /* .field-label, .link-row, .link-input e .link-copy moram no /app.css:
    o "link do caso + copiar" é o mesmo objeto e a mesma ação aqui e no
    estado final da tela de upload. */
+
+/* ============================================================
+   BARRA DE FERRAMENTAS — esquerda do palco (Medir + Contorno).
+   Mesmo vidro do chip de zoom logo acima. Flutua sobre o canvas
+   para não tirar largura do modelo.
+   ============================================================ */
+.vw-rail {
+  position: absolute;
+  top: 72px;
+  left: 18px;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 5px;
+  background: var(--w-pill-bg);
+  backdrop-filter: var(--w-pill-blur);
+  -webkit-backdrop-filter: var(--w-pill-blur);
+  border: 1px solid var(--w-rule-strong);
+  border-radius: 12px;
+}
+.vw-rail-btn {
+  width: 56px;
+  height: 52px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--w-ink-2);
+  font-family: var(--font-text);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 120ms, color 120ms;
+}
+.vw-rail-btn svg { width: 19px; height: 19px; flex-shrink: 0; }
+.vw-rail-btn:hover:not(:disabled) { background: var(--w-muted-fill); color: var(--w-ink); }
+.vw-rail-btn[aria-pressed="true"],
+.vw-rail-btn[aria-expanded="true"] { background: var(--w-ink); color: var(--w-base); }
+.vw-rail-btn:disabled { opacity: 0.38; cursor: not-allowed; }
+/* A ferramenta em uso trava o botão, mas continua lendo como "ligada". */
+.vw-rail-btn[aria-pressed="true"]:disabled { opacity: 1; cursor: default; }
+.vw-rail-btn:focus-visible { outline: 2px solid var(--w-ink-3); outline-offset: 2px; }
+.vw-rail-sep { height: 1px; margin: 4px 8px; background: var(--w-rule-strong); }
+.vw-rail-mobile-only { display: none; }
+
+/* ============================================================
+   CELULAR (≤768px) — a barra de ferramentas vira o rodapé:
+   Estruturas · Medir · Cortar, sempre com nome e ao alcance do
+   polegar. A gaveta de estruturas se apoia em cima dela. Durante
+   um modo (medir/cortar) o rodapé sai e o modo assume o espaço.
+   Nada aqui vale no desktop.
+   ============================================================ */
+@media (max-width: 768px) {
+  :root { --mbar-h: calc(76px + env(safe-area-inset-bottom, 0px)); }
+
+  .vw-rail {
+    position: fixed;
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 45;
+    height: var(--mbar-h);
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 0;
+    padding: 6px 8px env(safe-area-inset-bottom, 0px);
+    background: var(--w-base);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border: 0;
+    border-top: 1px solid var(--w-rule);
+    border-radius: 0;
+  }
+  .vw-rail[data-mode="measure"],
+  .vw-rail[data-mode="contour"] { display: none; }
+  .vw-rail-mobile-only { display: flex; }
+  .vw-rail .vw-rail-sep,
+  .vw-rail [data-testid="cut-undo"] { display: none !important; }
+  .vw-rail-btn {
+    flex: 1;
+    width: auto;
+    height: 60px;
+    gap: 5px;
+    font-size: 12px;
+    border-radius: 12px;
+  }
+  .vw-rail-btn svg {
+    box-sizing: border-box;
+    width: 56px;
+    height: 30px;
+    padding: 4px 17px;
+    border-radius: 999px;
+    border: 1px solid transparent;
+  }
+  .vw-rail-btn:hover:not(:disabled) { background: transparent; }
+  /* Item ativo: o ícone ganha uma pílula, como numa barra de navegação. */
+  .vw-rail-btn[aria-pressed="true"],
+  .vw-rail-btn[aria-expanded="true"] { background: transparent; color: var(--w-ink); }
+  .vw-rail-btn[aria-pressed="true"] svg,
+  .vw-rail-btn[aria-expanded="true"] svg { background: var(--w-recess); border-color: var(--w-rule-strong); }
+
+  /* Gaveta de estruturas: acima do rodapé; Estruturas abre e fecha. */
+  .panel[data-open="false"] { display: none; }
+
+  /* Menu de Medir: folha acima do rodapé, com os três modos. */
+  .measure-menu {
+    left: 0;
+    right: 0;
+    top: auto;
+    bottom: var(--mbar-h);
+    width: auto;
+    border-width: 1px 0 0;
+    border-radius: 16px 16px 0 0;
+  }
+  .measure-menu-item { min-height: 64px; padding: 12px 18px; }
+
+  /* Barra do modo Cortar: Cancelar · título · Desfazer. As pontas em 1fr
+     deixam o título no centro, qualquer que seja a largura dos botões. */
+  .vw-modebar[data-open="true"] {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 45;
+    height: var(--mbar-h);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
+    gap: 8px;
+    padding: 0 12px env(safe-area-inset-bottom, 0px);
+    background: var(--w-base);
+    border-top: 1px solid var(--w-rule);
+  }
+  .vw-modebar-cancel { justify-self: start; height: 48px; padding: 0 18px; font-size: 14px; }
+  .vw-modebar-title { display: flex; flex-direction: column; align-items: center; text-align: center; line-height: 1.25; }
+  .vw-modebar-title .t1 { font-size: 15px; font-weight: 600; color: var(--w-ink); }
+  .vw-modebar-title .t2 { font-size: 12px; color: var(--w-ink-3); }
+  .vw-modebar-undo {
+    justify-self: end;
+    width: 48px;
+    height: 48px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--w-rule-strong);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--w-ink);
+    cursor: pointer;
+  }
+  .vw-modebar-undo svg { width: 20px; height: 20px; }
+  .vw-modebar-undo:disabled { opacity: 0.38; cursor: default; }
+
+  /* O Cancelar do modo mora na barra do modo; a pílula flutuante sai. */
+  [data-testid="contour-toolbar"] { display: none !important; }
+}
+.vw-modebar { display: none; }
+
+/* ============================================================
+   CONTORNO — traço, cartão de escolha, aviso com Desfazer
+   ============================================================ */
+.contour-layer {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 4;
+}
+.contour-under {
+  fill: none;
+  stroke: var(--w-hud-bg);
+  stroke-width: 3.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.contour-line {
+  fill: none;
+  stroke: var(--w-hud-fg);
+  stroke-width: 1.8;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+/* Fechado: tracejado que corre, como a seleção de um editor gráfico. */
+.contour-layer[data-closed="true"] .contour-under { fill: color-mix(in srgb, var(--w-hud-fg) 5%, transparent); }
+.contour-layer[data-closed="true"] .contour-line {
+  stroke-dasharray: 7 5;
+  animation: contour-ants 0.9s linear infinite;
+}
+@keyframes contour-ants { to { stroke-dashoffset: -12; } }
+
+.contour-card {
+  position: fixed;
+  z-index: 1001;
+  width: 248px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px 14px;
+  background: var(--w-menu-bg);
+  border: 1px solid var(--w-rule-strong);
+  border-radius: 12px;
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  box-shadow: 0 24px 48px -16px rgba(0,0,0,0.28);
+  color: var(--w-ink);
+}
+/* Com muitas estruturas (o fígado tem 13), só a lista rola: Área e Cortar
+   ficam sempre à vista no fim do cartão. */
+.contour-card { max-height: calc(100vh - 140px); overflow: hidden; }
+.contour-card > * { flex-shrink: 0; }
+.contour-list { display: flex; flex-direction: column; margin: -2px 0; flex: 0 1 auto; min-height: 0; overflow-y: auto; }
+.contour-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 34px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.contour-check input {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--w-rule-strong);
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+}
+.contour-check input:checked { background: var(--w-ink); border-color: var(--w-ink); }
+.contour-check input:checked::after {
+  content: "";
+  width: 8px;
+  height: 4px;
+  border-left: 2px solid var(--w-base);
+  border-bottom: 2px solid var(--w-base);
+  transform: translateY(-1px) rotate(-45deg);
+}
+.contour-check input:focus-visible { outline: 2px solid var(--w-ink-3); outline-offset: 2px; }
+.contour-check input:not(:checked) ~ .contour-name { color: var(--w-ink-2); }
+.contour-bar {
+  width: 3px;
+  height: 16px;
+  border-radius: 2px;
+  flex-shrink: 0;
+  background: var(--struct-color, var(--w-ink-3));
+}
+.contour-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.contour-note { font-size: 12px; line-height: 1.45; color: var(--w-ink-3); margin-bottom: 4px; text-wrap: pretty; }
+.contour-seg {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2px;
+  padding: 2px;
+  background: var(--w-muted-fill);
+  border: 1px solid var(--w-rule);
+  border-radius: 8px;
+}
+.contour-seg button {
+  height: 30px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--w-ink-3);
+  font-family: var(--font-text);
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.contour-seg button[aria-pressed="true"] {
+  background: var(--w-recess);
+  color: var(--w-ink);
+  border-color: var(--w-rule-strong);
+}
+.contour-seg button:focus-visible { outline: 2px solid var(--w-ink-3); outline-offset: 1px; }
+.contour-actions { display: flex; gap: 8px; margin-top: 6px; }
+.contour-actions .btn { flex: 1; height: 34px; padding: 0 12px; }
+
+.contour-toast {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 5px 0 16px;
+  border-radius: 999px;
+  background: var(--w-hud-bg);
+  border: 1px solid var(--w-hud-border);
+  color: var(--w-hud-fg);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.contour-toast:has(.contour-toast-act[hidden]) { padding-right: 16px; }
+.contour-toast-act {
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--w-hud-fg) 12%, transparent);
+  color: var(--w-hud-fg);
+  font-family: var(--font-text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.contour-toast-act:hover { background: color-mix(in srgb, var(--w-hud-fg) 20%, transparent); }
+.contour-toast-act svg { width: 14px; height: 14px; }
+.contour-toast { max-width: calc(100vw - 24px); }
+/* Nome de estrutura longo não vaza da pílula. */
+.contour-toast-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 768px) { .contour-toast { bottom: calc(var(--mbar-h) + 12px); } }
+
+/* Aviso persistente na linha da estrutura recortada. */
+.structure-cut-note { font-size: 12px; line-height: 1.3; color: var(--w-ink-3); margin-top: -4px; }
+
+/* Celular: a escolha das estruturas é uma gaveta presa ao rodapé, no lugar
+   da barra do modo — nada flutua em cima do modelo. Fica depois das regras
+   base do cartão para vencê-las. */
+@media (max-width: 768px) {
+  .contour-card {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: auto;
+    width: auto;
+    max-height: 72vh;
+    gap: 10px;
+    padding: 16px 18px calc(18px + env(safe-area-inset-bottom, 0px));
+    border-width: 1px 0 0;
+    border-radius: 16px 16px 0 0;
+    z-index: 1002;
+  }
+  .contour-check { min-height: 48px; font-size: 14px; }
+  .contour-check input { width: 20px; height: 20px; border-radius: 5px; }
+  .contour-seg button { height: 44px; font-size: 14px; }
+  .contour-actions .btn { height: 48px; font-size: 15px; }
+}

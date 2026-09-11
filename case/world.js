@@ -14,9 +14,11 @@ import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { OutlinePass } from "three/addons/postprocessing/OutlinePass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { N8AOPass } from "n8ao";
+import { toCreasedNormals } from "three/addons/utils/BufferGeometryUtils.js";
 import { pickNearestSegment } from "./calibre-geom.js";
 
 let renderer, scene, camera, controls;
+let _defaultTouches, _defaultMouseButtons;   // OrbitControls de fábrica (ver setContourTouchNavigation)
 let css2dRenderer;
 let composer;            // EffectComposer pra outline pass
 let outlinePass;         // OutlinePass — desenha contorno reliable em malhas selecionadas
@@ -136,6 +138,8 @@ export function init(canvasEl) {
   controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
   controls.dampingFactor = 0.05;
+  _defaultTouches = { ...controls.touches };
+  _defaultMouseButtons = { ...controls.mouseButtons };
 
   // CSS2DRenderer: HTML overlay alinhado a coordenadas 3D (usado pela pílula da medição).
   css2dRenderer = new CSS2DRenderer();
@@ -414,6 +418,44 @@ export function projectToScreen(point3D) {
 
 export function setControlsEnabled(enabled) {
   controls.enabled = enabled;
+}
+
+// Cortar num aparelho de toque: um dedo desenha (OrbitControls ignora), dois
+// dedos giram e aproximam. `false` volta ao comportamento normal.
+// Sem inércia durante o corte: o giro para quando os dedos saem, senão a
+// câmera seguiria andando e o contorno deixaria de bater com o modelo.
+export function setContourTouchNavigation(on) {
+  if (on) {
+    controls.touches = { ONE: null, TWO: THREE.TOUCH.DOLLY_ROTATE };
+    controls.mouseButtons = { LEFT: null, MIDDLE: null, RIGHT: null };
+    controls.enableDamping = false;
+    controls.enabled = true;
+  } else {
+    controls.touches = { ..._defaultTouches };
+    controls.mouseButtons = { ..._defaultMouseButtons };
+    controls.enableDamping = true;
+  }
+}
+
+// Para na hora o giro que ainda está desacelerando (damping). Com o damping
+// desligado, update() zera o que sobrou do movimento.
+export function stopCameraInertia() {
+  const damping = controls.enableDamping;
+  controls.enableDamping = false;
+  controls.update();
+  controls.enableDamping = damping;
+}
+
+// Ponto 3D na direção do dedo, para a lupa seguir o traço. A câmera da lupa
+// fica na posição da câmera principal e só mira o alvo, então qualquer ponto
+// do raio dá a mesma imagem: basta o raio, sem raycast contra as malhas
+// (que custaria caro a cada movimento do dedo).
+export function pointUnderScreen(x, y) {
+  const rect = renderer.domElement.getBoundingClientRect();
+  ndc.x = ((x - rect.left) / rect.width) * 2 - 1;
+  ndc.y = -((y - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(ndc, camera);
+  return raycaster.ray.at(camera.position.distanceTo(controls.target), new THREE.Vector3());
 }
 
 export function onCameraChange(callback) {
@@ -771,6 +813,9 @@ export function computeMeshVolumeForMesh(mesh) {
   const triCount = index ? index.count / 3 : positions.count / 3;
   let signedVolume = 0;
   const edgeCounts = new Map();
+  // Arestas contadas por posição, não por índice: uma malha fechada com
+  // vértices duplicados (normais vincadas depois de um corte) segue fechada.
+  const { remap } = _positionIds(positions);
 
   function bumpEdge(a, b) {
     const k = a < b ? (a * 0x200000 + b) : (b * 0x200000 + a);
@@ -789,9 +834,9 @@ export function computeMeshVolumeForMesh(mesh) {
     _cross.crossVectors(_v1, _v2);
     signedVolume += _v0.dot(_cross);
 
-    bumpEdge(i0, i1);
-    bumpEdge(i1, i2);
-    bumpEdge(i2, i0);
+    bumpEdge(remap[i0], remap[i1]);
+    bumpEdge(remap[i1], remap[i2]);
+    bumpEdge(remap[i2], remap[i0]);
   }
 
   let manifold = true;
@@ -1143,4 +1188,345 @@ export function setSceneBackground(hex) {
   } catch (_) {
     // invalid color string — leave previous bg alone.
   }
+}
+
+// ===========================================================================
+// Cortar — tirar do modelo a parte de uma estrutura que fica dentro (ou fora)
+// de um contorno desenhado na tela. O contorno vira um prisma que atravessa o
+// modelo inteiro na direção do olhar, e o corte é uma operação booleana feita
+// pelo Manifold (manifold-3d, WASM): a abertura sai TAMPADA e a malha continua
+// fechada (watertight), então o volume da parte que sobrou segue medível.
+// A prévia é aproximada (classificação de triângulos, instantânea); o corte
+// exato só roda ao confirmar. Nada é persistido: recarregar volta ao GLB.
+// ===========================================================================
+
+const _cutPreview = new Map();  // name -> index vigente enquanto a prévia está aberta
+const _cutGhosts = new Map();   // name -> Mesh translúcida com o que vai sair
+const _mvp = new THREE.Matrix4();
+// Ângulo acima do qual a normal quebra: a tampa encontra a superfície num
+// vinco nítido, enquanto a superfície do órgão continua suave.
+const CUT_CREASE_ANGLE = Math.PI / 4;
+let _manifoldPromise = null;
+
+// Carrega o Manifold (WASM, ~1 MB) só no primeiro corte.
+function _loadManifold() {
+  if (!_manifoldPromise) {
+    _manifoldPromise = import("manifold-3d").then(async ({ default: Module }) => {
+      const wasm = await Module();
+      wasm.setup();
+      return wasm;
+    });
+    // Falha de rede não pode travar os próximos cortes: deixa tentar de novo.
+    _manifoldPromise.catch(() => { _manifoldPromise = null; });
+  }
+  return _manifoldPromise;
+}
+
+// Index da malha como array de inteiros. Malha não indexada ganha um index
+// sequencial na primeira vez, pra que a prévia trate os dois casos igual.
+function _indexArray(mesh) {
+  const g = mesh.geometry;
+  if (!g.index) {
+    const n = g.attributes.position.count;
+    const seq = new Uint32Array(n);
+    for (let i = 0; i < n; i++) seq[i] = i;
+    g.setIndex(new THREE.BufferAttribute(seq, 1));
+  }
+  return g.index.array;
+}
+
+function _setIndex(mesh, arr) {
+  mesh.geometry.setIndex(new THREE.BufferAttribute(arr, 1));
+}
+
+// Separa os triângulos de `base` em mantidos e removidos segundo `removeFlags`
+// (1 = sai). `removeFlags` tem um byte por triângulo de `base`.
+function _splitIndex(base, removeFlags) {
+  let removed = 0;
+  for (let t = 0; t < removeFlags.length; t++) removed += removeFlags[t];
+  const keep = new Uint32Array(base.length - removed * 3);
+  const gone = new Uint32Array(removed * 3);
+  let k = 0, g = 0;
+  for (let t = 0; t < removeFlags.length; t++) {
+    if (removeFlags[t]) {
+      gone[g++] = base[t * 3]; gone[g++] = base[t * 3 + 1]; gone[g++] = base[t * 3 + 2];
+    } else {
+      keep[k++] = base[t * 3]; keep[k++] = base[t * 3 + 1]; keep[k++] = base[t * 3 + 2];
+    }
+  }
+  return { keep, gone };
+}
+
+// Volume e raycast do calibre cacheiam a malha inteira; depois de um corte
+// precisam ver a geometria nova.
+function _invalidateGeometryCaches(name) {
+  _volumeCache.delete(name);
+  _triangleSoupCache.delete(name);
+}
+
+// Id por posição: vértices duplicados na mesma posição (normais vincadas,
+// costuras de UV) recebem o mesmo id. É o que define "fechada" de verdade.
+function _positionIds(pos) {
+  const ids = new Map();
+  const remap = new Uint32Array(pos.count);
+  for (let i = 0; i < pos.count; i++) {
+    const key = pos.getX(i) + "," + pos.getY(i) + "," + pos.getZ(i);
+    let id = ids.get(key);
+    if (id === undefined) { id = ids.size; ids.set(key, id); }
+    remap[i] = id;
+  }
+  return { remap, count: ids.size };
+}
+
+// Para cada triângulo da malha, diz se o seu centro projetado na tela cai
+// dentro do contorno. `isInside(x, y)` recebe coordenadas de viewport (as
+// mesmas de PointerEvent.clientX/Y). Malha oculta não participa: esconder uma
+// estrutura é o jeito de protegê-la. Retorna null para malha oculta/ausente.
+export function classifyMeshTrianglesOnScreen(name, isInside) {
+  const mesh = namedMeshes.get(name);
+  if (!mesh || !mesh.visible) return null;
+
+  const idx = _cutPreview.get(name) ?? _indexArray(mesh);
+  mesh.updateMatrixWorld();
+  camera.updateMatrixWorld();
+  _mvp.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse).multiply(mesh.matrixWorld);
+  const e = _mvp.elements;
+  const rect = renderer.domElement.getBoundingClientRect();
+  const pos = mesh.geometry.attributes.position;
+
+  // Projeta cada vértice uma vez; o centro do triângulo na tela é a média
+  // dos três. Vértice atrás da câmera (w <= 0) não tem posição de tela.
+  const n = pos.count;
+  const sx = new Float32Array(n);
+  const sy = new Float32Array(n);
+  const front = new Uint8Array(n);
+  for (let i = 0; i < n; i++) {
+    const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+    const w = e[3] * x + e[7] * y + e[11] * z + e[15];
+    if (w <= 0) continue;
+    front[i] = 1;
+    sx[i] = rect.left + ((e[0] * x + e[4] * y + e[8] * z + e[12]) / w + 1) * 0.5 * rect.width;
+    sy[i] = rect.top + (1 - (e[1] * x + e[5] * y + e[9] * z + e[13]) / w) * 0.5 * rect.height;
+  }
+
+  const triCount = idx.length / 3;
+  const flags = new Uint8Array(triCount);
+  let insideCount = 0;
+  for (let t = 0; t < triCount; t++) {
+    const a = idx[t * 3], b = idx[t * 3 + 1], c = idx[t * 3 + 2];
+    if (!front[a] || !front[b] || !front[c]) continue;
+    if (isInside((sx[a] + sx[b] + sx[c]) / 3, (sy[a] + sy[b] + sy[c]) / 3)) {
+      flags[t] = 1;
+      insideCount++;
+    }
+  }
+  return { flags, insideCount, triCount };
+}
+
+// Prévia do corte: a malha passa a desenhar só o que fica, e uma cópia
+// translúcida (filha da malha, mesma transformação) mostra o que vai sair.
+// `removeFlags` segue a ordem de triângulos devolvida por
+// classifyMeshTrianglesOnScreen. Chamar de novo troca a prévia.
+export function previewMeshCut(name, removeFlags) {
+  const mesh = namedMeshes.get(name);
+  if (!mesh) return;
+  if (!_cutPreview.has(name)) _cutPreview.set(name, Uint32Array.from(_indexArray(mesh)));
+  const { keep, gone } = _splitIndex(_cutPreview.get(name), removeFlags);
+  _setIndex(mesh, keep);
+
+  let ghost = _cutGhosts.get(name);
+  if (!ghost || ghost.userData.src !== mesh.geometry) {
+    if (ghost && ghost.parent) ghost.parent.remove(ghost);
+    // Geometria própria, atributos compartilhados com a malha real: nunca
+    // chamar dispose() nela, porque isso apagaria no GPU os buffers da malha.
+    const geom = new THREE.BufferGeometry();
+    geom.setAttribute("position", mesh.geometry.attributes.position);
+    if (mesh.geometry.attributes.normal) geom.setAttribute("normal", mesh.geometry.attributes.normal);
+    const mat = mesh.material.clone();
+    mat.map = null;
+    mat.transparent = true;
+    mat.opacity = 0.18;
+    mat.depthWrite = false;
+    mat.side = THREE.DoubleSide;
+    ghost = new THREE.Mesh(geom, mat);
+    ghost.renderOrder = 2;
+    ghost.userData.contourGhost = true;   // ar.js descarta no export USDZ
+    ghost.userData.src = mesh.geometry;
+    _cutGhosts.set(name, ghost);
+  }
+  // A cor pode ter mudado no painel desde que o fantasma foi criado.
+  if (mesh.material.color && ghost.material.color) ghost.material.color.copy(mesh.material.color);
+  ghost.geometry.setIndex(new THREE.BufferAttribute(gone, 1));
+  if (ghost.parent !== mesh) mesh.add(ghost);
+}
+
+// Fecha a prévia sem cortar: a malha volta ao index que tinha antes dela.
+export function clearMeshCutPreview(name) {
+  const mesh = namedMeshes.get(name);
+  const base = _cutPreview.get(name);
+  if (mesh && base) _setIndex(mesh, base);
+  _cutPreview.delete(name);
+  const ghost = _cutGhosts.get(name);
+  if (ghost && ghost.parent) ghost.parent.remove(ghost);
+}
+
+// Prisma do contorno em coordenadas de mundo. Cada ponto de tela vira um raio
+// da câmera; o prisma vai de antes da frente do modelo até depois do fundo, e
+// as tampas são o polígono triangulado. `screenPoints` precisa ser um polígono
+// simples (contour-geom.tidyLoop cuida disso).
+export function createCutter(screenPoints) {
+  const rect = renderer.domElement.getBoundingClientRect();
+  const sphere = new THREE.Box3().setFromObject(mountedRoot).getBoundingSphere(new THREE.Sphere());
+  const dist = camera.position.distanceTo(sphere.center);
+  const tNear = Math.max(camera.near * 2, dist - sphere.radius * 1.5);
+  const tFar = dist + sphere.radius * 1.5;
+
+  const n = screenPoints.length;
+  const world = new Float32Array(n * 6);   // perto: 0..n-1, longe: n..2n-1
+  for (let i = 0; i < n; i++) {
+    const [x, y] = screenPoints[i];
+    ndc.set(((x - rect.left) / rect.width) * 2 - 1, -((y - rect.top) / rect.height) * 2 + 1);
+    raycaster.setFromCamera(ndc, camera);
+    const { origin: o, direction: d } = raycaster.ray;
+    world[i * 3] = o.x + d.x * tNear;
+    world[i * 3 + 1] = o.y + d.y * tNear;
+    world[i * 3 + 2] = o.z + d.z * tNear;
+    world[(n + i) * 3] = o.x + d.x * tFar;
+    world[(n + i) * 3 + 1] = o.y + d.y * tFar;
+    world[(n + i) * 3 + 2] = o.z + d.z * tFar;
+  }
+
+  // Tampas: earcut no polígono de tela, cada triângulo reorientado para o
+  // mesmo sentido do contorno, pra que as laterais fechem com elas.
+  const contour2 = screenPoints.map(([x, y]) => new THREE.Vector2(x, y));
+  const area = THREE.ShapeUtils.area(contour2);
+  const tris = [];
+  const used = new Uint8Array(n);
+  for (const face of THREE.ShapeUtils.triangulateShape(contour2, [])) {
+    let [a, b, c] = face;
+    const s = THREE.ShapeUtils.area([contour2[a], contour2[b], contour2[c]]);
+    if (Math.sign(s) !== Math.sign(area)) [b, c] = [c, b];
+    tris.push(a, b, c, n + a, n + c, n + b);
+    used[a] = used[b] = used[c] = 1;
+  }
+  // Ponto que o earcut deixou de fora (colinear, repetido) abriria o prisma.
+  if (used.includes(0)) throw new Error("contorno com pontos alinhados ou repetidos");
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n;
+    tris.push(j, i, n + i, j, n + i, n + j);
+  }
+  return { world, tris: new Uint32Array(tris) };
+}
+
+// Prisma levado às coordenadas locais da malha, virado para fora (volume
+// positivo), como o Manifold espera.
+function _cutterMesh(cutter, worldToLocal) {
+  const v = new Float32Array(cutter.world.length);
+  const p = new THREE.Vector3();
+  for (let i = 0; i < v.length; i += 3) {
+    p.fromArray(cutter.world, i).applyMatrix4(worldToLocal).toArray(v, i);
+  }
+  const tri = cutter.tris.slice();
+  let vol = 0;
+  for (let t = 0; t < tri.length; t += 3) {
+    const a = tri[t] * 3, b = tri[t + 1] * 3, c = tri[t + 2] * 3;
+    vol += v[a] * (v[b + 1] * v[c + 2] - v[b + 2] * v[c + 1])
+         - v[a + 1] * (v[b] * v[c + 2] - v[b + 2] * v[c])
+         + v[a + 2] * (v[b] * v[c + 1] - v[b + 1] * v[c]);
+  }
+  if (vol < 0) {
+    for (let t = 0; t < tri.length; t += 3) { const s = tri[t + 1]; tri[t + 1] = tri[t + 2]; tri[t + 2] = s; }
+  }
+  return { numProp: 3, vertProperties: v, triVerts: tri };
+}
+
+// Geometria no formato do Manifold (só posições), sem mexer na topologia.
+function _meshData(geometry) {
+  const pos = geometry.attributes.position;
+  const verts = new Float32Array(pos.count * 3);
+  for (let i = 0; i < pos.count; i++) {
+    verts[i * 3] = pos.getX(i);
+    verts[i * 3 + 1] = pos.getY(i);
+    verts[i * 3 + 2] = pos.getZ(i);
+  }
+  const idx = geometry.index ? geometry.index.array : null;
+  const tri = new Uint32Array(idx ? idx.length : pos.count);
+  for (let t = 0; t < tri.length; t++) tri[t] = idx ? idx[t] : t;
+  return { numProp: 3, vertProperties: verts, triVerts: tri };
+}
+
+// Os GLBs do mesh-processor já chegam fechados por índice e entram direto.
+// Uma malha já cortada volta com vértices duplicados nas quinas (normais
+// vincadas): aí o Mesh.merge() do Manifold costura as arestas abertas por
+// posição. Soldar tudo por posição à força criaria vértices "beliscados"
+// onde duas superfícies se tocam, e o Manifold recusaria.
+function _toManifold(wasm, data) {
+  const { Manifold, Mesh } = wasm;
+  try {
+    return new Manifold(new Mesh(data));
+  } catch (err) {
+    if (err?.code !== "NotManifold") throw err;
+  }
+  const mesh = new Mesh(data);
+  mesh.merge();
+  return new Manifold(mesh);   // ainda aberta: lança NotManifold
+}
+
+// Corta a malha com o prisma: "inside" tira o que está dentro do contorno,
+// "outside" tira o que está fora. Troca a geometria da malha pela resultante
+// e devolve a anterior como ficha para desfazer (restoreMeshGeometry).
+// Lança erro se a malha não for fechada (o Manifold recusa) ou se o corte
+// falhar; a malha fica como estava.
+export async function applyMeshCut(name, cutter, side) {
+  const mesh = namedMeshes.get(name);
+  if (!mesh) return null;
+  clearMeshCutPreview(name);
+  const wasm = await _loadManifold();
+
+  mesh.updateMatrixWorld();
+  const worldToLocal = mesh.matrixWorld.clone().invert();
+  const src = mesh.geometry;
+  const live = [];
+  let result;
+  try {
+    const solid = _toManifold(wasm, _meshData(src));
+    live.push(solid);
+    const prism = _toManifold(wasm, _cutterMesh(cutter, worldToLocal));
+    live.push(prism);
+    const cut = side === "outside" ? solid.intersect(prism) : solid.subtract(prism);
+    live.push(cut);
+    const out = cut.getMesh();
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.BufferAttribute(Float32Array.from(out.vertProperties), 3));
+    g.setIndex(new THREE.BufferAttribute(Uint32Array.from(out.triVerts), 1));
+    result = toCreasedNormals(g, CUT_CREASE_ANGLE);
+    g.dispose();
+  } finally {
+    for (const m of live) m.delete();
+  }
+  result.computeBoundingBox();
+  result.computeBoundingSphere();
+  mesh.geometry = result;
+  _invalidateGeometryCaches(name);
+  return src;
+}
+
+// Desfaz um corte com a ficha que applyMeshCut devolveu.
+export function restoreMeshGeometry(name, token) {
+  const mesh = namedMeshes.get(name);
+  if (!mesh || !token) return;
+  clearMeshCutPreview(name);
+  const discarded = mesh.geometry;
+  mesh.geometry = token;
+  const ghost = _cutGhosts.get(name);
+  if (ghost && ghost.userData.src === discarded) _cutGhosts.delete(name);
+  if (discarded !== token) discarded.dispose();
+  _invalidateGeometryCaches(name);
+}
+
+export function getMeshTriangleCount(name) {
+  const mesh = namedMeshes.get(name);
+  if (!mesh) return null;
+  const g = mesh.geometry;
+  return (g.index ? g.index.count : g.attributes.position.count) / 3;
 }

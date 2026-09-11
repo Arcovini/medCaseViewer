@@ -279,7 +279,9 @@ test("volume / + Nova volta a active-empty mantendo modo", async ({ page }) => {
   expect(await page.evaluate(() => window.__volume.getMeasuredMesh())).toBeNull();
   await expect(page.locator(".measurement-pill")).toBeHidden();
   await expect(page.locator('[data-testid="measure-hint"]')).toContainText(/toque na estrutura/i);
-  await expect(page.locator('[data-testid="measure-fab"]')).toBeHidden();
+  // Na barra lateral, Medir fica pressionado e travado durante o modo.
+  await expect(page.locator('[data-testid="measure-fab"]')).toBeDisabled();
+  await expect(page.locator('[data-testid="measure-fab"]')).toHaveAttribute("aria-pressed", "true");
 });
 
 test("volume / Sair em active-result limpa tudo e reapresenta FAB", async ({ page }) => {
@@ -292,7 +294,8 @@ test("volume / Sair em active-result limpa tudo e reapresenta FAB", async ({ pag
   expect(await page.evaluate(() => window.__volume.getState())).toBe("idle");
   expect(await page.evaluate(() => window.__volume.getMeasuredMesh())).toBeNull();
   await expect(page.locator(".measurement-pill")).toBeHidden();
-  await expect(page.locator('[data-testid="measure-fab"]')).toBeVisible();
+  await expect(page.locator('[data-testid="measure-fab"]')).toBeEnabled();
+  await expect(page.locator('[data-testid="measure-fab"]')).toHaveAttribute("aria-pressed", "false");
   await expect(page.locator('[data-testid="volume-toolbar"]')).toBeHidden();
 });
 

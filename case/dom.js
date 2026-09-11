@@ -116,7 +116,16 @@ export function renderStructures(structures, callbacks) {
 
     rowOpacity.appendChild(slider);
 
+    // Aviso persistente de que o Contorno tirou parte desta estrutura. Sem ele
+    // o médico pode esquecer que está olhando um modelo incompleto.
+    const cutNote = document.createElement("span");
+    cutNote.className = "structure-cut-note";
+    cutNote.dataset.structureName = name;
+    cutNote.textContent = "Parte removida";
+    cutNote.hidden = true;
+
     li.appendChild(rowMain);
+    li.appendChild(cutNote);
     li.appendChild(rowOpacity);
     list.appendChild(li);
   }
@@ -139,6 +148,18 @@ export function setSwatchColor(name, hex) {
   const li = list.querySelector(`li[data-structure-name="${CSS.escape(name)}"]`);
   if (!li) return;
   li.style.setProperty("--struct-color", hex);
+}
+
+// Gaveta de estruturas aberta/fechada. Só tem efeito no celular (CSS); no
+// desktop o painel é uma coluna fixa.
+export function setSheetOpen(open) {
+  const panel = document.getElementById("structures-panel");
+  if (panel) panel.dataset.open = String(open);
+}
+
+export function setStructureCut(name, cut) {
+  const note = list.querySelector(`.structure-cut-note[data-structure-name="${CSS.escape(name)}"]`);
+  if (note) note.hidden = !cut;
 }
 
 export function setSliderValue(name, value) {
@@ -177,6 +198,13 @@ export function initBottomSheet() {
   });
 }
 
+// Altura máxima da gaveta, em vh: a gaveta se apoia no rodapé (bottom =
+// --mbar-h) e não pode subir por cima da barra do topo (56px).
+function _maxSheetVh() {
+  const bottom = parseFloat(getComputedStyle(_panelEl).bottom) || 0;
+  return ((window.innerHeight - bottom - 56) / window.innerHeight) * 100;
+}
+
 function _onDragStart(e) {
   if (window.innerWidth > MOBILE_BREAKPOINT) return;
 
@@ -203,7 +231,7 @@ function _onDragMove(e) {
   const deltaY = _dragStartY - point.clientY;   // arrastar pra cima → positivo
   const newHeightPx = _dragStartHeightPx + deltaY;
   const newHeightVh = (newHeightPx / window.innerHeight) * 100;
-  const clamped = Math.max(15, Math.min(90, newHeightVh));
+  const clamped = Math.max(15, Math.min(_maxSheetVh(), newHeightVh));
 
   _panelEl.style.setProperty("--panel-height", `${clamped}vh`);
 
@@ -218,7 +246,7 @@ function _onDragEnd() {
 
   const currentHeightVh = (_panelEl.getBoundingClientRect().height / window.innerHeight) * 100;
   const midpoint = (SNAP_COLLAPSED_VH + SNAP_EXPANDED_VH) / 2;
-  const snapTo = currentHeightVh > midpoint ? SNAP_EXPANDED_VH : SNAP_COLLAPSED_VH;
+  const snapTo = currentHeightVh > midpoint ? Math.min(SNAP_EXPANDED_VH, _maxSheetVh()) : SNAP_COLLAPSED_VH;
   _panelEl.style.setProperty("--panel-height", `${snapTo}vh`);
 
   document.removeEventListener("touchmove", _onDragMove);
@@ -232,30 +260,13 @@ function _onDragEnd() {
 // Sprint 3b.2 — Medição linear (DOM primitives)
 // ===========================================================================
 
-const _FAB_ICON_RULER = `<path d="M3 12 L7 8 L21 8 L21 16 L7 16 Z"/><path d="M9 8 L9 12 M13 8 L13 12 M17 8 L17 12"/>`;
-
-// FAB único compartilhado entre Linear e Volume. Pós-v5 o FAB vive como pill
-// no top bar (`.pill.measure-fab` com `data-testid="measure-fab"`), montado
-// no markup estático. Esta função primeiro tenta encontrá-lo; só cria um
-// flutuante de fallback se não existir (cobre o /case/ legado caso reuse).
-// O click abre o popover do menu (main.js cuida disso). Cancelamento de modo
-// ativo é feito pelo toolbar inferior — durante modo ativo, FAB fica escondido.
+// Botão Medir, compartilhado pelos três modos. Vive na barra de ferramentas à
+// esquerda do palco (markup estático, `data-testid="measure-fab"`). O click
+// abre o popover do menu (main.js cuida disso). Durante um modo ativo ele fica
+// pressionado e travado (mountToolRail.setActive); a saída é pela toolbar
+// inferior do modo.
 export function mountMeasurementFAB({ onClick }) {
-  let btn = document.querySelector('[data-testid="measure-fab"]');
-  const created = !btn;
-  if (created) {
-    btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "measure-fab";
-    btn.dataset.state = "idle";
-    btn.dataset.testid = "measure-fab";
-    btn.hidden = true;
-    btn.innerHTML = `
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${_FAB_ICON_RULER}</svg>
-      <span class="label">Medir</span>
-    `;
-    document.body.appendChild(btn);
-  }
+  const btn = document.querySelector('[data-testid="measure-fab"]');
   btn.addEventListener("click", onClick);
 
   return {
@@ -271,7 +282,9 @@ const _MENU_ICON_RULER = `<path d="M3 12 L7 8 L21 8 L21 16 L7 16 Z"/><path d="M9
 const _MENU_ICON_CUBE = `<path d="M12 3 L21 8 L21 16 L12 21 L3 16 L3 8 Z"/><path d="M3 8 L12 13 L21 8 M12 13 L12 21"/>`;
 const _MENU_ICON_CALIBRE = `<circle cx="12" cy="12" r="6"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>`;
 
-export function mountMeasurementMenu({ anchorEl, onPickLinear, onPickVolume, onPickCalibre }) {
+// `placement: "right"` abre o menu ao lado da âncora (botão da barra de
+// ferramentas à esquerda do palco); o padrão abre abaixo, alinhado à direita.
+export function mountMeasurementMenu({ anchorEl, placement = "below", onPickLinear, onPickVolume, onPickCalibre }) {
   const wrapper = document.createElement("div");
   wrapper.className = "measure-menu";
   wrapper.dataset.open = "false";
@@ -294,6 +307,13 @@ export function mountMeasurementMenu({ anchorEl, onPickLinear, onPickVolume, onP
 
   function positionMenu() {
     if (!anchorEl) return;
+    // No celular o menu é uma folha acima da barra do rodapé (CSS).
+    if (window.innerWidth <= MOBILE_BREAKPOINT) {
+      wrapper.style.top = "";
+      wrapper.style.left = "";
+      wrapper.style.right = "";
+      return;
+    }
     const r = anchorEl.getBoundingClientRect();
     // Align the menu's right edge to the anchor's right edge, 8px below.
     // Fallback to top:72/right:16 if the anchor isn't laid out yet.
@@ -303,8 +323,13 @@ export function mountMeasurementMenu({ anchorEl, onPickLinear, onPickVolume, onP
       wrapper.style.left = "auto";
       return;
     }
-    wrapper.style.top = (r.bottom + 8) + "px";
-    wrapper.style.left = (r.right - wrapper.offsetWidth) + "px";
+    if (placement === "right") {
+      wrapper.style.top = r.top + "px";
+      wrapper.style.left = (r.right + 12) + "px";
+    } else {
+      wrapper.style.top = (r.bottom + 8) + "px";
+      wrapper.style.left = (r.right - wrapper.offsetWidth) + "px";
+    }
     wrapper.style.right = "auto";
   }
   window.addEventListener("resize", () => {
@@ -497,7 +522,12 @@ export function mountARModal({ onClose } = {}) {
   };
 }
 
+// Uma lupa só na página: o WebGLRenderer dela (world.attachLoupeCanvas) só
+// aceita um canvas, e Linear, Calibre e Cortar nunca estão ativos juntos.
+let _loupeInstance = null;
+
 export function mountLoupe() {
+  if (_loupeInstance) return _loupeInstance;
   const wrapper = document.createElement("div");
   wrapper.className = "measure-loupe";
   wrapper.dataset.testid = "measure-loupe";
@@ -515,7 +545,7 @@ export function mountLoupe() {
   const canvas = wrapper.querySelector(".measure-loupe-canvas");
   const labelEl = wrapper.querySelector(".measure-loupe-label");
 
-  return {
+  return _loupeInstance = {
     canvas,
     setPosition(x, y) {
       // Lupa fica acima do candidato por padrão; se < 120px do topo, flipa pra baixo.
@@ -597,6 +627,295 @@ export function mountCalibreToolbar({ onCancel, onConfirm, onNew, onExit }) {
       el.innerHTML = "";
       el.hidden = true;
     },
+  };
+}
+
+// ===========================================================================
+// Barra de ferramentas à esquerda do palco (Medir + Contorno) e Contorno
+// ===========================================================================
+
+// A barra é markup estático do index.html; aqui só o comportamento.
+export function mountToolRail({ onContour, onUndo, onStructures }) {
+  const rail = document.querySelector('[data-testid="tool-rail"]');
+  const measureBtn = rail.querySelector('[data-testid="measure-fab"]');
+  const contourBtn = rail.querySelector('[data-testid="contour-button"]');
+  const sheetBtn = rail.querySelector('[data-testid="sheet-toggle"]');
+  const cutEls = rail.querySelectorAll('[data-rail="cut"]');
+
+  contourBtn.addEventListener("click", onContour);
+  rail.querySelector('[data-testid="cut-undo"]').addEventListener("click", onUndo);
+  if (sheetBtn && onStructures) sheetBtn.addEventListener("click", onStructures);
+
+  return {
+    show() { rail.hidden = false; },
+    // Botão Estruturas (só existe no celular) acompanha a gaveta.
+    setSheetOpen(open) { sheetBtn?.setAttribute("aria-pressed", String(open)); },
+    // Uma ferramenta por vez. Medir ativo: os dois botões travam (a saída é
+    // pela barra inferior do modo, como antes). Cortar ativo: o próprio
+    // botão continua clicável e funciona como "sair".
+    setActive(tool) {
+      // No celular, a barra do rodapé sai de cena durante um modo (CSS).
+      rail.dataset.mode = tool ?? "";
+      measureBtn.setAttribute("aria-pressed", String(tool === "measure"));
+      contourBtn.setAttribute("aria-pressed", String(tool === "contour"));
+      measureBtn.disabled = tool !== null;
+      contourBtn.disabled = tool === "measure";
+      // Desfazer/Restaurar trocariam a geometria por baixo de uma medida em
+      // andamento (pílula de volume, linha central do calibre).
+      cutEls.forEach((el) => { if (el.tagName === "BUTTON") el.disabled = tool === "measure"; });
+    },
+    setCutControlsVisible(visible) {
+      cutEls.forEach((el) => { el.hidden = !visible; });
+    },
+  };
+}
+
+// Traço do contorno. SVG fixo do tamanho da viewport: os pontos chegam em
+// clientX/clientY e são usados sem conversão.
+export function mountContourLayer() {
+  const NS = "http://www.w3.org/2000/svg";
+  const svgEl = document.createElementNS(NS, "svg");
+  svgEl.setAttribute("class", "contour-layer");
+  svgEl.setAttribute("aria-hidden", "true");
+  svgEl.dataset.testid = "contour-layer";
+  const under = document.createElementNS(NS, "path");
+  under.setAttribute("class", "contour-under");
+  const line = document.createElementNS(NS, "path");
+  line.setAttribute("class", "contour-line");
+  svgEl.append(under, line);
+  svgEl.hidden = true;
+  document.body.appendChild(svgEl);
+
+  return {
+    draw(d, closed) {
+      under.setAttribute("d", d);
+      line.setAttribute("d", d);
+      svgEl.dataset.closed = String(closed);
+      svgEl.hidden = false;
+    },
+    clear() {
+      under.removeAttribute("d");
+      line.removeAttribute("d");
+      svgEl.hidden = true;
+    },
+  };
+}
+
+// Cartão que aparece ao fechar o contorno: lista só as estruturas que ele
+// cruzou, a área (dentro/fora) e a confirmação. Posicionado junto ao contorno.
+export function mountContourCard({ onToggle, onSide, onCancel, onApply }) {
+  const card = document.createElement("div");
+  card.className = "contour-card";
+  card.dataset.testid = "contour-card";
+  card.setAttribute("role", "dialog");
+  card.setAttribute("aria-label", "Cortar parte das estruturas");
+  card.hidden = true;
+  card.innerHTML = `
+    <span class="field-label">Cruzam o contorno</span>
+    <div class="contour-list" data-testid="contour-list"></div>
+    <p class="contour-note">Estruturas que o contorno não cruzou ficam intactas.</p>
+    <span class="field-label">Área</span>
+    <div class="contour-seg" role="group" aria-label="Área">
+      <button type="button" data-side="inside" data-testid="contour-side-inside" aria-pressed="true">Dentro</button>
+      <button type="button" data-side="outside" data-testid="contour-side-outside" aria-pressed="false">Fora</button>
+    </div>
+    <div class="contour-actions">
+      <button type="button" class="btn btn-ghost" data-testid="contour-cancel">Cancelar</button>
+      <button type="button" class="btn btn-primary" data-testid="contour-apply">Cortar</button>
+    </div>
+  `;
+  document.body.appendChild(card);
+
+  const listEl = card.querySelector(".contour-list");
+  const applyBtn = card.querySelector('[data-testid="contour-apply"]');
+  const cancelBtn = card.querySelector('[data-testid="contour-cancel"]');
+  const sideBtns = card.querySelectorAll("[data-side]");
+  let applyEnabled = true;
+  let busy = false;
+
+  // Enquanto o corte roda, nada no cartão responde.
+  function syncControls() {
+    applyBtn.disabled = busy || !applyEnabled;
+    applyBtn.textContent = busy ? "Cortando…" : "Cortar";
+    cancelBtn.disabled = busy;
+    sideBtns.forEach((b) => { b.disabled = busy; });
+    listEl.querySelectorAll("input").forEach((i) => { i.disabled = busy; });
+  }
+
+  listEl.addEventListener("change", (e) => {
+    const input = e.target.closest("input[type=checkbox]");
+    if (input) onToggle(input.dataset.structureName, input.checked);
+  });
+  sideBtns.forEach((b) => b.addEventListener("click", () => {
+    sideBtns.forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+    onSide(b.dataset.side);
+  }));
+  cancelBtn.addEventListener("click", onCancel);
+  applyBtn.addEventListener("click", onApply);
+
+  function position(bounds) {
+    const w = card.offsetWidth;
+    const h = card.offsetHeight;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    if (vw <= MOBILE_BREAKPOINT) {
+      // No celular o cartão vira uma gaveta presa ao rodapé (CSS), no lugar
+      // da barra: nada flutua em cima do modelo.
+      card.style.left = "";
+      card.style.top = "";
+      return;
+    }
+    const stage = document.querySelector(".vw-stage")?.getBoundingClientRect()
+      ?? { left: 0, top: 0, right: vw, bottom: vh };
+    const gap = 16;
+    const minLeft = stage.left + 96;          // não cobre a barra de ferramentas
+    let left = bounds.minX - w - gap;         // preferência: à esquerda do contorno
+    if (left < minLeft) left = bounds.maxX + gap;
+    if (left + w > stage.right - 12) left = Math.max(minLeft, stage.right - w - 12);
+    const top = Math.min(Math.max(bounds.minY, stage.top + 64), stage.bottom - h - 72);
+    card.style.left = left + "px";
+    card.style.top = top + "px";
+  }
+
+  return {
+    show({ candidates, bounds, side }) {
+      listEl.innerHTML = "";
+      for (const c of candidates) {
+        const row = document.createElement("label");
+        row.className = "contour-check";
+        const input = document.createElement("input");
+        input.type = "checkbox";
+        input.checked = c.checked;
+        input.dataset.structureName = c.name;
+        const bar = document.createElement("span");
+        bar.className = "contour-bar";
+        if (c.color) bar.style.setProperty("--struct-color", c.color);
+        const nameEl = document.createElement("span");
+        nameEl.className = "contour-name";
+        nameEl.textContent = c.label;
+        row.append(input, bar, nameEl);
+        listEl.appendChild(row);
+      }
+      sideBtns.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.side === side)));
+      card.hidden = false;
+      position(bounds);
+      applyBtn.focus({ preventScroll: true });
+    },
+    setApplyEnabled(enabled) { applyEnabled = enabled; syncControls(); },
+    setBusy(value) { busy = value; syncControls(); },
+    hide() { card.hidden = true; },
+    isOpen() { return !card.hidden; },
+  };
+}
+
+export function mountContourToolbar({ onCancel }) {
+  const el = document.createElement("div");
+  el.className = "measure-toolbar";
+  el.dataset.testid = "contour-toolbar";
+  el.hidden = true;
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "btn-secondary";
+  b.textContent = "✕ Cancelar";
+  b.dataset.testid = "contour-toolbar-cancel";
+  b.addEventListener("click", onCancel);
+  el.appendChild(b);
+  document.body.appendChild(el);
+  return {
+    show() { el.hidden = false; },
+    hide() { el.hidden = true; },
+  };
+}
+
+// Barra do modo Cortar no celular: toma o lugar da barra do rodapé enquanto
+// a ferramenta está ligada. Cancelar à esquerda, Desfazer à direita — sempre
+// no mesmo lugar. No desktop fica escondida (CSS).
+export function mountModeBar({ onCancel, onUndo }) {
+  const el = document.createElement("div");
+  el.className = "vw-modebar";
+  el.dataset.testid = "mode-bar";
+  el.dataset.open = "false";
+  el.setAttribute("role", "toolbar");
+  el.setAttribute("aria-label", "Cortar");
+  el.innerHTML = `
+    <button type="button" class="btn btn-ghost vw-modebar-cancel" data-testid="mode-cancel">Cancelar</button>
+    <div class="vw-modebar-title"><span class="t1">Cortar</span><span class="t2"></span></div>
+    <button type="button" class="vw-modebar-undo" data-testid="mode-undo" aria-label="Desfazer o último corte" disabled>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>
+    </button>
+  `;
+  document.body.appendChild(el);
+  const sub = el.querySelector(".t2");
+  const undoBtn = el.querySelector('[data-testid="mode-undo"]');
+  el.querySelector('[data-testid="mode-cancel"]').addEventListener("click", onCancel);
+  undoBtn.addEventListener("click", onUndo);
+
+  function setCount(n) {
+    sub.textContent = n === 0 ? "Nada cortado ainda" : n === 1 ? "1 corte feito" : `${n} cortes feitos`;
+    undoBtn.disabled = n === 0;
+  }
+  setCount(0);
+
+  return {
+    show() { el.dataset.open = "true"; },
+    hide() { el.dataset.open = "false"; },
+    setCount,
+  };
+}
+
+// Aviso curto no rodapé do palco com uma ação (Desfazer). Some sozinho.
+export function mountToast() {
+  const el = document.createElement("div");
+  el.className = "contour-toast";
+  el.dataset.testid = "contour-toast";
+  el.setAttribute("role", "status");
+  el.hidden = true;
+  el.innerHTML = `
+    <span class="contour-toast-text"></span>
+    <button type="button" class="contour-toast-act" data-testid="contour-toast-undo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>
+      <span>Desfazer</span>
+    </button>
+  `;
+  document.body.appendChild(el);
+  const textEl = el.querySelector(".contour-toast-text");
+  const actBtn = el.querySelector(".contour-toast-act");
+  let onAct = null;
+  let timer = null;
+  let duration = 8000;
+  let held = false; // ponteiro em cima ou foco dentro: o aviso espera
+  actBtn.addEventListener("click", () => { if (onAct) onAct(); });
+
+  function hide() {
+    clearTimeout(timer);
+    el.hidden = true;
+    // Sumir sob o ponteiro (ou com o foco no Desfazer) nem sempre dispara
+    // pointerleave/focusout: sem isto o próximo aviso ficaria preso na tela.
+    held = false;
+  }
+
+  // Quem está lendo o aviso (ou indo até o Desfazer) não o vê sumir; ao sair,
+  // o prazo recomeça inteiro.
+  function arm() {
+    clearTimeout(timer);
+    if (!held && !el.hidden) timer = setTimeout(hide, duration);
+  }
+  const hold = (on) => { held = on; arm(); };
+  el.addEventListener("pointerenter", () => hold(true));
+  el.addEventListener("pointerleave", () => hold(false));
+  el.addEventListener("focusin", () => hold(true));
+  el.addEventListener("focusout", () => hold(false));
+
+  return {
+    show(text, { onAction, timeoutMs = 8000 } = {}) {
+      textEl.textContent = text;
+      onAct = onAction;
+      actBtn.hidden = !onAction;
+      el.hidden = false;
+      duration = timeoutMs;
+      arm();
+    },
+    hide,
   };
 }
 

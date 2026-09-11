@@ -57,7 +57,7 @@ test("o nome legível também vai para aria-label e popover de cor", async ({ pa
   );
 });
 
-test("a peça interna chega destacada e a externa não herda o destaque", async ({
+test("a peça interna chega num tom mais claro da cor da externa", async ({
   page,
 }) => {
   await openViewer(page);
@@ -67,7 +67,7 @@ test("a peça interna chega destacada e a externa não herda o destaque", async 
   // ATENÇÃO aos valores: o backend grava o hex sRGB direto em baseColorFactor,
   // que o glTF define como LINEAR, então o viewer converte linear->sRGB na
   // leitura e o swatch mostra um tom mais claro que o hex pretendido
-  // (#FFE100 -> #fff100, #08E700 -> #32f400, e o rim #BA5531 -> #de9c79).
+  // (#52EE4C -> #9af794, #08E700 -> #32f400, e o rim #BA5531 -> #de9c79).
   // Isto é um desvio de espaço de cor anterior a esta feature, não parte dela;
   // o teste registra o comportamento atual. Se o backend passar a converter
   // sRGB->linear, estes esperados viram os hexes originais.
@@ -79,7 +79,7 @@ test("a peça interna chega destacada e a externa não herda o destaque", async 
   const dentro = await cor("Tumor_dentro_de_Rim");
   const fora = await cor("Tumor_fora_de_Rim");
 
-  expect(dentro).toBe("#fff100"); // amarelo de destaque
+  expect(dentro).toBe("#9af794"); // o mesmo verde, mais claro
   expect(fora).toBe("#32f400"); // verde de tumor, preservado
   expect(dentro).not.toBe(fora);
 });
