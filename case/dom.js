@@ -954,3 +954,363 @@ export function mountVolumeToolbar({ onNew, onExit }) {
     },
   };
 }
+
+// ===========================================================================
+// Exame de imagem (DICOM/NRRD) — abas do painel, aba Exame, seletor de layout
+// do palco, aviso "Este caso tem exame", seletor de vistas do celular.
+// Só DOM: exam.js decide o estado e chama estas funções.
+// ===========================================================================
+
+const LAYOUT_ICONS = {
+  "3d": '<rect x="3.5" y="4.5" width="17" height="15" rx="2"/>',
+  "3d+1": '<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M13.5 4.5v15"/>',
+  "3d+3": '<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M14 4.5v15M14 9.5h6.5M14 14.5h6.5"/>',
+  quad: '<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M12 4.5v15M3.5 12h17"/>',
+  single: '<rect x="4.5" y="3.5" width="15" height="17" rx="2"/>',
+};
+export const layoutIcon = (layout) =>
+  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${LAYOUT_ICONS[layout]}</svg>`;
+
+// Nome de cada vista no celular (botão do topo e seletor).
+export const VIEW_NAMES = {
+  single: "Uma vista",
+  "3d+1": "3D + corte",
+  "3d+3": "3D + 3 cortes",
+  quad: "Quadrantes",
+};
+
+// Abas "Estruturas N | Exame" no topo do painel (markup estático no index).
+export function mountPanelTabs({ onTab }) {
+  const panel = document.getElementById("structures-panel");
+  const tabs = panel.querySelector(".panel-tabs");
+  const buttons = tabs.querySelectorAll('[role="tab"]');
+  buttons.forEach((b) => b.addEventListener("click", () => onTab(b.dataset.tab)));
+  return {
+    // hasStructures=false: caso só com exame — a aba Estruturas some.
+    show({ hasStructures }) {
+      panel.dataset.hasExam = "true";
+      tabs.hidden = false;
+      tabs.querySelector('[data-tab="structures"]').hidden = !hasStructures;
+    },
+    setTab(tab) {
+      panel.dataset.tab = tab;
+      buttons.forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === tab)));
+    },
+    getTab: () => panel.dataset.tab || "structures",
+  };
+}
+
+const SHIELD = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8.5-7 10-4-1.5-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>';
+
+// O nome da série é texto livre digitado no tomógrafo (SeriesDescription):
+// nunca entra cru no innerHTML.
+function escapeHtml(text) {
+  return String(text).replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  })[c]);
+}
+
+// Seletor de série (só com 2 ou mais). series: [{ label, meta, badge, size, current }].
+function examSeriesHtml(series, note) {
+  if (!series) return "";
+  return `
+    <div class="exam-section-title">Série</div>
+    <div class="exam-series" role="group" aria-label="Série do exame">
+      ${series.map((s, i) => `
+        <button type="button" class="exam-series-row" data-series="${i}" aria-pressed="${s.current}"
+                data-testid="exam-series-${i}">
+          <span class="exam-series-radio" aria-hidden="true"></span>
+          <span class="exam-series-main">
+            <span class="exam-series-label">${escapeHtml(s.label)}</span>
+            <span class="exam-series-meta">${escapeHtml(s.meta)}</span>
+          </span>
+          ${s.badge ? `<span class="exam-series-badge">${escapeHtml(s.badge)}</span>` : ""}
+          ${!s.badge && s.size ? `<span class="exam-series-size">${escapeHtml(s.size)}</span>` : ""}
+        </button>`).join("")}
+    </div>
+    <p class="exam-series-status" role="status" data-testid="exam-series-status" hidden></p>
+    ${note ? `<p class="exam-series-note" data-testid="exam-series-note">${escapeHtml(note)}</p>` : ""}`;
+}
+
+// Conteúdo da aba Exame. meta: { planes: [{ name, label, count }], subtitle,
+//   series (null com uma série só), note }.
+// callbacks: onSeries(i), onPlaneIndex(plane, i), onPlaneVisible(plane, on),
+//            onAuto(), onBrightness(v), onContrast(v), onOption(opt, on)
+export function renderExamPanel(meta, callbacks) {
+  const root = document.getElementById("exam-panel");
+  root.innerHTML = `
+    <div class="exam-head">
+      <div class="exam-title-row">
+        <span class="exam-title">Exame de imagem</span>
+        <span class="exam-anon" title="Nome, datas e identificadores do paciente foram removidos no envio. O nome da série vem do exame.">${SHIELD}Anonimizado</span>
+      </div>
+      <div class="exam-sub">${meta.subtitle}</div>
+    </div>
+    ${examSeriesHtml(meta.series, meta.note)}
+    <div class="exam-section-title">Planos</div>
+    <ul class="exam-planes">
+      ${meta.planes.map((p) => `
+        <li data-plane="${p.name}" style="--struct-color: var(--w-plane-${p.name})">
+          <span class="struct-swatch struct-swatch-static"><span class="struct-swatch-bar"></span></span>
+          <div class="structure-row-main">
+            <span class="structure-name">${p.label}</span>
+            <span class="exam-plane-count" data-testid="plane-count-${p.name}">–</span>
+            <button type="button" class="eye-toggle" data-plane="${p.name}" data-visible="false"
+                    aria-label="Mostrar plano ${p.label.toLowerCase()} no 3D" data-testid="plane-eye-${p.name}">
+              <img src="${EYE_OFF}" alt="">
+            </button>
+          </div>
+          <div class="opacity-row">
+            <input type="range" class="exam-range" min="1" max="${p.count}" value="1" step="1"
+                   aria-label="Corte ${p.label.toLowerCase()}" data-plane="${p.name}" data-testid="plane-range-${p.name}">
+          </div>
+        </li>`).join("")}
+    </ul>
+    <div class="exam-section-title">Imagem
+      ${meta.presets ? "" : '<button type="button" class="exam-auto" data-testid="exam-auto">Auto</button>'}
+    </div>
+    ${meta.presets ? `
+    <div class="exam-presets" role="group" aria-label="Janela da TC">
+      ${[...meta.presets, { id: "auto", label: "Auto" }].map((p) => `
+        <button type="button" class="exam-preset" data-preset="${p.id}" aria-pressed="false"
+                data-testid="exam-preset-${p.id}"${p.width ? ` title="Janela ${p.width} · nível ${p.level}"` : ""}>${p.label}</button>`).join("")}
+    </div>` : ""}
+    <div class="exam-wl">
+      <label class="exam-wl-field"><span>Janela</span>
+        <input type="number" inputmode="numeric" step="1" min="1" data-control="width" data-testid="exam-width"></label>
+      <label class="exam-wl-field"><span>Nível</span>
+        <input type="number" inputmode="numeric" step="1" data-control="level" data-testid="exam-level"></label>
+    </div>
+    <div class="exam-sliders">
+      <label class="exam-slider"><span>Brilho</span>
+        <input type="range" class="exam-range" min="0" max="100" value="50" data-control="brightness" data-testid="exam-brightness"></label>
+      <label class="exam-slider"><span>Contraste</span>
+        <input type="range" class="exam-range" min="0" max="100" value="50" data-control="contrast" data-testid="exam-contrast"></label>
+    </div>
+    <div class="exam-section-title">Nos cortes</div>
+    <div class="exam-switches">
+      <button type="button" role="switch" class="exam-switch" data-opt="contour" aria-checked="true" data-testid="switch-contour">
+        <span class="exam-switch-track" aria-hidden="true"></span>Contorno das estruturas</button>
+      <button type="button" role="switch" class="exam-switch" data-opt="cross" aria-checked="true" data-testid="switch-cross">
+        <span class="exam-switch-track" aria-hidden="true"></span>Mira ligada entre as vistas</button>
+    </div>
+    <p class="exam-hint">Role sobre um corte para avançar. Clique num ponto para levar a mira até ele.</p>`;
+
+  root.querySelectorAll(".exam-series-row").forEach((b) => {
+    b.addEventListener("click", () => callbacks.onSeries(Number(b.dataset.series)));
+  });
+  root.querySelectorAll(".eye-toggle[data-plane]").forEach((b) => {
+    b.addEventListener("click", () => callbacks.onPlaneVisible(b.dataset.plane, b.dataset.visible !== "true"));
+  });
+  root.querySelectorAll('input[data-plane]').forEach((r) => {
+    r.addEventListener("input", () => callbacks.onPlaneIndex(r.dataset.plane, Number(r.value) - 1));
+  });
+  root.querySelector(".exam-auto")?.addEventListener("click", callbacks.onAuto);
+  root.querySelectorAll(".exam-preset").forEach((b) => {
+    b.addEventListener("click", () => callbacks.onPreset(b.dataset.preset));
+  });
+  // Janela e nível digitados valem no Enter ou ao sair do campo; valor
+  // inválido (vazio, janela < 1) volta ao que está na tela.
+  const wIn = root.querySelector('[data-control="width"]');
+  const lIn = root.querySelector('[data-control="level"]');
+  const commit = () => {
+    const ok = callbacks.onWindowLevel(Number(wIn.value), Number(lIn.value));
+    if (ok === false) { wIn.value = wIn.dataset.shown; lIn.value = lIn.dataset.shown; }
+  };
+  for (const el of [wIn, lIn]) {
+    el.addEventListener("change", commit);
+    el.addEventListener("keydown", (e) => { if (e.key === "Enter") el.blur(); });
+  }
+  root.querySelector('[data-control="brightness"]').addEventListener("input", (e) => callbacks.onBrightness(Number(e.target.value)));
+  root.querySelector('[data-control="contrast"]').addEventListener("input", (e) => callbacks.onContrast(Number(e.target.value)));
+  root.querySelectorAll(".exam-switch").forEach((s) => {
+    s.addEventListener("click", () => {
+      const on = s.getAttribute("aria-checked") !== "true";
+      s.setAttribute("aria-checked", String(on));
+      callbacks.onOption(s.dataset.opt, on);
+    });
+  });
+}
+
+export function setPlaneRow(plane, { index, count, visible }) {
+  const root = document.getElementById("exam-panel");
+  const li = root?.querySelector(`li[data-plane="${plane}"]`);
+  if (!li) return;
+  if (index !== undefined) {
+    li.querySelector(".exam-plane-count").textContent = `${index + 1}/${count}`;
+    li.querySelector("input").value = String(index + 1);
+  }
+  if (visible !== undefined) {
+    const b = li.querySelector(".eye-toggle");
+    const label = li.querySelector(".structure-name").textContent.toLowerCase();
+    b.dataset.visible = String(visible);
+    b.querySelector("img").src = visible ? EYE_ON : EYE_OFF;
+    b.setAttribute("aria-label", `${visible ? "Ocultar" : "Mostrar"} plano ${label} no 3D`);
+  }
+}
+
+// Série sendo baixada: a linha mostra "Carregando…" no lugar do tamanho.
+export function setSeriesBusy(i, on) {
+  const root = document.getElementById("exam-panel");
+  const row = root?.querySelector(`.exam-series-row[data-series="${i}"]`);
+  if (!row) return;
+  row.setAttribute("aria-busy", String(on));
+  const status = root.querySelector(".exam-series-status");
+  if (status) {
+    status.hidden = !on;
+    status.classList.remove("is-error");
+    status.textContent = on ? "Carregando a série…" : "";
+  }
+}
+
+export function setSeriesStatus(text) {
+  const status = document.querySelector("#exam-panel .exam-series-status");
+  if (!status) return;
+  status.hidden = !text;
+  status.classList.toggle("is-error", !!text);
+  status.textContent = text || "";
+}
+
+// Qualquer subconjunto de { brightness, contrast, width, level, preset }.
+// Janela e nível mostram a janela em uso (base + brilho/contraste).
+export function setExamControls({ brightness, contrast, width, level, preset }) {
+  const root = document.getElementById("exam-panel");
+  if (!root) return;
+  if (brightness !== undefined) root.querySelector('[data-control="brightness"]').value = String(brightness);
+  if (contrast !== undefined) root.querySelector('[data-control="contrast"]').value = String(contrast);
+  const show = (sel, v) => {
+    const el = root.querySelector(sel);
+    if (!el || v === undefined) return;
+    const r = String(Math.round(v));
+    el.dataset.shown = r;
+    if (document.activeElement !== el) el.value = r;
+  };
+  show('[data-control="width"]', width);
+  show('[data-control="level"]', level);
+  if (preset !== undefined) {
+    root.querySelectorAll(".exam-preset").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.preset === preset)));
+  }
+}
+
+export function hideExamOption(opt) {
+  const s = document.querySelector(`#exam-panel .exam-switch[data-opt="${opt}"]`);
+  if (s) s.hidden = true;
+}
+
+export function setExamOption(opt, on) {
+  const s = document.querySelector(`#exam-panel .exam-switch[data-opt="${opt}"]`);
+  if (s) s.setAttribute("aria-checked", String(on));
+}
+
+// Aba Exame antes de o exame estar carregado (caso com modelo: o exame só
+// baixa quando pedido).
+export function renderExamPanelPending({ sizeText, seriesCount = 1, onLoad }) {
+  const root = document.getElementById("exam-panel");
+  const parts = [];
+  if (seriesCount > 1) parts.push(`${seriesCount} séries`);
+  if (sizeText) parts.push(seriesCount > 1 ? `${sizeText} para abrir` : `${sizeText} para baixar`);
+  root.innerHTML = `
+    <div class="exam-head">
+      <div class="exam-title-row"><span class="exam-title">Exame de imagem</span>
+        <span class="exam-anon">${SHIELD}Anonimizado</span></div>
+      <div class="exam-sub" data-testid="exam-pending-sub">${parts.join(" · ")}</div>
+    </div>
+    <div class="exam-pending"><button type="button" class="btn btn-primary" data-testid="exam-load">Ver cortes</button></div>`;
+  root.querySelector('[data-testid="exam-load"]').addEventListener("click", onLoad);
+}
+
+// onRetry: quando a falha é de rede, o botão "Tentar de novo" continua ali.
+export function renderExamPanelMessage(text, onRetry = null) {
+  const root = document.getElementById("exam-panel");
+  let pending = root.querySelector(".exam-pending");
+  if (!pending) {
+    pending = document.createElement("div");
+    pending.className = "exam-pending";
+    root.appendChild(pending);
+  }
+  pending.innerHTML = `<p class="exam-hint" role="status">${text}</p>`;
+  if (onRetry) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "btn btn-primary";
+    b.dataset.testid = "exam-retry";
+    b.textContent = "Tentar de novo";
+    b.addEventListener("click", onRetry);
+    pending.appendChild(b);
+  }
+}
+
+// Ícones de layout no topo (desktop). Markup estático no index.
+export function mountLayoutSwitcher({ onLayout }) {
+  const group = document.querySelector('[data-testid="layout-switcher"]');
+  const buttons = group.querySelectorAll("button[data-layout]");
+  buttons.forEach((b) => b.addEventListener("click", () => onLayout(b.dataset.layout)));
+  return {
+    show() { group.hidden = false; },
+    setLayout(layout) {
+      buttons.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.layout === layout)));
+    },
+  };
+}
+
+// Aviso discreto no palco: "Este caso tem exame de imagem · Ver cortes".
+export function mountExamHint({ onOpen }) {
+  const el = document.querySelector('[data-testid="exam-hint"]');
+  el.querySelector("button").addEventListener("click", onOpen);
+  return {
+    show(sizeText) {
+      el.querySelector(".exam-hint-size").textContent = sizeText ? `· ${sizeText}` : "";
+      el.hidden = false;
+    },
+    hide() { el.hidden = true; },
+    setBusy(busy) {
+      const b = el.querySelector("button");
+      b.disabled = busy;
+      b.textContent = busy ? "Carregando…" : "Ver cortes";
+    },
+  };
+}
+
+// Celular: botão da vista atual no topo + folha com as 4 vistas e a chave do
+// mini-3D; tira de abas 3D | Axial | Coronal | Sagital para "Uma vista";
+// botão Exame na barra de baixo.
+export function mountMobileExamChrome({ onView, onSingle, onMini3d, onExamButton }) {
+  const picker = document.querySelector('[data-testid="view-picker"]');
+  const scrim = document.querySelector('[data-testid="view-sheet"]');
+  const tabs = document.querySelector('[data-testid="view-tabs"]');
+  const examBtn = document.querySelector('[data-testid="exam-toggle"]');
+
+  const open = (on) => {
+    scrim.hidden = !on;
+    picker.setAttribute("aria-expanded", String(on));
+    if (on) scrim.querySelector('[aria-checked="true"]')?.focus();
+  };
+  picker.addEventListener("click", () => open(scrim.hidden));
+  scrim.addEventListener("click", (e) => { if (e.target === scrim) open(false); });
+  scrim.querySelector(".view-sheet-close").addEventListener("click", () => open(false));
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !scrim.hidden) open(false); });
+  scrim.querySelectorAll('[role="radio"]').forEach((r) => {
+    r.addEventListener("click", () => { open(false); onView(r.dataset.layout); });
+  });
+  const mini = scrim.querySelector('[data-opt="mini3d"]');
+  mini.addEventListener("click", () => {
+    const on = mini.getAttribute("aria-checked") !== "true";
+    mini.setAttribute("aria-checked", String(on));
+    onMini3d(on);
+  });
+  tabs.querySelectorAll('[role="tab"]').forEach((t) => t.addEventListener("click", () => onSingle(t.dataset.view)));
+  examBtn.addEventListener("click", onExamButton);
+
+  return {
+    show() { picker.hidden = false; examBtn.hidden = false; },
+    setView(layout, single) {
+      picker.querySelector(".view-picker-icon").innerHTML = layoutIcon(layout === "single" ? "single" : layout);
+      picker.querySelector(".view-picker-name").textContent = VIEW_NAMES[layout] ?? VIEW_NAMES.single;
+      picker.setAttribute("aria-label", `Trocar a vista (agora: ${(VIEW_NAMES[layout] ?? "").toLowerCase()})`);
+      scrim.querySelectorAll('[role="radio"]').forEach((r) => r.setAttribute("aria-checked", String(r.dataset.layout === layout)));
+      tabs.querySelectorAll('[role="tab"]').forEach((t) => t.setAttribute("aria-selected", String(t.dataset.view === single)));
+    },
+    setExamPressed(on) { examBtn.setAttribute("aria-pressed", String(on)); },
+    isOpen: () => !scrim.hidden,
+  };
+}

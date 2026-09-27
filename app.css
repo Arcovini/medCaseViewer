@@ -78,6 +78,15 @@
      do upload mostra a cor que a estrutura vai ter de verdade. */
   --w-highlight:    #FFE100;
 
+  /* Exame de imagem: cores dos planos de corte (as do 3D Slicer — quem
+     segmenta reconhece na hora) e o fundo das vistas de corte, preto nos dois
+     temas, como em qualquer estação de radiologia. */
+  --w-plane-axial:    #EF6F6C;
+  --w-plane-coronal:  #6CCB8F;
+  --w-plane-sagittal: #E9C46A;
+  --w-slice-bg:       #050607;
+  --w-slice-ink:      #E6E8EA;
+
   /* Vinheta do palco. Curva tipo smoothstep: a inclinação cresce
      devagar, atinge o máximo no meio-externo e desacelera ao chegar no
      canto, então a transição "assenta" em vez de bater no escuro.

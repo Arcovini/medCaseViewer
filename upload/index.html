@@ -56,30 +56,38 @@
         </div>
 
         <p class="t-body up-intro">
-          Escolha os arquivos das estruturas anatômicas deste caso. Eles são
-          combinados em um único modelo 3D com link para compartilhar.
+          Envie as estruturas anatômicas, o exame de imagem ou os dois. Tudo
+          vira um único caso com link para compartilhar.
         </p>
 
+        <!-- Uma área só para estruturas e exame: a página separa pelo conteúdo
+             (classify.js) e a separação aparece logo abaixo, nas seções
+             Estruturas e Exame. O clique abre o seletor nativo; o soltar é
+             lido no JS, para aceitar pastas inteiras (o input nativo não traz
+             o conteúdo de uma pasta solta). Depois do primeiro envio a área
+             encolhe para "Adicionar mais arquivos". -->
         <div id="pick-files">
           <span class="field-label">Arquivos do caso</span>
-
-          <!-- O input cobre a área inteira com opacity 0: clique e arrastar-e-
-               soltar ficam nativos, sem JS de dropzone. O JS só pinta o estado
-               de arraste. -->
-          <label class="up-drop" for="file-input" data-drag="false">
+          <label class="up-drop" for="file-input" data-drag="false" id="drop" data-compact="false">
             <svg class="up-drop-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M12 16V4"/><path d="M8 8l4-4 4 4"/>
               <path d="M4 14v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/>
             </svg>
             <span class="up-drop-title">
-              <span class="up-pointer-fine">Arraste os arquivos aqui ou clique para escolher</span>
-              <span class="up-pointer-coarse">Toque para escolher os arquivos</span>
+              <span class="up-drop-first">
+                <span class="up-pointer-fine">Arraste os arquivos ou a pasta aqui, ou clique para escolher</span>
+                <span class="up-pointer-coarse">Toque para escolher os arquivos</span>
+              </span>
+              <span class="up-drop-more">Adicionar mais arquivos</span>
             </span>
-            <span class="up-drop-hint">STL ou OBJ · até 60 MB no total</span>
-            <input id="file-input" type="file"
-              accept=".stl,.STL,.obj,.OBJ,.mtl,.MTL,.jpg,.JPG,.jpeg,.JPEG,.png,.PNG,.zip,.ZIP" multiple
-              class="up-drop-input" />
+            <span class="up-drop-hint">Estruturas STL ou OBJ · exame DICOM ou NRRD</span>
+            <input id="file-input" type="file" multiple class="up-drop-input" data-testid="file-input" />
           </label>
+          <div class="up-drop-links">
+            <button id="folder-btn" type="button" class="up-corner" hidden>Escolher uma pasta</button>
+            <input id="folder-input" type="file" webkitdirectory multiple hidden data-testid="folder-input" />
+          </div>
+          <p id="drop-error" class="note note-err up-exam-note" role="alert" hidden></p>
         </div>
 
         <!-- A lista É a prévia: mostra as estruturas que o caso vai ter, já com
@@ -87,6 +95,40 @@
         <div id="structures" hidden>
           <span class="field-label">Estruturas do caso</span>
           <ul id="structure-list" class="up-structures"></ul>
+        </div>
+
+        <!-- Exame de imagem: as séries encontradas no que foi solto. Uma série
+             → uma linha. Mais de uma → o clínico marca quais entram (até 4) e
+             qual foi usada na segmentação (a série 0 do caso: as estruturas se
+             alinham a ela). O servidor guarda só imagem, geometria e o nome da
+             série — nome, datas e identificadores do paciente ficam para trás. -->
+        <div id="exam-pick" class="up-exam" hidden>
+          <div class="up-exam-head">
+            <span class="field-label">Exame de imagem</span>
+            <span id="exam-count" class="up-exam-count" data-testid="exam-count"></span>
+          </div>
+          <p id="exam-reading" class="up-exam-reading" role="status" hidden></p>
+
+          <div id="exam-chosen" class="up-exam-chosen" hidden>
+            <svg class="up-exam-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="7.5" y="3" width="13.5" height="13.5" rx="2.5"/><path d="M3.5 7.5v10.5A2.5 2.5 0 0 0 6 20.5h10.5"/><circle cx="14.25" cy="9.75" r="3.25"/>
+            </svg>
+            <span id="exam-summary" class="up-exam-summary" data-testid="exam-summary"></span>
+            <button id="exam-clear" type="button" class="up-corner">Remover</button>
+          </div>
+
+          <div id="exam-multi" hidden>
+            <p id="exam-question" class="up-exam-question"></p>
+            <ul id="exam-series" class="up-series" data-testid="exam-series"></ul>
+            <div class="up-exam-foot">
+              <span id="exam-send" class="up-exam-send" data-testid="exam-send"></span>
+              <button id="exam-clear-multi" type="button" class="up-corner">Remover o exame</button>
+            </div>
+          </div>
+
+          <p id="exam-ignored" class="up-exam-ignored" data-testid="exam-ignored" hidden></p>
+          <p id="exam-error" class="note note-err up-exam-note" role="alert" hidden></p>
+          <p class="up-exam-privacy">Nome, datas e identificadores do paciente são removidos no servidor. O nome da série aparece no visualizador.</p>
         </div>
 
         <div class="up-actions">
@@ -137,7 +179,7 @@
       <!-- STATE: PROCESSING -->
       <section id="state-processing" hidden class="up-state">
         <h1 class="t-title">Processando o caso</h1>
-        <div class="up-progress" role="progressbar" aria-label="Processando o caso"><span></span></div>
+        <div id="progress" class="up-progress" role="progressbar" aria-label="Processando o caso" data-mode="busy"><span></span></div>
         <p id="status-message" class="t-body">Recebendo os arquivos...</p>
         <p id="status-hint" hidden class="t-meta">
           Está demorando um pouco mais que o usual. Mantenha esta página aberta
@@ -151,10 +193,18 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"/></svg>
           Caso processado
         </h1>
-        <p class="t-body up-intro">
+        <p id="done-intro" class="t-body up-intro">
           O link abaixo abre o modelo 3D no visualizador. Quem receber o link
           não precisa instalar nada.
         </p>
+
+        <!-- Uma linha por série: incluída, ou não guardada com "Tentar de novo"
+             (reenvia só ela; o write_token do caso vive só nesta página). -->
+        <div id="done-exam" class="up-done-exam" hidden>
+          <span id="done-exam-title" class="field-label up-field-label">Exame de imagem</span>
+          <ul id="done-series" class="up-done-series" data-testid="done-series"></ul>
+          <p id="done-exam-hint" class="up-exam-privacy" hidden>Se você fechar esta página, o caso fica com as séries já incluídas.</p>
+        </div>
 
         <div>
           <label class="field-label up-field-label" for="viewer-url">Link do visualizador</label>
@@ -187,6 +237,9 @@
     </div>
   </main>
 
+  <!-- Leitor de cabeçalho DICOM (só o cabeçalho, no navegador) para agrupar
+       as séries do exame antes de enviar. UMD, versão fixa. -->
+  <script src="https://cdn.jsdelivr.net/npm/dicom-parser@1.8.21/dist/dicomParser.min.js"></script>
   <script type="module" src="upload.js"></script>
 </body>
 

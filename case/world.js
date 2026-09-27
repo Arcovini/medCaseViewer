@@ -30,6 +30,12 @@ const originalColors = new Map(); // name -> hex do GLB, capturado no mount (nul
 const lineMaterials = new Set(); // pra atualizar resolution no resize (Line2 precisa disso)
 let mountedRoot = null;
 let _initialCameraDistance = null;
+// Planos do exame de imagem (cortes texturizados). Grupo irmão do modelo, e
+// não filho: fica fora do raycast das ferramentas (namedMeshes), do USDZ do AR
+// (que clona getMountedRoot) e do enquadramento do modelo.
+const examGroup = new THREE.Group();
+examGroup.name = "exam-planes";
+const examPlanes = new Map(); // nome do plano → { mesh, border, texture }
 
 const raycaster = new THREE.Raycaster();
 const ndc = new THREE.Vector2();
@@ -191,14 +197,34 @@ export function init(canvasEl) {
   composer.addPass(new OutputPass());
 
   window.addEventListener("resize", onResize);
+  // O canvas também muda de tamanho sem a janela mudar: trocar o layout do
+  // palco (3D + cortes), abrir a gaveta no celular, o mini-3D. Sem isto o
+  // renderer continuaria desenhando no tamanho antigo, esticado.
+  if (typeof ResizeObserver !== "undefined") {
+    new ResizeObserver(() => onResize()).observe(canvasEl);
+  }
+
+  scene.add(examGroup);
 
   renderer.setAnimationLoop(tick);
 }
 
+// Para testes e para quem precisa forçar (o ResizeObserver cobre o resto).
+export function resize() {
+  onResize();
+}
+
 function onResize() {
   const rect = renderer.domElement.getBoundingClientRect();
+  // Canvas escondido (display:none num layout só de cortes): nada a fazer.
+  // Redimensionar para 0×0 faria o N8AO realocar buffers vazios.
+  if (rect.width === 0 || rect.height === 0) {
+    if (renderer.domElement.offsetParent === null) return;
+  }
   const w = rect.width || window.innerWidth;
   const h = rect.height || window.innerHeight;
+  const cur = renderer.getSize(new THREE.Vector2());
+  if (Math.round(cur.x) === Math.round(w) && Math.round(cur.y) === Math.round(h)) return;
   renderer.setSize(w, h, false);
   css2dRenderer.setSize(w, h);
   if (composer) composer.setSize(w, h);
@@ -284,9 +310,11 @@ export function setVisibility(name, visible) {
 }
 
 export function frameToScene() {
-  if (!mountedRoot) return;
+  // Sem modelo 3D (caso só com exame), enquadra os planos do exame.
+  const target = mountedRoot ?? (examGroup.children.length ? examGroup : null);
+  if (!target) return;
 
-  const box = new THREE.Box3().setFromObject(mountedRoot);
+  const box = new THREE.Box3().setFromObject(target);
   const size = box.getSize(new THREE.Vector3());
   const center = box.getCenter(new THREE.Vector3());
   const radius = size.length() * 0.5;
@@ -1529,4 +1557,123 @@ export function getMeshTriangleCount(name) {
   if (!mesh) return null;
   const g = mesh.geometry;
   return (g.index ? g.index.count : g.attributes.position.count) / 3;
+}
+
+// ============================================================
+// Exame de imagem — planos de corte texturizados no 3D.
+// A imagem de cada plano é um canvas 2D que exam.js mantém (a fatia em
+// resolução nativa); aqui ele vira textura de um quadrilátero cujos 4 cantos
+// exam-geom.js calcula em coordenadas de mundo. Quadrilátero de 4 vértices
+// (e não PlaneGeometry + matriz) porque os eixos do exame podem ser oblíquos.
+// ============================================================
+
+export function addSlicePlane(name, canvas, colorHex) {
+  removeSlicePlane(name);
+  const texture = new THREE.CanvasTexture(canvas);
+  // O cinza da fatia deveria chegar à tela como está. Só que a cena passa pelo
+  // EffectComposer: o RenderPass desenha num render target (onde o three não
+  // aplica tone mapping, por material ou não) e o OutputPass aplica o Neutral
+  // com exposição 0,85 no quadro inteiro. Não dá para excluir um objeto dali;
+  // então a cor do material devolve a exposição (1/0,85). O Neutral é linear
+  // abaixo de ~0,76 (≈ 227/255 em sRGB): os tons médios batem com a vista 2D
+  // e só os brancos saem um pouco comprimidos. O N8AO também escurece a fatia
+  // onde ela encosta nas malhas — é a referência espacial; a leitura
+  // radiológica é na vista 2D.
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.flipY = false;               // linha 0 do canvas = v 0 = uv.y 0
+  texture.generateMipmaps = false;     // reenviada a cada troca de corte
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.BufferAttribute(new Float32Array(12), 3));
+  geometry.setAttribute("uv", new THREE.BufferAttribute(new Float32Array([0, 0, 1, 0, 1, 1, 0, 1]), 2));
+  geometry.setIndex([0, 1, 2, 0, 2, 3]);
+  const material = new THREE.MeshBasicMaterial({
+    map: texture,
+    side: THREE.DoubleSide,
+  });
+  material.color.setScalar(1 / (renderer.toneMappingExposure || 1));
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.name = `exam-plane-${name}`;
+
+  // Moldura na cor do plano: diz qual plano é qual no 3D (as mesmas cores
+  // dos chips das vistas de corte).
+  const borderGeom = new THREE.BufferGeometry();
+  borderGeom.setAttribute("position", new THREE.BufferAttribute(new Float32Array(12), 3));
+  const border = new THREE.LineLoop(
+    borderGeom,
+    new THREE.LineBasicMaterial({ color: new THREE.Color(colorHex), toneMapped: false }),
+  );
+  border.name = `exam-plane-border-${name}`;
+
+  examGroup.add(mesh);
+  examGroup.add(border);
+  examPlanes.set(name, { mesh, border, texture });
+}
+
+export function updateSlicePlane(name, corners) {
+  const p = examPlanes.get(name);
+  if (!p) return;
+  for (const obj of [p.mesh, p.border]) {
+    const pos = obj.geometry.attributes.position;
+    for (let t = 0; t < 4; t++) pos.setXYZ(t, corners[t][0], corners[t][1], corners[t][2]);
+    pos.needsUpdate = true;
+    obj.geometry.computeBoundingSphere();
+    obj.geometry.computeBoundingBox();
+  }
+  p.texture.needsUpdate = true;
+}
+
+// A imagem do canvas mudou (outro corte, outra janela): reenviar à GPU.
+export function markSlicePlaneDirty(name) {
+  const p = examPlanes.get(name);
+  if (p) p.texture.needsUpdate = true;
+}
+
+export function setSlicePlaneVisible(name, visible) {
+  const p = examPlanes.get(name);
+  if (!p) return;
+  p.mesh.visible = visible;
+  p.border.visible = visible;
+}
+
+export function isSlicePlaneVisible(name) {
+  return examPlanes.get(name)?.mesh.visible ?? false;
+}
+
+export function removeSlicePlane(name) {
+  const p = examPlanes.get(name);
+  if (!p) return;
+  examGroup.remove(p.mesh, p.border);
+  p.mesh.geometry.dispose();
+  p.mesh.material.dispose();
+  p.border.geometry.dispose();
+  p.border.material.dispose();
+  p.texture.dispose();
+  examPlanes.delete(name);
+}
+
+// Ponto do clique sobre um plano de corte visível (para levar a mira até ele).
+export function raycastSlicePlanes(x, y) {
+  const rect = renderer.domElement.getBoundingClientRect();
+  ndc.x = ((x - rect.left) / rect.width) * 2 - 1;
+  ndc.y = -((y - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(ndc, camera);
+  const planes = [...examPlanes.values()].map((p) => p.mesh).filter((m) => m.visible);
+  const hit = raycaster.intersectObjects(planes, false)[0];
+  if (!hit) return null;
+  // Uma estrutura opaca na frente do plano recebe o clique, não o plano.
+  const solid = [...namedMeshes.values()].filter((m) => m.visible && m.material.opacity >= 0.99);
+  const front = raycaster.intersectObjects(solid, false)[0];
+  if (front && front.distance < hit.distance) return null;
+  return { point: [hit.point.x, hit.point.y, hit.point.z], plane: hit.object.name.replace("exam-plane-", "") };
+}
+
+export function hasModel() {
+  return mountedRoot !== null;
+}
+
+export function getCanvasElement() {
+  return renderer?.domElement ?? null;
 }

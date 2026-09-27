@@ -12,6 +12,7 @@ import * as calibre from "./calibre.js";
 import * as contour from "./contour.js";
 import * as ar from "./ar.js";
 import * as color from "./color.js";
+import * as exam from "./exam.js";
 import { initTheme, toggleTheme, onThemeChange } from "../theme.js";
 
 let measurementApi = null;
@@ -21,6 +22,41 @@ let contourApi = null;
 let rail = null;
 let fab = null;
 let colorPicker = null;
+let examApi = null;
+
+// Gaveta do celular (a mesma do painel de estruturas). Com exame, ela tem duas
+// abas — Estruturas e Exame — e os dois botões da barra de baixo abrem cada um
+// a sua. No desktop fechar a gaveta não tem efeito (CSS).
+const MOBILE = window.matchMedia("(max-width: 768px)");
+let sheetOpen = true;
+let sheetBeforeMode = true;
+const currentTab = () => (examApi?.isOffered() ? examApi.getTab() : "structures");
+function setSheet(open) {
+  sheetOpen = open;
+  dom.setSheetOpen(open);
+  refreshSheetButtons();
+}
+function refreshSheetButtons() {
+  rail?.setSheetOpen(sheetOpen && currentTab() === "structures");
+  examApi?.setExamPressed(sheetOpen && currentTab() === "exam");
+}
+function toggleSheetTab(tab) {
+  if (sheetOpen && currentTab() === tab) {
+    setSheet(false);
+    return;
+  }
+  if (examApi?.isOffered()) examApi.setTab(tab);
+  setSheet(true);
+}
+// Callbacks do exame que mexem na gaveta.
+const examHooks = {
+  onTabChange: () => refreshSheetButtons(),
+  // No celular, abrir cortes fecha a gaveta de estruturas: ela cobriria a
+  // régua do corte. A aba Exame fica aberta (é de onde se controla o corte).
+  onLayoutChange: (layout) => {
+    if (MOBILE.matches && layout !== "3d" && sheetOpen && currentTab() === "structures") setSheet(false);
+  },
+};
 
 async function bootstrap() {
   const params = new URLSearchParams(window.location.search);
@@ -35,6 +71,10 @@ async function bootstrap() {
   }
 
   dom.showLoading(true);
+  // O exame (cases/{uid}.exam-{n}.json + .nrrd) é sondado em paralelo: um GET
+  // pequeno do JSON da série 0. O NRRD só é baixado quando pedido — ou já, se o
+  // caso não tiver modelo 3D.
+  const examProbe = loader.fetchExamSeries(uid);
   const url = await loader.resolveGlbUrl(uid);
 
   let root, byteLength;
@@ -44,8 +84,15 @@ async function bootstrap() {
     if (e.code === "NOT_FOUND") {
       // R2 doesn't have this uid. Before showing an error, ask Sketchfab —
       // legacy cases live there and the upload page links to /case/?id=...
-      // regardless of which backend owns the model.
-      const inSketchfab = await loader.probeSketchfab(uid);
+      // regardless of which backend owns the model. Sketchfab vem antes do
+      // exame: se o GLB falhou ao subir para o R2 mas o modelo existe no
+      // Sketchfab, abrir "só o exame" esconderia o modelo.
+      const [inSketchfab, probe] = await Promise.all([loader.probeSketchfab(uid), examProbe]);
+      if (!inSketchfab && probe.exists) {
+        // Sem GLB mas com exame: caso só com o exame de imagem.
+        await bootExamOnly(uid, probe);
+        return;
+      }
       if (inSketchfab) {
         // window.location.replace keeps the broken /case/?id=... out of history,
         // so the back button skips it.
@@ -74,28 +121,23 @@ async function bootstrap() {
   rail = dom.mountToolRail({
     onContour: () => { menu.close(); contourApi.toggle(); },
     onUndo: () => contourApi.undo(),
-    onStructures: () => { menu.close(); setSheet(!sheetOpen); },
+    onStructures: () => { menu.close(); toggleSheetTab("structures"); },
   });
 
   // Gaveta de estruturas no celular: abre com o caso, como antes. Medir e
   // Cortar precisam do modelo inteiro, então ela fecha ao entrar num modo e
   // volta como estava ao sair — menos depois de um corte, que precisa ser visto.
-  const mobile = window.matchMedia("(max-width: 768px)");
-  let sheetOpen = true;
-  let sheetBeforeMode = true;
-  const setSheet = (open) => {
-    sheetOpen = open;
-    dom.setSheetOpen(open);
-    rail.setSheetOpen(open);
-  };
   // Sem checar a largura aqui: no desktop fechar a gaveta não tem efeito
   // (CSS), e assim girar o aparelho no meio de um modo não desencontra o
-  // estado. `mobile` só decide o que é mostrado.
+  // estado. Medir e Cortar só funcionam no 3D: o exame volta o palco para
+  // só o 3D e devolve o layout na saída.
   const enterMode = () => {
     sheetBeforeMode = sheetOpen;
     setSheet(false);
+    examApi?.suspend();
   };
   const exitMode = (keepClosed = false) => {
+    examApi?.resume();
     if (!keepClosed) setSheet(sheetBeforeMode);
   };
   const exitMeasure = () => { rail.setActive(null); exitMode(); };
@@ -158,6 +200,8 @@ async function bootstrap() {
       for (const name of world.getMeshNames()) dom.setStructureCut(name, cutNames.has(name));
       // O USDZ do AR no iPhone é gerado a partir da cena atual e memoizado.
       ar.invalidateUSDZ();
+      // O contorno das estruturas nos cortes do exame vem da geometria atual.
+      examApi?.refreshContours();
     },
   });
 
@@ -192,6 +236,7 @@ async function bootstrap() {
   colorPicker = color.mountColorPicker({
     onPick: (name, hex) => {
       if (world.setMeshColor(name, hex)) dom.setSwatchColor(name, hex);
+      examApi?.refreshContours();
     },
   });
 
@@ -215,10 +260,14 @@ async function bootstrap() {
       }
       measurementApi.onMeshVisibilityChange(name, visible);
       if (calibreApi) calibreApi.onMeshVisibilityChange(name, visible);
+      examApi?.refreshContours();
     },
     onOpacityChange: (name, value) => {
+      const wasVisible = world.getMeshVisibility(name);
       world.setOpacity(name, value);
       dom.setEyeState(name, value > 0);
+      // Opacidade 0 esconde a malha: o contorno nos cortes some junto.
+      if (world.getMeshVisibility(name) !== wasVisible) examApi?.refreshContours();
     },
   });
   dom.showLoading(false);
@@ -231,6 +280,34 @@ async function bootstrap() {
   // construir a URL do GLB no <model-viewer>. Falhas em ar.init são
   // tratadas internamente — não devem bloquear o resto do viewer.
   ar.init({ world, dom, uid });
+
+  examApi = exam.init({ world, dom, loader, hasModel: true, ...examHooks });
+  examApi.onExamButton(() => { menu.close(); toggleSheetTab("exam"); });
+  const probe = await examProbe;
+  if (probe.exists) examApi.offer(probe);
+}
+
+// Caso sem modelo 3D, só com o exame: abre direto nos cortes. Sem Medir e
+// Cortar (medem malhas) e sem AR; a cena 3D mostra os três planos.
+async function bootExamOnly(uid, probe) {
+  rail = dom.mountToolRail({ onContour: () => {}, onUndo: () => {}, onStructures: () => {} });
+  document.querySelector('[data-testid="tool-rail"]').dataset.examOnly = "true";
+  rail.show();
+
+  examApi = exam.init({ world, dom, loader, hasModel: false, ...examHooks });
+  examApi.onExamButton(() => toggleSheetTab("exam"));
+  bindRedesignChrome([], uid, 0);
+  dom.initBottomSheet();
+
+  const ok = await examApi.openExamOnly(probe);
+  dom.showLoading(false);
+  if (!ok) {
+    dom.showError("Não foi possível abrir o exame deste caso. Verifique sua conexão e tente novamente.");
+    return;
+  }
+  world.frameToScene();
+  updateZoomPct();
+  setSheet(!MOBILE.matches);
 }
 
 bootstrap();
@@ -424,4 +501,5 @@ if (window.__playwrightTest) {
   Object.defineProperty(window, "__calibre", { get: () => calibreApi });
   Object.defineProperty(window, "__contour", { get: () => contourApi });
   Object.defineProperty(window, "__colorPicker", { get: () => colorPicker });
+  Object.defineProperty(window, "__exam", { get: () => examApi });
 }
