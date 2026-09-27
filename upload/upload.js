@@ -21,8 +21,6 @@ const MAX_EXAM_SERIES = 4;
 // imagens somem mais que isto descompactadas.
 const MAX_UNZIPPED_BYTES = 600 * 1024 * 1024;
 const UPLOAD_WINDOW_MS = 5 * 60 * 1000;
-const POLL_INTERVAL_MS = 3000;
-const LONG_WAIT_MS = 60_000;
 const MESSAGE_ROTATE_MS = 2500;
 
 const PHASE_UPLOAD = [
@@ -30,13 +28,7 @@ const PHASE_UPLOAD = [
   "Simplificando a geometria...",
   "Combinando estruturas em um modelo único...",
   "Aplicando cores às estruturas...",
-  "Enviando para o Sketchfab...",
-];
-
-const PHASE_POLL = [
-  "Estamos processando...",
-  "Preparando a visualização...",
-  "Quase pronto...",
+  "Guardando o modelo...",
 ];
 
 const $ = (id) => document.getElementById(id);
@@ -82,8 +74,6 @@ let overlapWorker = null;
 let openMenu = null; // {kind: "new"|"ref", key} — filename, ou índice da op
 let confirming = false;
 let messageTimer = null;
-let longWaitTimer = null;
-let pollTimer = null;
 
 function show(state) {
   for (const [name, el] of Object.entries(sections)) el.hidden = name !== state;
@@ -457,27 +447,14 @@ function stopRotator() {
   }
 }
 
-function resetTimers() {
-  stopRotator();
-  if (longWaitTimer) {
-    clearTimeout(longWaitTimer);
-    longWaitTimer = null;
-  }
-  if (pollTimer) {
-    clearTimeout(pollTimer);
-    pollTimer = null;
-  }
-  $("status-hint").hidden = true;
-}
-
 function showError(msg) {
-  resetTimers();
+  stopRotator();
   $("error-message").textContent = msg;
   show("error");
 }
 
 function showDone(data) {
-  resetTimers();
+  stopRotator();
   $("viewer-url").value = data.viewer_url;
   $("btn-open").href = data.viewer_url;
   $("done-intro").textContent = data.stats
@@ -574,27 +551,13 @@ const fmtMB = (bytes) => {
 };
 
 function reset() {
-  resetTimers();
+  stopRotator();
   done = null;
   clearSelection();
   clearExam();
   dropError = "";
   renderDrop();
   show("idle");
-}
-
-async function pollStatus(initial) {
-  try {
-    const r = await fetch(`${BACKEND}/status/${initial.uid}`);
-    if (r.ok) {
-      const s = await r.json();
-      if (s.ready) return showDone(initial);
-      if (s.error) return showError(`Erro no processamento: ${s.error}`);
-    }
-  } catch (e) {
-    // Transient network flake — retry on next tick.
-  }
-  pollTimer = setTimeout(() => pollStatus(initial), POLL_INTERVAL_MS);
 }
 
 function uploadPhases() {
@@ -755,16 +718,8 @@ async function process() {
     done.rows.push(row);
   }
 
-  // Caso só com exame: nada é processado depois da resposta.
-  if (data.processing === false) return showDone(data);
-
-  // Upload accepted; Sketchfab processing is async — poll.
-  setProgress(null);
-  startRotator(PHASE_POLL);
-  longWaitTimer = setTimeout(() => {
-    $("status-hint").hidden = false;
-  }, LONG_WAIT_MS);
-  pollStatus(data);
+  // Nada é processado depois da resposta: o modelo e o exame já estão no R2.
+  showDone(data);
 }
 
 // POST /cases/{uid}/exam de uma série extra. → { state, info?, error? }.

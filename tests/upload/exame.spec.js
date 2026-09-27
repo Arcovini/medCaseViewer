@@ -60,11 +60,44 @@ const erroArea = (page) => page.locator("#drop-error");
 const serie = (page, nome) => page.locator(".up-series-row", { hasText: nome });
 const lido = (page) => page.waitForFunction(() => !window.__upload.isReading() && window.__upload.getExam());
 
-// Quantas entradas tem o .zip dentro de um corpo multipart (lê o fim do .zip).
-function zipEntries(body) {
-  const sig = Buffer.from([0x50, 0x4b, 0x05, 0x06]);
-  const at = body.lastIndexOf(sig);
-  return at < 0 ? null : body.readUInt16LE(at + 10);
+// O que a página manda em cada POST. O Playwright não retém corpos montados com
+// Blob (`postDataBuffer()` vem nulo ou cortado), então a espionagem é no próprio
+// XHR da página: cada campo do FormData, e para arquivo o nome e quantas
+// entradas tem o .zip (lidas do fim dele). Chamar antes de abrir a página;
+// devolve a função que lista os envios feitos até ali.
+async function espiarEnvios(page) {
+  await page.addInitScript(() => {
+    window.__envios = [];
+    const { open, send } = XMLHttpRequest.prototype;
+    XMLHttpRequest.prototype.open = function (method, url, ...resto) {
+      this.__envio = { method, url: String(url) };
+      return open.call(this, method, url, ...resto);
+    };
+    XMLHttpRequest.prototype.send = function (corpo) {
+      if (this.__envio?.method === "POST" && corpo instanceof FormData) {
+        const { url } = this.__envio;
+        window.__envios.push((async () => {
+          const campos = {};
+          for (const [nome, valor] of corpo.entries()) {
+            campos[nome] ??= [];
+            if (typeof valor === "string") { campos[nome].push(valor); continue; }
+            const b = new Uint8Array(await valor.arrayBuffer());
+            let entradas = null;
+            for (let i = b.length - 22; i >= 0; i--) {
+              if (b[i] === 0x50 && b[i + 1] === 0x4b && b[i + 2] === 0x05 && b[i + 3] === 0x06) {
+                entradas = b[i + 10] | (b[i + 11] << 8);
+                break;
+              }
+            }
+            campos[nome].push({ nome: valor.name, entradas });
+          }
+          return { url, campos };
+        })());
+      }
+      return send.call(this, corpo);
+    };
+  });
+  return () => page.evaluate(() => Promise.all(window.__envios));
 }
 
 test.describe("área única (sem rede)", () => {
@@ -244,10 +277,7 @@ test.describe("envio real (backend em DRY_RUN)", () => {
   test("caso só com exame: link direto, sem esperar processamento", async ({ page }) => {
     const status = [];
     page.on("request", (r) => { if (r.url().includes("/status/")) status.push(r.url()); });
-    let corpo = null;
-    page.on("request", (r) => {
-      if (r.url().endsWith("/upload") && r.method() === "POST") corpo = r.postDataBuffer();
-    });
+    const envios = await espiarEnvios(page);
     await abrirUpload(page);
     await escolher(page, DICOM);
     await processar(page).click();
@@ -257,10 +287,11 @@ test.describe("envio real (backend em DRY_RUN)", () => {
     await expect(page.locator("#done-intro")).toContainText("abre o exame");
     expect(status).toHaveLength(0);
     // A série vai como um .zip montado na página, no campo `exam`.
-    const texto = corpo.toString("latin1");
-    expect(texto).toContain('name="exam"; filename="serie.zip"');
-    expect(texto).not.toContain('name="files"');
-    expect(zipEntries(corpo)).toBe(8);
+    const lista = await envios();
+    expect(lista).toHaveLength(1);
+    expect(lista[0].url).toMatch(/\/upload$/);
+    expect(lista[0].campos.exam).toEqual([{ nome: "serie.zip", entradas: 8 }]);
+    expect(lista[0].campos.files).toBeUndefined();
   });
 
   test("estruturas + NRRD: um caso só, exame incluído", async ({ page }) => {
@@ -274,13 +305,7 @@ test.describe("envio real (backend em DRY_RUN)", () => {
   });
 
   test("duas séries: a da segmentação no /upload, a outra no endpoint do caso", async ({ page }) => {
-    const envios = [];
-    page.on("request", (r) => {
-      if (r.method() !== "POST") return;
-      if (r.url().endsWith("/upload") || /\/cases\/[0-9a-f]{32}\/exam$/.test(r.url())) {
-        envios.push({ url: r.url(), corpo: r.postDataBuffer() });
-      }
-    });
+    const envios = await espiarEnvios(page);
     await abrirUpload(page);
     await escolher(page, [RIM, ...MULTI]);
     await lido(page);
@@ -294,14 +319,14 @@ test.describe("envio real (backend em DRY_RUN)", () => {
     await expect(linhas.nth(1)).toContainText("ARTERIAL");
     await expect(page.locator("#done-exam-title")).toHaveText(/2 de 2 séries incluídas/i);
 
-    expect(envios).toHaveLength(2);
-    expect(envios[0].url).toMatch(/\/upload$/);
-    expect(zipEntries(envios[0].corpo)).toBe(12); // só a NEFROGRAFICA
-    expect(envios[1].url).toMatch(/\/cases\/[0-9a-f]{32}\/exam$/);
-    const segundo = envios[1].corpo.toString("latin1");
-    expect(segundo).toMatch(/name="index"\r\n\r\n1\r\n/);
-    expect(segundo).toContain('name="write_token"');
-    expect(zipEntries(envios[1].corpo)).toBe(10); // só a ARTERIAL
+    const lista = await envios();
+    expect(lista).toHaveLength(2);
+    expect(lista[0].url).toMatch(/\/upload$/);
+    expect(lista[0].campos.exam[0].entradas).toBe(12); // só a NEFROGRAFICA
+    expect(lista[1].url).toMatch(/\/cases\/[0-9a-f]{32}\/exam$/);
+    expect(lista[1].campos.index).toEqual(["1"]);
+    expect(lista[1].campos.write_token[0]).toMatch(/^[0-9a-f]{64}$/);
+    expect(lista[1].campos.exam[0].entradas).toBe(10); // só a ARTERIAL
   });
 
   test("série extra que falha: Tentar de novo reenvia só ela", async ({ page }) => {

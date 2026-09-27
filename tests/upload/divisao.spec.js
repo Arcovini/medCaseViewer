@@ -246,19 +246,21 @@ test.describe("envio ao backend", () => {
     test.skip(!backendUp, COMO_SUBIR);
     // O corpo do POST é multipart com os STLs binários dentro, e o Playwright
     // não retém corpos de upload de arquivo (`postData` vem vazio). Espionar o
-    // FormData no próprio fetch mostra o que a página realmente monta — que é
-    // onde mora o contrato de API.
+    // FormData no próprio XHR (a página envia com XMLHttpRequest, para ter o
+    // progresso) mostra o que ela realmente monta — onde mora o contrato de API.
     await page.addInitScript(() => {
       window.__boolOps = null;
-      const original = window.fetch;
-      window.fetch = (entrada, init) => {
-        const corpo = init && init.body;
+      const original = XMLHttpRequest.prototype.send;
+      XMLHttpRequest.prototype.send = function (corpo) {
         if (corpo instanceof FormData && corpo.has("boolean_ops")) {
           window.__boolOps = corpo.get("boolean_ops");
         }
-        return original(entrada, init);
+        return original.call(this, corpo);
       };
     });
+    // Desde o Sprint 3c nada processa depois da resposta: sem /status.
+    const status = [];
+    page.on("request", (r) => { if (r.url().includes("/status/")) status.push(r.url()); });
     await abrirUpload(page);
     await escolher(page, [RIM, TUMOR]);
     await isolar(page, "Tumor", "Rim");
@@ -286,7 +288,8 @@ test.describe("envio ao backend", () => {
     expect(await nomes(page).catch(() => [])).toBeDefined();
 
     await expect(page.locator("#state-done")).toBeVisible({ timeout: 30_000 });
-    expect(await page.inputValue("#viewer-url")).toBeTruthy();
+    expect(await page.inputValue("#viewer-url")).toMatch(/\/case\/\?id=[0-9a-f]{32}$/);
+    expect(status).toHaveLength(0);
   });
 
   test("a peça de dentro chega num tom mais claro da cor de origem", async ({ page }) => {
