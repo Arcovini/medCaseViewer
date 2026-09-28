@@ -10,9 +10,9 @@ import { Line2 } from "three/addons/lines/Line2.js";
 import { LineMaterial } from "three/addons/lines/LineMaterial.js";
 import { LineGeometry } from "three/addons/lines/LineGeometry.js";
 import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
-import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { OutlinePass } from "three/addons/postprocessing/OutlinePass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
+import { SMAAPass } from "three/addons/postprocessing/SMAAPass.js";
 import { N8AOPass } from "n8ao";
 import { toCreasedNormals } from "three/addons/utils/BufferGeometryUtils.js";
 import { pickNearestSegment } from "./calibre-geom.js";
@@ -20,7 +20,7 @@ import { pickNearestSegment } from "./calibre-geom.js";
 let renderer, scene, camera, controls;
 let _defaultTouches, _defaultMouseButtons;   // OrbitControls de fábrica (ver setContourTouchNavigation)
 let css2dRenderer;
-let composer;            // EffectComposer pra outline pass
+let composer;            // EffectComposer: N8AO (desenha a cena) → outline → output → SMAA
 let outlinePass;         // OutlinePass — desenha contorno reliable em malhas selecionadas
 let aoPass;              // N8AOPass — ambient occlusion screen-space moderno; mais bonito e mais rápido que SSAOPass nativa
 let pmremGenerator;
@@ -169,8 +169,10 @@ export function init(canvasEl) {
   // - OutlinePass: contorno coral consistente nas malhas selecionadas via
   //   setMeshHighlight. Substituiu o inverted-hull (que ficava deslocado em
   //   geometrias com vértices fora do origem local).
+  // Sem RenderPass: o N8AOPass desenha a cena por conta própria e ignora o
+  // quadro anterior. Com os dois, a cena era desenhada uma vez a mais por
+  // quadro e jogada fora.
   composer = new EffectComposer(renderer);
-  composer.addPass(new RenderPass(scene, camera));
 
   aoPass = new N8AOPass(scene, camera, _w0, _h0);
   aoPass.configuration.aoRadius = 5.0;             // ajustado em frameToScene
@@ -195,6 +197,13 @@ export function init(canvasEl) {
   outlinePass.hiddenEdgeColor.setHex(COLOR_ACCENT);
   composer.addPass(outlinePass);
   composer.addPass(new OutputPass());
+  // Anti-aliasing. O `antialias: true` do renderer só vale para o canvas, e a
+  // cena é desenhada nos render targets do N8AO, sem MSAA (o README do N8AO
+  // manda usar SMAA). Depois do OutputPass: o SMAA acha bordas pela diferença
+  // de cor e é calibrado para a cor da tela (sRGB); antes dele ela ainda é
+  // linear e sem tone mapping.
+  const pr = renderer.getPixelRatio();
+  composer.addPass(new SMAAPass(_w0 * pr, _h0 * pr));
 
   window.addEventListener("resize", onResize);
   // O canvas também muda de tamanho sem a janela mudar: trocar o layout do
@@ -227,9 +236,10 @@ function onResize() {
   if (Math.round(cur.x) === Math.round(w) && Math.round(cur.y) === Math.round(h)) return;
   renderer.setSize(w, h, false);
   css2dRenderer.setSize(w, h);
+  // O composer redimensiona todos os passes em pixels do aparelho (w × pixel
+  // ratio). Chamar setSize(w, h) de novo nos passes os deixava em pixels CSS:
+  // numa tela Retina o N8AO passava a desenhar a cena com metade da resolução.
   if (composer) composer.setSize(w, h);
-  if (outlinePass) outlinePass.setSize(w, h);
-  if (aoPass) aoPass.setSize(w, h);
   // Line2/LineMaterial precisa da resolution pra calcular linewidth em pixels.
   for (const mat of lineMaterials) mat.resolution.set(w, h);
   camera.aspect = w / h;
@@ -1571,7 +1581,7 @@ export function addSlicePlane(name, canvas, colorHex) {
   removeSlicePlane(name);
   const texture = new THREE.CanvasTexture(canvas);
   // O cinza da fatia deveria chegar à tela como está. Só que a cena passa pelo
-  // EffectComposer: o RenderPass desenha num render target (onde o three não
+  // EffectComposer: o N8AOPass desenha num render target (onde o three não
   // aplica tone mapping, por material ou não) e o OutputPass aplica o Neutral
   // com exposição 0,85 no quadro inteiro. Não dá para excluir um objeto dali;
   // então a cor do material devolve a exposição (1/0,85). O Neutral é linear
