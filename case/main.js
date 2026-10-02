@@ -279,7 +279,9 @@ async function bootstrap() {
   // da cena do world.js pra geração on-demand do USDZ no iOS, e do uid pra
   // construir a URL do GLB no <model-viewer>. Falhas em ar.init são
   // tratadas internamente — não devem bloquear o resto do viewer.
-  ar.init({ world, dom, uid });
+  // `ar=1` é o que o QR do botão AR acrescenta ao link: no celular o caso abre
+  // com o convite "Ver em AR" em tela cheia.
+  ar.init({ world, dom, uid, autoPrompt: params.get("ar") === "1" });
 
   examApi = exam.init({ world, dom, loader, hasModel: true, ...examHooks });
   examApi.onExamButton(() => { menu.close(); toggleSheetTab("exam"); });

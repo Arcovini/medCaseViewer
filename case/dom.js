@@ -522,6 +522,71 @@ export function mountARModal({ onClose } = {}) {
   };
 }
 
+// Convite "Ver em AR" em tela cheia, para o caso aberto pelo QR (…&ar=1) no
+// celular. Estados em data-state: "loading" (preparando; botão travado),
+// "ready" e "unsupported" (aparelho sem AR: só o aviso e a volta ao 3D).
+// "Ver o modelo 3D" está sempre disponível — o convite nunca prende ninguém.
+const AR_PROMPT_COPY = {
+  loading: {
+    title: "Realidade aumentada",
+    text: "Preparando o modelo para a câmera do seu aparelho.",
+    open: "Preparando…",
+  },
+  ready: {
+    title: "Realidade aumentada",
+    text: "Veja o modelo em tamanho real no ambiente à sua volta.",
+    open: "Ver em AR",
+  },
+  unsupported: {
+    title: "Realidade aumentada indisponível",
+    text: "Este aparelho não abre realidade aumentada pelo navegador. Você pode explorar o modelo em 3D.",
+    open: "",
+  },
+};
+
+export function mountARPrompt({ onOpen, onDismiss }) {
+  const el = document.createElement("div");
+  el.className = "ar-prompt";
+  el.dataset.visible = "false";
+  el.dataset.testid = "ar-prompt";
+  el.setAttribute("role", "dialog");
+  el.setAttribute("aria-modal", "true");
+  el.setAttribute("aria-labelledby", "ar-prompt-title");
+  el.innerHTML = `
+    <div class="ar-prompt-card">
+      <h2 class="ar-prompt-title" id="ar-prompt-title"></h2>
+      <p class="ar-prompt-text"></p>
+      <button type="button" class="btn btn-primary btn-lg btn-block" data-testid="ar-prompt-open"></button>
+      <button type="button" class="btn btn-ghost btn-lg btn-block" data-testid="ar-prompt-dismiss">Ver o modelo 3D</button>
+    </div>
+  `;
+  document.body.appendChild(el);
+
+  const titleEl = el.querySelector(".ar-prompt-title");
+  const textEl = el.querySelector(".ar-prompt-text");
+  const openBtn = el.querySelector('[data-testid="ar-prompt-open"]');
+  const dismissBtn = el.querySelector('[data-testid="ar-prompt-dismiss"]');
+
+  function setState(state) {
+    const copy = AR_PROMPT_COPY[state];
+    el.dataset.state = state;
+    titleEl.textContent = copy.title;
+    textEl.textContent = copy.text;
+    openBtn.textContent = copy.open;
+    openBtn.hidden = state === "unsupported";
+    openBtn.disabled = state !== "ready";
+  }
+
+  openBtn.addEventListener("click", () => { if (!openBtn.disabled) onOpen(); });
+  dismissBtn.addEventListener("click", () => onDismiss());
+
+  return {
+    show(state) { setState(state); el.dataset.visible = "true"; },
+    setState,
+    hide() { el.dataset.visible = "false"; },
+  };
+}
+
 // Uma lupa só na página: o WebGLRenderer dela (world.attachLoupeCanvas) só
 // aceita um canvas, e Linear, Calibre e Cortar nunca estão ativos juntos.
 let _loupeInstance = null;

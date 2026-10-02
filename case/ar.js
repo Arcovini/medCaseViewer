@@ -2,7 +2,8 @@
 // Composição AR: monta um <model-viewer> oculto pra detectar capacidade AR
 // (canActivateAR) e disparar activateAR(). No iOS, gera USDZ on-demand a
 // partir da cena Three.js já carregada via USDZExporter. No desktop, abre
-// um modal com QR code da URL atual.
+// um modal com QR code da URL atual + `ar=1`; no celular, um caso aberto com
+// `ar=1` mostra o convite "Ver em AR" em tela cheia (ver _startAutoPrompt).
 //
 // Mantém a separação 4-camadas do Sprint 3a: importa só de loader (rede),
 // world (3D, via getMountedRoot), dom (DOM helpers). Não toca direto em
@@ -11,7 +12,7 @@
 import * as THREE from "three";
 import { buildGlbUrl } from "./loader.js";
 import { getMountedRoot } from "./world.js";
-import { mountARButton, mountARModal, showError } from "./dom.js";
+import { mountARButton, mountARModal, mountARPrompt, showError } from "./dom.js";
 
 // CDNs pinadas (sem build step; versões fixadas pra reprodutibilidade)
 const MODEL_VIEWER_URL = "https://unpkg.com/@google/model-viewer@4.0.0/dist/model-viewer.min.js";
@@ -23,7 +24,8 @@ const MODEL_VIEWER_LOAD_TIMEOUT_MS = 6000;
 
 let _world, _dom, _uid;
 let _arButton, _arModal;
-let _mvEl = null;            // instância do <model-viewer>
+let _arPrompt = null;        // convite em tela cheia (só com ar=1 no celular)
+let _mvEl = null;           // instância do <model-viewer>
 let _capabilities = null;    // { platform, canActivateAR }
 let _isReady = false;
 let _usdzObjectUrl = null;   // memoizado após primeira geração
@@ -210,17 +212,26 @@ async function _loadQRCodeLib() {
   return mod.default ?? mod;
 }
 
+// O QR leva a URL do caso com `ar=1`: quem escaneia cai no convite "Ver em AR"
+// em vez de ter de achar o botão no visualizador do celular.
+function _qrUrl() {
+  const url = new URL(window.location.href);
+  url.searchParams.set("ar", "1");
+  return url.toString();
+}
+
 async function _openQRModal() {
   const qrcode = await _loadQRCodeLib();
-  const dataUrl = await qrcode.toDataURL(window.location.href, {
+  const dataUrl = await qrcode.toDataURL(_qrUrl(), {
     width: 240,
     margin: 1,
   });
   _arModal.showWithQR(dataUrl);
 }
 
+// Devolve true se o AR foi aberto (só o caminho do celular).
 async function _handleClick() {
-  if (!_capabilities) return;     // ainda inicializando
+  if (!_capabilities) return false;     // ainda inicializando
 
   if (_capabilities.platform === "desktop") {
     try {
@@ -229,7 +240,7 @@ async function _handleClick() {
       console.error("[ar] failed to open QR modal", err);
       showError("Não foi possível gerar o QR code.");
     }
-    return;
+    return false;
   }
 
   // Mobile path (ios ou android)
@@ -241,14 +252,53 @@ async function _handleClick() {
       _arButton.setLoading(false);
     }
     await _mvEl.activateAR();
+    return true;
   } catch (err) {
     _arButton.setLoading(false);
     console.error("[ar] activate failed", err);
     showError("Não foi possível iniciar a visualização em AR.");
+    return false;
   }
 }
 
-export async function init({ world, dom, uid }) {
+// Caso aberto pelo QR (…&ar=1) num celular: em vez de o aluno procurar o pill
+// AR, um convite em tela cheia com "Ver em AR" e "Ver o modelo 3D". Entra já
+// como "preparando" e só libera o botão quando soubermos se o aparelho abre AR
+// (_resolveAutoPrompt). Depois do toque — AR aberto ou erro — o convite sai e
+// fica o visualizador normal, com o pill AR para reabrir.
+function _startAutoPrompt() {
+  _arPrompt = mountARPrompt({
+    onOpen: async () => {
+      _arPrompt.setState("loading");
+      await _handleClick();
+      _arPrompt.hide();
+    },
+    onDismiss: () => _arPrompt.hide(),
+  });
+  _arPrompt.show("loading");
+}
+
+async function _resolveAutoPrompt() {
+  const { platform, canActivateAR } = _capabilities;
+  const supported = platform === "ios" || (platform === "android" && canActivateAR);
+  if (!supported || !_mvEl) {
+    _arPrompt.setState("unsupported");
+    return;
+  }
+  if (platform === "ios") {
+    // Com ar=1 a intenção já é conhecida: gera o USDZ agora, enquanto o convite
+    // mostra "Preparando…", para o toque abrir o Quick Look na hora em vez de
+    // esperar a conversão. Se falhar aqui, o toque tenta de novo e avisa.
+    try {
+      _mvEl.setAttribute("ios-src", await _generateUSDZBlobUrl());
+    } catch (err) {
+      console.warn("[ar] USDZ antecipado falhou; nova tentativa no toque", err);
+    }
+  }
+  _arPrompt.setState("ready");
+}
+
+export async function init({ world, dom, uid, autoPrompt = false }) {
   _world = world;
   _dom = dom;
   _uid = uid;
@@ -257,6 +307,7 @@ export async function init({ world, dom, uid }) {
   // de termos a info de canActivateAR — fluxo "fail-closed".
   _arButton = mountARButton({ onClick: _handleClick });
   _arModal = mountARModal({});
+  if (autoPrompt && _classifyPlatform() !== "desktop") _startAutoPrompt();
 
   // Classifica plataforma e revela o botão *imediatamente* em desktop —
   // o fluxo QR não precisa de model-viewer (só geramos QR no clique).
@@ -300,4 +351,5 @@ export async function init({ world, dom, uid }) {
   } finally {
     _isReady = true;
   }
+  if (_arPrompt) await _resolveAutoPrompt();
 }

@@ -57,6 +57,8 @@ Chrome debugging is pre-configured in `.vscode/launch.json` for `http://localhos
 **URL Parameters**:
 - `?id=UID` - Load a case by UID. `loader.js` fetches `cases/{uid}.glb` from Cloudflare R2; on a 404 it probes the Sketchfab API and, if found, redirects to the `legacy/` Sketchfab viewer.
 
+- `&ar=1` - Added by the QR code of the desktop AR button (`ar.js > _qrUrl`). On a phone/tablet the case opens with a full-screen invite (`dom.mountARPrompt`): "Ver em AR" + "Ver o modelo 3D" (always available — it dismisses to the normal viewer). The invite starts as "Preparando…" and becomes ready once `ar.init` knows the device can open AR; on iOS the USDZ is generated then, before the tap, so the tap opens Quick Look at once. A device without AR gets a short notice instead of the AR button. Ignored on desktop, in exam-only cases and in `legacy/`.
+
 **Design system**: the viewer is the source of truth and `/app.css` is where its vocabulary lives; `/upload/` consumes it rather than inventing its own. Consequences to respect when adding UI:
 - Never introduce a raw hex or a foreign gray in an app screen. Everything comes from `--w-*` (theme-aware) or `colors_and_type.css` (`--space-*`, `--radius-*`, `--font-*`, `--ease-*`).
 - Coral has two tokens because it plays two roles: `--w-accent` is the **fill** (measurement pills, progress rail) and stays constant across themes so white text on it keeps contrast; `--w-accent-fg` is coral as **text/border** on an app surface and lightens in the dark theme to clear 4.5:1. Use `--w-accent-fg` for anything you're only tinting.

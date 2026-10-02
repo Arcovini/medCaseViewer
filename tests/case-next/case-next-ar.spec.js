@@ -39,10 +39,10 @@ async function setupARFakes(page, opts = {}) {
     ua = null,
     failModelViewerImport = false,
     neverFireLoadEvent = false,
-    usdzExportDelayMs = 0,
+    holdUsdzExport = false,
   } = opts;
 
-  await page.addInitScript(({ canAR, uaOverride, failMV, neverLoad, usdzDelay }) => {
+  await page.addInitScript(({ canAR, uaOverride, failMV, neverLoad, holdUsdz }) => {
     window.__playwrightTest = true;
     window.__activateARCalled = 0;
     window.__lastIosSrc = null;
@@ -109,6 +109,13 @@ async function setupARFakes(page, opts = {}) {
       },
     });
 
+    // Com holdUsdz, a exportação só termina quando o teste chamar
+    // window.__releaseUsdzExport(): o "gerando USDZ" dura o quanto o teste
+    // precisar, em vez de ser uma janela de tempo que ele tenta flagrar.
+    window.__usdzExportGate = holdUsdz
+      ? new Promise((resolve) => { window.__releaseUsdzExport = resolve; })
+      : null;
+
     // Mock USDZExporter — não baixa o módulo Three.js do unpkg (lento + ruidoso
     // em CI). Retorna bytes mínimos válidos pra Blob.
     window.__lastExportedSceneScale = null;
@@ -139,9 +146,7 @@ async function setupARFakes(page, opts = {}) {
             }
           });
           window.__lastExportedMaxCoord = maxCoord;
-          if (usdzDelay > 0) {
-            await new Promise((r) => setTimeout(r, usdzDelay));
-          }
+          if (window.__usdzExportGate) await window.__usdzExportGate;
           return new Uint8Array([0x50, 0x4b, 0x03, 0x04]); // ZIP header (USDZ é zip)
         }
       },
@@ -151,7 +156,7 @@ async function setupARFakes(page, opts = {}) {
     uaOverride: ua,
     failMV: failModelViewerImport,
     neverLoad: neverFireLoadEvent,
-    usdzDelay: usdzExportDelayMs,
+    holdUsdz: holdUsdzExport,
   });
 
   await mockGlbRoute(page);
@@ -225,9 +230,10 @@ test("falha em carregar model-viewer NÃO bloqueia o panel (silent-fail)", async
 });
 
 test("timeout do load do model-viewer NÃO trava a UI nem o botão", async ({ page }) => {
-  // O ar.js tem timeout de 6000ms; precisamos extender o test timeout
-  // padrão (15s) pra cobrir setup + 6s de timeout + asserts.
-  test.setTimeout(25_000);
+  // O ar.js espera 6 s pelo `load` antes de seguir. Sem test.setTimeout: o
+  // antigo 25 s era de quando o padrão era 15 s e, com o padrão em 45 s
+  // (playwright.config.js), passou a encurtar este teste — no desktop, carga +
+  // 6 s + um clique passam dos 25 s na suíte cheia.
   // Aqui setamos neverFireLoadEvent: o evento `load` nunca dispara. ar.init
   // tolera o timeout e segue — botão fica visível baseado na plataforma.
   await setupARFakes(page, { neverFireLoadEvent: true });
@@ -283,6 +289,18 @@ test.describe("desktop QR modal", () => {
     const qrUrl = await page.evaluate(() => window.__lastQRUrl);
     expect(qrUrl).toContain(`id=${TEST_UID}`);
     expect(qrUrl).toContain("/case/");
+    // ar=1: quem escaneia cai no convite "Ver em AR" (seção 6).
+    expect(new URL(qrUrl).searchParams.get("ar")).toBe("1");
+  });
+
+  test("desktop: abrir o link com ar=1 no computador não mostra o convite", async ({ page }) => {
+    await setupARFakes(page, { canActivateAR: false });
+    await page.goto(`/case/?id=${TEST_UID}&ar=1`);
+    await waitForGlbLoaded(page);
+    await waitForArReady(page);
+
+    await expect(page.locator(".ar-prompt")).toHaveCount(0);
+    await expect(page.locator(".ar-button")).toHaveAttribute("data-visible", "true");
   });
 
   test("desktop: modal QR fecha pelo botão ✕", async ({ page }) => {
@@ -444,19 +462,22 @@ test("iOS: USDZ é memoizado — segundo clique reusa o mesmo blob URL", async (
 });
 
 test("iOS: botão mostra estado loading durante geração de USDZ", async ({ page }) => {
-  // Atrasa USDZExporter em 800ms — janela ampla o suficiente pra capturar
-  // data-loading="true" mesmo sob carga (suite full executando paralelo).
-  await setupARFakes(page, { canActivateAR: true, ua: UA_IOS, usdzExportDelayMs: 800 });
+  // A exportação fica presa até o teste soltá-la. Com um atraso fixo (800 ms)
+  // o teste disputava corrida com a janela: no desktop o próprio clique leva
+  // ~5 s e a primeira leitura do atributo já chegava depois do fim.
+  await setupARFakes(page, { canActivateAR: true, ua: UA_IOS, holdUsdzExport: true });
   await page.goto(`/case/?id=${TEST_UID}`);
   await waitForGlbLoaded(page);
   await waitForArReady(page);
 
   const btn = page.locator(".ar-button");
-  // Click sem aguardar (não bloqueia em fire-and-forget)
   await btn.click();
 
-  // Em algum momento durante o delay, data-loading deve estar true.
-  await expect(btn).toHaveAttribute("data-loading", "true", { timeout: 1_500 });
+  // Exportação em andamento: loading ligado e o AR ainda não foi aberto.
+  await expect(btn).toHaveAttribute("data-loading", "true");
+  expect(await page.evaluate(() => window.__activateARCalled)).toBe(0);
+
+  await page.evaluate(() => window.__releaseUsdzExport());
 
   // Quando activateAR é chamado, loading deve ter voltado pra false.
   await page.waitForFunction(() => window.__activateARCalled === 1, null, { timeout: 5_000 });
@@ -541,4 +562,109 @@ test("botão AR não existe no DOM antes do GLB carregar", async ({ page }) => {
   await waitForGlbLoaded(page);
   await waitForArReady(page);
   await expect(page.locator(".ar-button")).toHaveAttribute("data-visible", "true");
+});
+
+// =============================================================================
+// 6. Convite em tela cheia — caso aberto pelo QR (…&ar=1) no celular
+// =============================================================================
+
+const prompt = (page) => page.locator('[data-testid="ar-prompt"]');
+const promptOpen = (page) => page.locator('[data-testid="ar-prompt-open"]');
+const promptDismiss = (page) => page.locator('[data-testid="ar-prompt-dismiss"]');
+
+test("ar=1 no iOS: convite pronto com o USDZ já gerado; o toque abre o AR", async ({ page }) => {
+  await setupARFakes(page, { canActivateAR: true, ua: UA_IOS });
+  await page.goto(`/case/?id=${TEST_UID}&ar=1`);
+  await waitForGlbLoaded(page);
+
+  await expect(prompt(page)).toHaveAttribute("data-visible", "true");
+  await expect(prompt(page)).toHaveAttribute("data-state", "ready");
+  await expect(promptOpen(page)).toHaveText("Ver em AR");
+  // A conversão aconteceu antes do toque.
+  expect(await page.evaluate(() => window.__usdzExportCount)).toBe(1);
+  expect(await page.evaluate(() => window.__activateARCalled)).toBe(0);
+
+  await promptOpen(page).click();
+  await page.waitForFunction(() => window.__activateARCalled === 1, null, { timeout: 5_000 });
+
+  expect(await page.evaluate(() => window.__lastIosSrc)).toMatch(/^blob:/);
+  expect(await page.evaluate(() => window.__usdzExportCount)).toBe(1); // não converteu de novo
+  await expect(prompt(page)).toHaveAttribute("data-visible", "false");
+});
+
+test("ar=1 no iOS: enquanto o USDZ é gerado o botão fica travado em 'Preparando…'", async ({ page }) => {
+  await setupARFakes(page, { canActivateAR: true, ua: UA_IOS, holdUsdzExport: true });
+  await page.goto(`/case/?id=${TEST_UID}&ar=1`);
+  await waitForGlbLoaded(page);
+  await waitForArReady(page);
+
+  await expect(prompt(page)).toHaveAttribute("data-state", "loading");
+  await expect(promptOpen(page)).toBeDisabled();
+  await expect(promptOpen(page)).toHaveText("Preparando…");
+
+  await page.evaluate(() => window.__releaseUsdzExport());
+
+  await expect(prompt(page)).toHaveAttribute("data-state", "ready");
+  await expect(promptOpen(page)).toBeEnabled();
+});
+
+test("ar=1 no Android com AR: o toque dispara activateAR e o convite sai", async ({ page }) => {
+  await setupARFakes(page, { canActivateAR: true, ua: UA_ANDROID });
+  await page.goto(`/case/?id=${TEST_UID}&ar=1`);
+  await waitForGlbLoaded(page);
+
+  await expect(prompt(page)).toHaveAttribute("data-state", "ready");
+  await promptOpen(page).click();
+  await page.waitForFunction(() => window.__activateARCalled === 1, null, { timeout: 5_000 });
+
+  expect(await page.evaluate(() => window.__lastIosSrc)).toBeNull();
+  await expect(prompt(page)).toHaveAttribute("data-visible", "false");
+});
+
+test("ar=1 no Android sem AR: aviso, sem botão de AR, e 'Ver o modelo 3D' leva ao visualizador", async ({ page }) => {
+  await setupARFakes(page, { canActivateAR: false, ua: UA_ANDROID });
+  await page.goto(`/case/?id=${TEST_UID}&ar=1`);
+  await waitForGlbLoaded(page);
+
+  await expect(prompt(page)).toHaveAttribute("data-state", "unsupported");
+  await expect(prompt(page)).toContainText("não abre realidade aumentada");
+  await expect(promptOpen(page)).toBeHidden();
+
+  await promptDismiss(page).click();
+  await expect(prompt(page)).toHaveAttribute("data-visible", "false");
+  expect(await page.evaluate(() => window.__activateARCalled)).toBe(0);
+  // Visualizador normal por baixo: o painel de estruturas está lá.
+  await expect(page.locator("#structures-list li")).toHaveCount(4);
+});
+
+test("ar=1: 'Ver o modelo 3D' fecha o convite e o botão AR continua na barra", async ({ page }) => {
+  await setupARFakes(page, { canActivateAR: true, ua: UA_IOS });
+  await page.goto(`/case/?id=${TEST_UID}&ar=1`);
+  await waitForGlbLoaded(page);
+
+  await expect(prompt(page)).toHaveAttribute("data-state", "ready");
+  await promptDismiss(page).click();
+
+  await expect(prompt(page)).toHaveAttribute("data-visible", "false");
+  expect(await page.evaluate(() => window.__activateARCalled)).toBe(0);
+  await expect(page.locator(".ar-button")).toHaveAttribute("data-visible", "true");
+});
+
+test("ar=1 com falha do model-viewer: o convite vira o aviso e não prende a tela", async ({ page }) => {
+  await setupARFakes(page, { failModelViewerImport: true, ua: UA_IOS });
+  await page.goto(`/case/?id=${TEST_UID}&ar=1`);
+  await waitForGlbLoaded(page);
+
+  await expect(prompt(page)).toHaveAttribute("data-state", "unsupported");
+  await promptDismiss(page).click();
+  await expect(prompt(page)).toHaveAttribute("data-visible", "false");
+});
+
+test("sem ar=1 no celular: o convite não existe", async ({ page }) => {
+  await setupARFakes(page, { canActivateAR: true, ua: UA_IOS });
+  await page.goto(`/case/?id=${TEST_UID}`);
+  await waitForGlbLoaded(page);
+  await waitForArReady(page);
+
+  await expect(page.locator(".ar-prompt")).toHaveCount(0);
 });
