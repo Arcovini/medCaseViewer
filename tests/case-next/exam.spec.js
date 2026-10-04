@@ -20,6 +20,10 @@
 // exam-ct.nrrd (mesmo script): TC mínima em Hounsfield, 40×40×20 (ar −1000,
 // corpo 40, vaso 300, osso 800), para os presets de janela.
 //
+// exam-sphere-seg.glb (nrrd_to_stl.py --seg): o 3D gerado pelo mesh-processor a
+// partir da SEGMENTAÇÃO da esfera em NRRD (labelmap no espaço de
+// exam-sphere.nrrd, "Esfera" + "Nucleo"), o caminho "só NRRD" do upload.
+//
 // No "R2", cada série n é cases/{uid}.exam-{n}.json + .exam-{n}.nrrd.
 
 import { test, expect } from "@playwright/test";
@@ -29,6 +33,7 @@ import fs from "node:fs/promises";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const GLB = path.join(__dirname, "fixtures/exam-sphere.glb");
+const SEG_GLB = path.join(__dirname, "fixtures/exam-sphere-seg.glb");
 const NRRD = path.join(__dirname, "fixtures/exam-sphere.nrrd");
 const NRRD2 = path.join(__dirname, "fixtures/exam-sphere-fase2.nrrd");
 const CT = path.join(__dirname, "fixtures/exam-ct.nrrd");
@@ -40,9 +45,9 @@ test.beforeEach(async ({}, testInfo) => { testInfo.setTimeout(60_000); });
 // withModel / withExam: o que existe no "R2" para este uid. series2: o caso tem
 // também a segunda série; series2Status: resposta do NRRD dela. ct: a série 0
 // é a TC em Hounsfield no lugar da esfera.
-async function open(page, { withModel = true, withExam = true, series2 = false, series2Status = 200, ct = false } = {}) {
+async function open(page, { withModel = true, withExam = true, series2 = false, series2Status = 200, ct = false, seg = false } = {}) {
   await page.addInitScript(() => { window.__playwrightTest = true; });
-  const glb = await fs.readFile(GLB);
+  const glb = await fs.readFile(seg ? SEG_GLB : GLB);
   const files = [ct
     ? { nrrd: await fs.readFile(CT), label: "TC ABDOME", shape: [40, 40, 20], spacing: [1, 1, 2] }
     : { nrrd: await fs.readFile(NRRD), label: "ARTERIAL 1.0", shape: [64, 56, 48], spacing: [1.2, 1.5, 2.0] }];
@@ -151,6 +156,26 @@ test("alinhamento: a esfera do exame cai em cima da esfera do modelo", async ({ 
   });
   expect(r.dist).toBeLessThan(1);      // mm
   expect(r.inside).toBeGreaterThan(900);
+});
+
+test("segmentação em NRRD: o 3D gerado do labelmap cai em cima do exame", async ({ page }) => {
+  await open(page, { seg: true });
+  await expect(page.locator("#structures-list li")).toHaveCount(2, { timeout: 15_000 });
+  await expect(page.locator('[data-testid="exam-hint"]')).toBeVisible({ timeout: 15_000 });
+  await page.locator('[data-testid="exam-open"]').click();
+  await examLoaded(page);
+
+  const r = await page.evaluate(() => {
+    const centerIjk = [(64 - 1) / 2 + 3, (56 - 1) / 2 - 2, (48 - 1) / 2 + 1];
+    const e = window.__exam.ijkToWorld(...centerIjk);
+    const dist = (name) => {
+      const c = window.__world.getMeshCentroid(name);
+      return Math.hypot(e[0] - c.x, e[1] - c.y, e[2] - c.z);
+    };
+    return { esfera: dist("Esfera"), nucleo: dist("Nucleo") };
+  });
+  expect(r.esfera).toBeLessThan(1); // mm
+  expect(r.nucleo).toBeLessThan(1);
 });
 
 test("contorno: a esfera cortada ao meio tem raio ~20 mm no corte axial", async ({ page }) => {

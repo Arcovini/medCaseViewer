@@ -1,5 +1,6 @@
 import { classifyFiles, hasExam } from "./classify.js";
 import { MIN_SLICES_PER_SERIES, nrrdInfo, readDicomSeries, seriesZip } from "./dicom-series.js";
+import { fileStem, nrrdKind } from "./nrrd-kind.js";
 
 // Backend auto-detection:
 //   localhost / 127.0.0.1 -> local uvicorn on :8000 (dev)
@@ -41,6 +42,10 @@ const sections = {
 };
 
 let selectedFiles = [];
+// Segmentações em NRRD entre as estruturas: nome do arquivo → nomes das
+// estruturas que o backend vai gerar (nrrd-kind.js). Cada uma é UM arquivo no
+// campo `files`, mas várias linhas na lista.
+let segmentations = new Map();
 // Exame: { series, ignored, include: Set<key>, primary: key } ou null.
 // Cada série: { key, kind: "dicom"|"nrrd"|"opaque", description, modality,
 // frameOfRef, images, spacing, bytes, problem, ... } (dicom-series.js).
@@ -80,6 +85,7 @@ function show(state) {
 }
 
 const displayName = (filename) => filename.replace(/\.[^.]+$/, "");
+const isSegmentation = (f) => segmentations.has(f.name);
 
 // Isolar só existe no caminho STL, com 2+ arquivos: sem uma segunda estrutura
 // não há por onde cortar, e o backend recusa o campo fora do caminho STL.
@@ -98,13 +104,18 @@ const canIsolate = () =>
  * ao mesmo grupo.
  */
 function resolvePieces() {
-  const pieces = selectedFiles.map((f) => ({
-    id: f.name,
-    origin: f.name,
-    name: displayName(f.name),
-    size: f.size,
-    isolated: false,
-  }));
+  const pieces = selectedFiles.flatMap((f) => {
+    if (!isSegmentation(f)) {
+      return [{ id: f.name, origin: f.name, name: displayName(f.name), size: f.size, isolated: false }];
+    }
+    // Segmentação: uma linha para o arquivo e uma por estrutura que ele vira.
+    const names = segmentations.get(f.name);
+    return [
+      { id: f.name, origin: f.name, name: fileStem(f.name) || displayName(f.name), size: f.size,
+        isolated: false, segFile: true, count: names.length },
+      ...names.map((name, i) => ({ id: `${f.name}#${i}`, origin: f.name, name, isolated: false, segment: true })),
+    ];
+  });
 
   ops.forEach((op, index) => {
     const ti = pieces.findIndex((p) => p.id === op.secondary);
@@ -310,18 +321,22 @@ function buildRow(piece, split) {
   }
   left.appendChild(name);
 
-  if (piece.isolated) {
+  if (piece.isolated || piece.segFile) {
     const tag = document.createElement("span");
     tag.className = "up-iso-tag";
-    tag.textContent = "isolada";
+    tag.textContent = piece.isolated ? "isolada"
+      : piece.count === 1 ? "segmentação · 1 estrutura" : `segmentação · ${piece.count} estruturas`;
     left.appendChild(tag);
   }
+  if (piece.segFile) row.dataset.segmentation = "true";
+  if (piece.segment) row.dataset.segment = "true";
 
   const right = document.createElement("span");
   right.className = "up-row-right";
 
-  // Peças derivadas não são arquivos: não têm tamanho para mostrar.
-  if (!split && piece.size != null) {
+  // Peças derivadas não são arquivos: não têm tamanho para mostrar. O arquivo
+  // de uma segmentação é arquivo, mesmo com as estruturas abaixo dele.
+  if ((!split || piece.segFile) && piece.size != null) {
     const size = document.createElement("span");
     size.className = "up-file-size";
     size.textContent = `${(piece.size / 1024 / 1024).toFixed(1)} MB`;
@@ -340,7 +355,7 @@ function buildRow(piece, split) {
       renderStructures();
     });
     right.appendChild(undo);
-  } else if (canIsolate() && referenceOptions(piece.id).length > 0) {
+  } else if (!piece.segFile && !piece.segment && canIsolate() && referenceOptions(piece.id).length > 0) {
     // Só estruturas originais ganham a ação: o backend indexa por nome
     // original, então a peça amarela não pode ser alvo nem referência.
     const wrap = document.createElement("span");
@@ -565,6 +580,7 @@ function uploadPhases() {
   const phases = [];
   if (sendPlan().length) phases.push("Lendo o exame de imagem...", "Removendo os dados do paciente...");
   if (hasModel) {
+    if (selectedFiles.some(isSegmentation)) phases.push("Gerando o 3D a partir da segmentação...");
     phases.push(PHASE_UPLOAD[1]);
     if (ops.length) phases.push("Dividindo estruturas em dentro e fora...");
     phases.push(...PHASE_UPLOAD.slice(2));
@@ -764,6 +780,7 @@ async function seriesPayloadQuiet(s) {
 
 function clearSelection() {
   selectedFiles = [];
+  segmentations = new Map();
   ops = [];
   openMenu = null;
   confirming = false;
@@ -903,11 +920,26 @@ async function ingestOne(files, gen) {
     renderStructures(); // devolve o data-overlaps da lista ao estado real
     return;
   }
+  // .nrrd: a segmentação vira estrutura (o backend gera o 3D), o volume de
+  // imagem continua exame.
+  if (c.nrrds.length) {
+    const kinds = await Promise.all(c.nrrds.map((f) => nrrdKind(f)));
+    if (gen !== resetGen) return;
+    const segs = c.nrrds.filter((_, i) => kinds[i]?.kind === "segmentation");
+    if (segs.some((f) => c.structures.some((x) => /\.(obj|mtl|zip)$/i.test(x.name)) || selectedFiles.some((x) => /\.(obj|mtl|zip)$/i.test(x.name)))) {
+      dropError = "Uma segmentação em NRRD só pode ir junto de arquivos STL, não de um modelo OBJ.";
+      renderStructures();
+      return;
+    }
+    segs.forEach((f) => segmentations.set(f.name, kinds[c.nrrds.indexOf(f)].names));
+    c.structures.push(...segs);
+    c.nrrds = c.nrrds.filter((f) => !segs.includes(f));
+  }
   if (c.structures.length) addStructures(c.structures);
   if (hasExam(c)) {
     await readExam(c, gen);
   } else if (!c.structures.length) {
-    dropError = "Nenhum arquivo de estrutura (STL, OBJ) ou de exame (DICOM, NRRD) encontrado.";
+    dropError = "Nenhum arquivo de estrutura (STL, OBJ, segmentação NRRD) ou de exame (DICOM, NRRD) encontrado.";
   }
   renderStructures();
 }
@@ -1271,5 +1303,7 @@ window.__upload = {
     primary: exam.primary,
   },
   getStructures: () => selectedFiles.map((f) => f.name),
+  // O que a lista mostra, na ordem: as estruturas que o caso vai ter.
+  getPieces: () => resolvePieces().map((p) => ({ name: p.name, segFile: !!p.segFile, segment: !!p.segment })),
   isReading: () => !!examReading,
 };
