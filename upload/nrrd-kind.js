@@ -17,6 +17,13 @@
 //      exame de 200 MB não é descomprimido inteiro.
 // Os nomes saem como o backend vai gravá-los (segmentation.py): sem acento, e
 // "Segmento <n>" quando o arquivo não traz nome.
+//
+// De uma segmentação sai também onde ela fica no paciente (geometry.js): a
+// grade do arquivo, a do volume em que foi desenhada (o Slicer grava) e a caixa
+// dos voxels marcados. A página usa isso para avisar quando o exame enviado
+// não é a série em que a segmentação foi feita.
+
+import { nrrdGeometry, slicerReferenceGeometry } from "./geometry.js";
 
 // Mais valores que isto não é segmentação. Com o nome do arquivo dizendo que é
 // (label, mask, seg), vale o limite do backend (TotalSegmentator: 117).
@@ -51,7 +58,9 @@ export function fileStem(name) {
   return cleanName(base);
 }
 
-// Cabeçalho até a linha em branco. → { fields, segments: Map<n, {...}>, dataStart } | null
+// Cabeçalho até a linha em branco. → { fields, segments: Map<n, {...}>, extras,
+// dataStart } | null. extras: os outros campos "chave:=valor" (os Segmentation_*
+// do Slicer).
 async function readHeader(file) {
   const head = new Uint8Array(await file.slice(0, Math.min(file.size, HEADER_MAX)).arrayBuffer());
   if (String.fromCharCode(...head.slice(0, 4)) !== "NRRD") return null;
@@ -69,6 +78,7 @@ async function readHeader(file) {
   }
   const fields = {};
   const segments = new Map();
+  const extras = {};
   for (const line of text.split(/\r?\n/)) {
     if (line.startsWith("#")) continue;
     const kv = line.indexOf(":=");
@@ -78,18 +88,21 @@ async function readHeader(file) {
         const n = Number(m[1]);
         if (!segments.has(n)) segments.set(n, {});
         segments.get(n)[m[2]] = line.slice(kv + 2).trim();
+      } else {
+        extras[line.slice(0, kv).trim()] = line.slice(kv + 2);
       }
       continue;
     }
     const c = line.indexOf(":");
     if (c > 0) fields[line.slice(0, c).trim().toLowerCase()] = line.slice(c + 1).trim();
   }
-  return { fields, segments, dataStart: end + (head[end] === 13 ? 2 : 2) };
+  return { fields, segments, extras, dataStart: end + (head[end] === 13 ? 2 : 2) };
 }
 
-// Passa pelos valores do volume e devolve os diferentes de zero, em ordem, ou
-// null assim que um valor disser "isto é imagem" (negativo, não inteiro, ou
-// valores demais).
+// Passa pelos valores do volume e devolve { labels, box }: os valores diferentes
+// de zero, em ordem, e a caixa (índices i, j, k) dos voxels marcados; ou null
+// assim que um valor disser "isto é imagem" (negativo, não inteiro, ou valores
+// demais). Numa segmentação em camadas o primeiro eixo é a camada.
 async function scanLabels(file, header, maxLabels) {
   const { fields, dataStart } = header;
   const type = TYPES[(fields.type || "").toLowerCase()];
@@ -98,6 +111,12 @@ async function scanLabels(file, header, maxLabels) {
   if (encoding !== "raw" && typeof DecompressionStream === "undefined") return null;
   const size = BYTES[type];
   const little = (fields.endian || "little").toLowerCase() !== "big";
+  const dims = (fields.sizes || "").trim().split(/\s+/).map(Number);
+  const layers = dims.length === 4 ? dims[0] : 1;
+  const [s0, s1] = dims.length === 4 ? dims.slice(1) : dims;
+  const lo = [Infinity, Infinity, Infinity];
+  const hi = [-Infinity, -Infinity, -Infinity];
+  let index = 0; // valores já lidos antes deste pedaço
 
   let stream = file.slice(dataStart).stream();
   if (encoding !== "raw") stream = stream.pipeThrough(new DecompressionStream("gzip"));
@@ -132,23 +151,37 @@ async function scanLabels(file, header, maxLabels) {
         }
         if (v === 0) continue;
         if (v < 0 || !Number.isInteger(v)) return null;
+        if (dims.length >= 3) {
+          const sp = layers > 1 ? Math.floor((index + i) / layers) : index + i;
+          const x = sp % s0, t = (sp - x) / s0, y = t % s1, z = (t - y) / s1;
+          if (x < lo[0]) lo[0] = x; if (x > hi[0]) hi[0] = x;
+          if (y < lo[1]) lo[1] = y; if (y > hi[1]) hi[1] = y;
+          if (z < lo[2]) lo[2] = z; if (z > hi[2]) hi[2] = z;
+        }
         if (!seen.has(v)) {
           seen.add(v);
           if (seen.size > maxLabels) return null;
         }
       }
+      index += n;
     }
   } catch {
     return null;
   } finally {
     reader.cancel().catch(() => {});
   }
-  return [...seen].sort((a, b) => a - b);
+  return {
+    labels: [...seen].sort((a, b) => a - b),
+    box: Number.isFinite(lo[0]) ? { lo, hi } : null,
+  };
 }
 
 // → null (não dá para ler: fica como exame, o servidor decide)
 //   | { kind: "image" }
-//   | { kind: "segmentation", names: string[] }
+//   | { kind: "segmentation", names: string[], geometry, reference, box }
+//     geometry: a grade do arquivo; reference: a do volume em que foi desenhada
+//     (o Slicer grava; null nos outros); box: caixa dos voxels marcados (null se
+//     não deu para ler os valores). Ver geometry.js.
 export async function nrrdKind(file) {
   let header;
   try {
@@ -158,29 +191,32 @@ export async function nrrdKind(file) {
   }
   if (!header) return null;
 
+  const geometry = nrrdGeometry(header.fields);
+  const reference = slicerReferenceGeometry(header.extras.Segmentation_ConversionParameters);
+  const seg = (names, scan) => ({ kind: "segmentation", names, geometry, reference, box: scan?.box ?? null });
+
   if (header.segments.size) {
     const names = [...header.segments.keys()].sort((a, b) => a - b)
       .map((n) => cleanName(header.segments.get(n).Name) || `Segmento ${n + 1}`);
-    return { kind: "segmentation", names: dedupe(names) };
+    return seg(dedupe(names), await scanLabels(file, header, Infinity));
   }
 
   const kinds = (header.fields.kinds || "").toLowerCase().split(/\s+/);
   const layered = header.fields.dimension === "4" && kinds[0] === "list";
   const named = /\.seg\.nrrd$/i.test(file.name);
   const hinted = HINT.test(file.name.replace(/\.nrrd$/i, ""));
-  const labels = await scanLabels(file, header, named || layered || hinted ? MAX_LABELS_NAMED : MAX_LABELS_GUESS);
-  if (!labels) {
+  const scan = await scanLabels(file, header, named || layered || hinted ? MAX_LABELS_NAMED : MAX_LABELS_GUESS);
+  if (!scan) {
     // O cabeçalho já tinha dito "segmentação": o backend lê e, se não for,
     // explica. Sem os valores, uma linha só com o nome do arquivo.
-    return named || layered ? { kind: "segmentation", names: [fileStem(file.name) || "Segmento 1"] } : { kind: "image" };
+    return named || layered ? seg([fileStem(file.name) || "Segmento 1"], null) : { kind: "image" };
   }
-  if (!labels.length) return named || layered ? { kind: "segmentation", names: [] } : { kind: "image" };
-  if (labels.length === 1 && !layered) {
-    return { kind: "segmentation", names: [fileStem(file.name) || "Segmento 1"] };
-  }
+  const { labels } = scan;
+  if (!labels.length) return named || layered ? seg([], scan) : { kind: "image" };
+  if (labels.length === 1 && !layered) return seg([fileStem(file.name) || "Segmento 1"], scan);
   // Camadas sem cabeçalho do Slicer: o backend nomeia por camada.valor; aqui
   // não vale a pena separar camadas — conta-se pelo total de valores.
-  return { kind: "segmentation", names: labels.map((v) => `Segmento ${v}`) };
+  return seg(labels.map((v) => `Segmento ${v}`), scan);
 }
 
 function dedupe(names) {

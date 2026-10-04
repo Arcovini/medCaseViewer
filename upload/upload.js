@@ -1,5 +1,6 @@
 import { classifyFiles, hasExam } from "./classify.js";
 import { MIN_SLICES_PER_SERIES, nrrdInfo, readDicomSeries, seriesZip } from "./dicom-series.js";
+import { dicomGeometry, pairing, sameGrid } from "./geometry.js";
 import { fileStem, nrrdKind } from "./nrrd-kind.js";
 
 // Backend auto-detection:
@@ -42,9 +43,10 @@ const sections = {
 };
 
 let selectedFiles = [];
-// Segmentações em NRRD entre as estruturas: nome do arquivo → nomes das
-// estruturas que o backend vai gerar (nrrd-kind.js). Cada uma é UM arquivo no
-// campo `files`, mas várias linhas na lista.
+// Segmentações em NRRD entre as estruturas: nome do arquivo → { names,
+// geometry, reference, box } (nrrd-kind.js): os nomes das estruturas que o
+// backend vai gerar e onde a segmentação fica no paciente. Cada uma é UM arquivo
+// no campo `files`, mas várias linhas na lista.
 let segmentations = new Map();
 // Exame: { series, ignored, include: Set<key>, primary: key } ou null.
 // Cada série: { key, kind: "dicom"|"nrrd"|"opaque", description, modality,
@@ -109,7 +111,7 @@ function resolvePieces() {
       return [{ id: f.name, origin: f.name, name: displayName(f.name), size: f.size, isolated: false }];
     }
     // Segmentação: uma linha para o arquivo e uma por estrutura que ele vira.
-    const names = segmentations.get(f.name);
+    const { names } = segmentations.get(f.name);
     return [
       { id: f.name, origin: f.name, name: fileStem(f.name) || displayName(f.name), size: f.size,
         isolated: false, segFile: true, count: names.length },
@@ -408,6 +410,7 @@ function buildRow(piece, split) {
 // Agrupa por estrutura de origem. Um grupo com mais de uma peça ganha o trilho:
 // as linhas vieram de um clique só, e "Desfazer" desfaz aquele par.
 function renderStructures() {
+  renderPairing(); // tirar ou trocar uma segmentação muda o aviso do exame
   const list = $("structure-list");
   list.innerHTML = "";
   list.dataset.overlaps = overlapDone ? "done" : "pending";
@@ -807,6 +810,7 @@ function addStructures(files) {
   renderStructures();
   // A escolha de séries depende de haver estruturas (alinhamento, "usada na
   // segmentação"): revalida.
+  preferSegmentationSeries();
   renderExam();
 }
 
@@ -931,7 +935,7 @@ async function ingestOne(files, gen) {
       renderStructures();
       return;
     }
-    segs.forEach((f) => segmentations.set(f.name, kinds[c.nrrds.indexOf(f)].names));
+    segs.forEach((f) => segmentations.set(f.name, kinds[c.nrrds.indexOf(f)]));
     c.structures.push(...segs);
     c.nrrds = c.nrrds.filter((f) => !segs.includes(f));
   }
@@ -972,6 +976,7 @@ async function readExam(c, gen) {
     return {
       key: `nrrd:${file.name}`, kind: "nrrd", file, description: file.name.replace(/\.nrrd$/i, ""),
       modality: null, frameOfRef: null, images: info?.images ?? null, spacing: info?.spacing ?? null,
+      geometry: info?.geometry ?? null,
       bytes: file.size, problem: file.size > MAX_EXAM_BYTES ? "Passa do limite de 200 MB por série." : null,
     };
   }));
@@ -981,6 +986,7 @@ async function readExam(c, gen) {
     problem: file.size > MAX_EXAM_BYTES ? "Passa do limite de 200 MB por série." : null,
   }));
   for (const s of dicom.series) {
+    s.geometry = dicomGeometry(s);
     if (!s.problem && s.rawBytes > MAX_UNZIPPED_BYTES) {
       s.problem = `Tem ${fmtMB(s.rawBytes)} de imagens; o servidor aceita até 600 MB por série.`;
     }
@@ -1029,6 +1035,7 @@ async function readExam(c, gen) {
     include,
     primary,
   };
+  preferSegmentationSeries();
   renderExam();
   renderStructures();
 }
@@ -1045,6 +1052,48 @@ function byLikelySegmentation(a, b) {
   return (axial(b) - axial(a))
     || ((a.spacing ?? Infinity) - (b.spacing ?? Infinity))
     || ((b.images ?? 0) - (a.images ?? 0));
+}
+
+// A série em que uma segmentação enviada foi desenhada (mesma grade de voxels
+// no paciente) é, sem dúvida, a "usada na segmentação": vira a principal. Sem
+// nenhuma assim, fica a sugestão de byLikelySegmentation (e o aviso de
+// renderPairing).
+function preferSegmentationSeries() {
+  if (!exam) return;
+  const current = exam.series.find((s) => s.key === exam.primary);
+  const segs = selectedFiles.filter(isSegmentation).map((f) => segmentations.get(f.name));
+  if (!segs.length) return;
+  const drawnOn = (s) => segs.some((g) => sameGrid(g.reference || g.geometry, s.geometry));
+  if (current && drawnOn(current)) return;
+  const match = exam.series.find((s) => !s.problem && drawnOn(s));
+  if (!match) return;
+  exam.primary = match.key;
+  exam.include.add(match.key);
+}
+
+// Cada segmentação contra a série em que as estruturas vão se alinhar (a
+// principal): [{ file, series, verdict }], verdict de geometry.pairing.
+function segmentationPairings() {
+  const p = exam?.series.find((s) => s.key === exam.primary && exam.include.has(s.key));
+  if (!p) return [];
+  return selectedFiles.filter(isSegmentation)
+    .map((f) => ({ file: f.name, series: p, verdict: pairing(segmentations.get(f.name), p.geometry) }));
+}
+
+// Segmentação de uma aquisição, exame de outra: o 3D não cai em cima dos cortes,
+// e no visualizador nada explica por quê. Avisa aqui, sem impedir o envio (outra
+// fase do mesmo exame, por exemplo, fica só um pouco deslocada).
+function renderPairing() {
+  const el = $("exam-pairing");
+  const bad = segmentationPairings().filter((x) => x.verdict === "other" || x.verdict === "outside");
+  el.hidden = !bad.length;
+  el.textContent = bad.map(({ file, series, verdict }) => {
+    const seg = file.replace(/(\.seg)?\.nrrd$/i, "");
+    const name = seriesName(series);
+    return verdict === "outside"
+      ? `A segmentação ${seg} fica fora da série ${name}: o 3D não vai aparecer em cima dos cortes. Confira se este é o exame em que ela foi feita.`
+      : `A segmentação ${seg} não foi desenhada na série ${name} (tamanho, posição ou inclinação diferentes): o 3D pode não ficar em cima dos cortes. Se tiver a série em que ela foi feita, envie essa.`;
+  }).join(" ");
 }
 
 function clearExam() {
@@ -1140,8 +1189,9 @@ function renderExam() {
       ? "1 arquivo ignorado (localizador, relatório ou arquivo que não é imagem)."
       : `${exam.ignored} arquivos ignorados (localizador, relatório ou arquivos que não são imagem).`;
   }
+  if (exam) sanitizeChoice();
+  renderPairing();
   if (!exam) return;
-  sanitizeChoice();
 
   if (single) {
     const s = exam.series[0];
@@ -1306,4 +1356,6 @@ window.__upload = {
   // O que a lista mostra, na ordem: as estruturas que o caso vai ter.
   getPieces: () => resolvePieces().map((p) => ({ name: p.name, segFile: !!p.segFile, segment: !!p.segment })),
   isReading: () => !!examReading,
+  // Cada segmentação contra a série principal: "same" | "other" | "outside" | null.
+  getPairing: () => segmentationPairings().map(({ file, verdict }) => ({ file, verdict })),
 };

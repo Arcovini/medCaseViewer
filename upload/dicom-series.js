@@ -12,6 +12,7 @@
 // index.html). Nada do que é lido aqui sai do computador, exceto o próprio
 // arquivo DICOM no envio — e lá o servidor fica só com imagem e geometria.
 
+import { nrrdGeometry } from "./geometry.js";
 import { entryHead, entryRaw, readable } from "./zip-read.js";
 import { buildZip } from "./zip-write.js";
 
@@ -196,7 +197,7 @@ export async function readDicomSeries(sources, onProgress) {
     if (!s) {
       s = {
         key: h.series, kind: "dicom", description: h.description, modality: h.modality,
-        frameOfRef: h.frameOfRef, rows: h.rows, cols: h.cols, iop: h.iop,
+        frameOfRef: h.frameOfRef, rows: h.rows, cols: h.cols, iop: h.iop, ps: h.ps,
         slices: [], bytes: 0, rawBytes: 0, problem: null,
       };
       groups.set(h.series, s);
@@ -265,10 +266,12 @@ export async function seriesZip(s, onItem) {
 
 // ---- NRRD: o cabeçalho é texto -----------------------------------------------------
 
-// { images, spacing } lidos do cabeçalho do .nrrd (4 KB bastam); null se não der.
+// { images, spacing, geometry } lidos do cabeçalho do .nrrd; null se não der.
+// geometry: onde o volume fica no paciente (geometry.js), para conferir se a
+// segmentação enviada junto foi desenhada nele.
 export async function nrrdInfo(file) {
   try {
-    const text = new TextDecoder("latin1").decode(await file.slice(0, 4096).arrayBuffer());
+    const text = new TextDecoder("latin1").decode(await file.slice(0, 16384).arrayBuffer());
     if (!text.startsWith("NRRD")) return null;
     const sizes = text.match(/^sizes:\s*(\d+)\s+(\d+)\s+(\d+)\s*$/m);
     const dirs = text.match(/^space directions:\s*(.+)$/m);
@@ -277,7 +280,12 @@ export async function nrrdInfo(file) {
       const vecs = [...dirs[1].matchAll(/\(([^)]+)\)/g)].map((m) => m[1].split(",").map(Number));
       if (vecs.length === 3) spacing = Math.hypot(...vecs[2]);
     }
-    return sizes ? { images: Number(sizes[3]), spacing } : null;
+    const fields = {};
+    for (const line of text.split(/\r?\n\r?\n/)[0].split(/\r?\n/)) {
+      const c = line.indexOf(":");
+      if (c > 0 && !line.startsWith("#") && line[c + 1] !== "=") fields[line.slice(0, c).trim().toLowerCase()] = line.slice(c + 1).trim();
+    }
+    return sizes ? { images: Number(sizes[3]), spacing, geometry: nrrdGeometry(fields) } : null;
   } catch (_) {
     return null;
   }

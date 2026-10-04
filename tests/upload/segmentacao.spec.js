@@ -26,7 +26,17 @@ const IMAGEM = cf("exam-sphere.nrrd");
 const SEG = cf("exam-sphere.seg.nrrd");
 const ROTULOS = cf("esfera-rotulos.nrrd");
 const TC = cf("exam-ct.nrrd");
-const RIM = path.join(__dirname, "fixtures", "Rim.stl");
+const FASE2 = cf("exam-sphere-fase2.nrrd");
+const uf = (n) => path.join(__dirname, "fixtures", n);
+const RIM = uf("Rim.stl");
+// Par real do Slicer (fixtures/slicer/LEIAME.md) e a série DICOM oblíqua com a
+// máscara na grade que o backend lê dela (mesh-processor/scripts/upload_fixtures.py
+// --pareamento).
+const SLICER_TC = uf("slicer/CTChest4.nrrd");
+const SLICER_SEG = uf("slicer/Segmentation.seg.nrrd");
+const OBLIQUA = Array.from({ length: 12 }, (_, k) => uf(`obliqua/IM${String(k + 1).padStart(4, "0")}`));
+const OBLIQUA_ROTULOS = uf("obliqua-rotulos.nrrd");
+const OBLIQUA_RECORTE = uf("obliqua-recorte.seg.nrrd");
 
 const BACKEND = "http://localhost:8000";
 const COMO_SUBIR =
@@ -96,6 +106,75 @@ test.describe("separar segmentação de exame (sem rede)", () => {
     expect((await pecas(page)).map((p) => p.name)).toEqual(["Rim", "exam-sphere", "Esfera", "Nucleo"]);
     // Com um arquivo que não é STL, isolar fica de fora (o backend recusaria).
     await expect(page.getByRole("button", { name: /^Isolar uma parte/ })).toHaveCount(0);
+  });
+});
+
+// Segmentação de uma aquisição, exame de outra: o 3D não cai nos cortes. A
+// página compara onde a segmentação foi desenhada com a série principal.
+test.describe("segmentação × série do exame", () => {
+  const pareamento = (page) => page.evaluate(() => window.__upload.getPairing());
+  const aviso = (page) => page.locator('[data-testid="exam-pairing"]');
+  const enviar = async (page, files) => { await escolher(page, files); await lido(page); };
+
+  test("par real do Slicer: desenhada nesta série, sem aviso", async ({ page }) => {
+    await abrirUpload(page);
+    await enviar(page, [SLICER_SEG, SLICER_TC]);
+    expect(await pareamento(page)).toEqual([{ file: "Segmentation.seg.nrrd", verdict: "same" }]);
+    await expect(aviso(page)).toBeHidden();
+  });
+
+  test("DICOM oblíquo: a página lê a série como o backend (labelmap e recorte do Slicer)", async ({ page }) => {
+    await abrirUpload(page);
+    await enviar(page, [...OBLIQUA, OBLIQUA_ROTULOS, OBLIQUA_RECORTE]);
+    expect(await pareamento(page)).toEqual([
+      { file: "obliqua-rotulos.nrrd", verdict: "same" },
+      // Grade própria menor; vale a do volume em que foi desenhada.
+      { file: "obliqua-recorte.seg.nrrd", verdict: "same" },
+    ]);
+    await expect(aviso(page)).toBeHidden();
+  });
+
+  test("outra série no mesmo espaço (outra fase): avisa que pode não coincidir", async ({ page }) => {
+    await abrirUpload(page);
+    await enviar(page, [SEG, FASE2]);
+    expect(await pareamento(page)).toEqual([{ file: "exam-sphere.seg.nrrd", verdict: "other" }]);
+    await expect(aviso(page)).toBeVisible();
+    await expect(aviso(page)).toContainText("não foi desenhada na série exam-sphere-fase2");
+  });
+
+  test("segmentação fora do exame: avisa que o 3D não aparece nos cortes", async ({ page }) => {
+    await abrirUpload(page);
+    await enviar(page, [SLICER_SEG, IMAGEM]);
+    expect(await pareamento(page)).toEqual([{ file: "Segmentation.seg.nrrd", verdict: "outside" }]);
+    await expect(aviso(page)).toContainText("fica fora da série exam-sphere");
+    // Aviso, não bloqueio: o caso ainda pode ser enviado.
+    await expect(processar(page)).toBeEnabled();
+  });
+
+  test("com várias séries, a principal vira a que a segmentação usou", async ({ page }) => {
+    await abrirUpload(page);
+    // Pela regra de sempre (cortes mais finos) a sugerida seria exam-sphere.
+    await enviar(page, [IMAGEM, SLICER_TC]);
+    expect((await page.evaluate(() => window.__upload.getExam())).primary).toBe("nrrd:exam-sphere.nrrd");
+    // A segmentação chega depois e diz em qual foi desenhada.
+    await enviar(page, SLICER_SEG);
+    expect((await page.evaluate(() => window.__upload.getExam())).primary).toBe("nrrd:CTChest4.nrrd");
+    expect(await pareamento(page)).toEqual([{ file: "Segmentation.seg.nrrd", verdict: "same" }]);
+    await expect(aviso(page)).toBeHidden();
+  });
+
+  test("marcar outra série como a da segmentação acende o aviso; voltar apaga", async ({ page }) => {
+    await abrirUpload(page);
+    await enviar(page, [SEG, IMAGEM, FASE2]);
+    await expect(aviso(page)).toBeHidden();
+    const { series } = await page.evaluate(() => window.__upload.getExam());
+    const fase2 = series.findIndex((s) => s.key === "nrrd:exam-sphere-fase2.nrrd");
+    const certa = series.findIndex((s) => s.key === "nrrd:exam-sphere.nrrd");
+    await page.locator(`[data-testid="series-check-${fase2}"]`).check();
+    await page.locator(`[data-testid="series-make-primary-${fase2}"]`).click();
+    await expect(aviso(page)).toBeVisible();
+    await page.locator(`[data-testid="series-make-primary-${certa}"]`).click();
+    await expect(aviso(page)).toBeHidden();
   });
 });
 
