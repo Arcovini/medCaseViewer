@@ -1782,24 +1782,81 @@ html[data-theme="dark"] .eye-toggle img { filter: invert(1); }
   cursor: pointer;
 }
 .exam-auto:hover { background: var(--w-soft); }
-.exam-sliders { display: flex; flex-direction: column; gap: 8px; padding: 0 16px 4px; }
-/* Janela da TC: presets em Hounsfield (a base) e a janela em uso, editável. */
-.exam-presets { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 16px 10px; }
-.exam-preset {
-  height: 30px;
-  padding: 0 11px;
-  border: 1px solid var(--w-rule-strong);
-  border-radius: 999px;
-  background: transparent;
-  color: var(--w-ink);
-  font: 500 12px var(--font-text);
+.exam-image-controls .exam-section-title { padding-bottom: 0; }
+/* Uma barra: os limites mudam o intervalo; o trecho entre eles o desloca. */
+.exam-window {
+  position: relative;
+  height: 44px;
+  margin: 0 28px;
+  touch-action: none;
+  user-select: none;
   cursor: pointer;
-  transition: background 0.14s ease, color 0.14s ease, border-color 0.14s ease;
 }
-.exam-preset:hover { background: var(--w-soft); }
-.exam-preset[aria-pressed="true"] { background: var(--w-ink); border-color: var(--w-ink); color: var(--w-base); }
-.exam-preset:focus-visible { outline: 2px solid var(--w-ink-3); outline-offset: 2px; }
-.exam-wl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 0 16px 10px; }
+.exam-window::before,
+.exam-window-band::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  inset-inline: 0;
+  height: 2px;
+  transform: translateY(-50%);
+  border-radius: 2px;
+  background: var(--w-ink-3);
+  pointer-events: none;
+}
+.exam-window-band {
+  position: absolute;
+  inset-block: 0;
+  left: var(--window-low);
+  right: calc(100% - var(--window-high));
+  cursor: grab;
+}
+.exam-window-band::after { background: var(--w-ink); }
+.exam-window[data-dragging="band"],
+.exam-window[data-dragging="band"] .exam-window-band { cursor: grabbing; }
+.exam-window-handle {
+  position: absolute;
+  top: 0;
+  left: var(--window-low);
+  width: 24px;
+  height: 44px;
+  transform: translateX(-50%);
+  cursor: ew-resize;
+  outline: none;
+}
+.exam-window-handle[data-bound="hi"] { left: var(--window-high); }
+.exam-window-handle::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--w-base);
+  border-radius: 50%;
+  background: var(--w-ink);
+  transform: translate(-50%, -50%);
+}
+.exam-window-handle:hover::after { width: 14px; height: 14px; }
+.exam-window-handle:focus-visible::after { outline: 2px solid var(--w-ink-2); outline-offset: 2px; }
+.exam-window-details { margin: -4px 16px 0; }
+.exam-window-details summary {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 32px;
+  color: var(--w-ink-2);
+  font-size: 11.5px;
+  list-style: none;
+  cursor: pointer;
+}
+.exam-window-details summary::-webkit-details-marker { display: none; }
+.exam-window-details summary:hover { color: var(--w-ink); }
+.exam-window-details summary:focus-visible { outline: 2px solid var(--w-ink-3); outline-offset: 2px; border-radius: 4px; }
+.exam-window-details [data-value] { margin-left: 4px; color: var(--w-ink); font-variant-numeric: tabular-nums; }
+.exam-window-details summary svg { margin-left: auto; width: 14px; height: 14px; }
+.exam-window-details[open] summary svg { transform: rotate(180deg); }
+.exam-wl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 8px 0 4px; }
 .exam-wl-field { display: flex; flex-direction: column; gap: 4px; font-size: 11.5px; color: var(--w-ink-2); }
 .exam-wl-field input {
   height: 32px;
@@ -1814,7 +1871,11 @@ html[data-theme="dark"] .eye-toggle img { filter: invert(1); }
 }
 .exam-wl-field input:hover { border-color: var(--w-ink-3); }
 .exam-wl-field input:focus-visible { outline: 2px solid var(--w-ink-3); outline-offset: 1px; }
-.exam-slider { display: grid; grid-template-columns: 72px 1fr; align-items: center; gap: 10px; font-size: 13px; color: var(--w-ink-2); }
+@media (pointer: coarse) {
+  .exam-image-controls .exam-auto { min-height: 44px; padding-inline: 14px; }
+  .exam-window-details summary, .exam-wl-field input { min-height: 44px; }
+  .exam-window-handle { width: 44px; }
+}
 .exam-switches { display: flex; flex-direction: column; }
 .exam-switch {
   display: flex;

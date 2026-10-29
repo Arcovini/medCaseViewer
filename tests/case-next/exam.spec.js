@@ -254,7 +254,7 @@ test("Cortar volta o palco para só o 3D e devolve o layout na saída", async ({
   await expect(stage(page)).toHaveAttribute("data-layout", "3d+3");
 });
 
-test("aba Exame: olho do plano e brilho", async ({ page, isMobile }) => {
+test("aba Exame: olho do plano e limites da janela", async ({ page, isMobile }) => {
   await open(page);
   await expect(page.locator(".panel-tabs")).toBeVisible({ timeout: 15_000 });
   if (isMobile) await page.locator('[data-testid="exam-toggle"]').click();
@@ -269,9 +269,10 @@ test("aba Exame: olho do plano e brilho", async ({ page, isMobile }) => {
   await expect(eye).toHaveAttribute("data-visible", "true");
 
   const w0 = await page.evaluate(() => window.__exam.getWindow());
-  await page.locator('[data-testid="exam-brightness"]').fill("80");
+  await page.getByRole("slider", { name: "Limite inferior da janela", exact: true }).press("ArrowRight");
   const w1 = await page.evaluate(() => window.__exam.getWindow());
-  expect(w1.lo).toBeLessThan(w0.lo); // mais brilho = janela desce
+  expect(w1.lo).toBeCloseTo(w0.lo + 1);
+  expect(w1.hi).toBe(w0.hi);
   await page.locator('[data-testid="exam-auto"]').click();
   expect(await page.evaluate(() => window.__exam.getWindow())).toEqual(w0);
 });
@@ -420,9 +421,9 @@ test("caso só com exame e duas séries: sem marca de segmentação nem nota", a
   await expect(page.locator('[data-testid="exam-series-note"]')).toHaveCount(0);
 });
 
-// ---- Janela: presets de TC e janela/nível editáveis -------------------------------------
+// ---- Janela: dois limites, intervalo móvel e ajuste numérico -------------------------
 
-test("TC abre em Partes moles; presets e janela/nível digitados mudam a imagem", async ({ page, isMobile }) => {
+test("TC: barra única ajusta os limites e mantém janela/nível editáveis", async ({ page, isMobile }) => {
   await open(page, { withModel: false, ct: true });
   await examLoaded(page);
   expect(await page.evaluate(() => window.__exam.isCT())).toBe(true);
@@ -430,41 +431,86 @@ test("TC abre em Partes moles; presets e janela/nível digitados mudam a imagem"
   expect(await page.evaluate(() => window.__exam.getWindow())).toEqual({ lo: -160, hi: 240 });
   await expect(page.locator('[data-testid="exam-width"]')).toHaveValue("400");
   await expect(page.locator('[data-testid="exam-level"]')).toHaveValue("40");
-  await expect(page.locator('[data-testid="exam-preset-soft"]')).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator(".exam-preset, .exam-sliders")).toHaveCount(0);
   // O pixel de ar fica preto e o de osso branco em Partes moles.
   const air = await page.evaluate(() => window.__exam.sliceValueAtWorld(window.__exam.ijkToWorld(1, 1, 10)));
   expect(air).toBe(-1000);
 
-  test.skip(isMobile, "no celular o painel fica na gaveta; os ganchos acima já cobrem a lógica");
-  await page.locator('[data-testid="exam-preset-bone"]').click();
-  expect(await page.evaluate(() => window.__exam.getWindow())).toEqual({ lo: -500, hi: 1300 });
-  await expect(page.locator('[data-testid="exam-width"]')).toHaveValue("1800");
-  await expect(page.locator('[data-testid="exam-level"]')).toHaveValue("400");
+  if (isMobile) await page.locator('[data-testid="exam-toggle"]').click();
+  const low = page.getByRole("slider", { name: "Limite inferior da janela", exact: true });
+  const high = page.getByRole("slider", { name: "Limite superior da janela", exact: true });
+  await expect(low).toBeVisible();
+  await expect(page.locator('[data-testid="exam-width"]')).toBeHidden();
+  await low.press("ArrowRight");
+  expect(await page.evaluate(() => window.__exam.getWindow())).toEqual({ lo: -159, hi: 240 });
+  await high.press("Shift+ArrowRight");
+  expect(await page.evaluate(() => window.__exam.getWindow())).toEqual({ lo: -159, hi: 250 });
 
+  await page.locator('[data-testid="exam-window-details"]').click();
   await page.locator('[data-testid="exam-width"]').fill("350");
   await page.locator('[data-testid="exam-level"]').fill("50");
   await page.locator('[data-testid="exam-level"]').press("Enter");
   await expect.poll(() => page.evaluate(() => window.__exam.getPreset())).toBe("custom");
   expect(await page.evaluate(() => window.__exam.getWindow())).toEqual({ lo: -125, hi: 225 });
-  await expect(page.locator('.exam-preset[aria-pressed="true"]')).toHaveCount(0);
-
-  // Brilho ajusta a partir da janela digitada, e os números acompanham.
-  await page.locator('[data-testid="exam-brightness"]').fill("75");
-  await expect(page.locator('[data-testid="exam-level"]')).not.toHaveValue("50");
-  await expect(page.locator('[data-testid="exam-width"]')).toHaveValue("350");
+  await expect(low).toHaveAttribute("aria-valuenow", "-125");
+  await expect(high).toHaveAttribute("aria-valuenow", "225");
 
   // Janela inválida volta ao que estava.
   await page.locator('[data-testid="exam-width"]').fill("0");
   await page.locator('[data-testid="exam-width"]').press("Enter");
   await expect(page.locator('[data-testid="exam-width"]')).toHaveValue("350");
+
+  // Deslocar o intervalo conserva a largura, inclusive ao atingir a borda.
+  await page.locator('[data-testid="exam-window-details"]').click();
+  const band = await page.locator(".exam-window-band").boundingBox();
+  const x = band.x + band.width / 2, y = band.y + band.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x + 20, y, { steps: 4 });
+  await page.mouse.up();
+  const shifted = await page.evaluate(() => window.__exam.getWindow());
+  expect(shifted.hi - shifted.lo).toBe(350);
+  expect(shifted.lo).toBeGreaterThan(-125);
+  const movedBand = await page.locator(".exam-window-band").boundingBox();
+  await page.mouse.move(movedBand.x + movedBand.width / 2, y);
+  await page.mouse.down();
+  await page.mouse.move(1500, y, { steps: 4 });
+  await page.mouse.up();
+  const edge = await page.evaluate(() => window.__exam.getWindow());
+  expect(edge.hi - edge.lo).toBe(350);
+  expect(edge.hi).toBe(Number(await high.getAttribute("aria-valuemax")));
+
+  // Os cursores não se cruzam; a menor largura continua sendo 1.
+  await low.press("End");
+  await low.press("ArrowRight");
+  const narrow = await page.evaluate(() => window.__exam.getWindow());
+  expect(narrow.hi - narrow.lo).toBe(1);
+  await high.press("Home");
+  await high.press("ArrowLeft");
+  expect(await page.evaluate(() => window.__exam.getWindow())).toEqual(narrow);
+
+  // Valores fora da escala expandem a barra; Auto restaura também a escala.
+  await page.locator('[data-testid="exam-window-details"]').click();
+  await page.locator('[data-testid="exam-width"]').fill("20000");
+  await page.locator('[data-testid="exam-level"]').fill("-1500.5");
+  await page.locator('[data-testid="exam-level"]').press("Enter");
+  expect(await page.evaluate(() => window.__exam.getWindow())).toEqual({ lo: -11500.5, hi: 8499.5 });
+  await page.locator('[data-testid="exam-auto"]').click();
+  expect(await page.evaluate(() => window.__exam.getPreset())).toBe("auto");
+  const auto = await page.evaluate(() => window.__exam.getWindow());
+  expect(auto.hi - auto.lo).toBeGreaterThan(350);
+  await expect(low).toHaveAttribute("aria-valuenow", String(auto.lo));
+  await expect(high).toHaveAttribute("aria-valuenow", String(auto.hi));
+  await expect(low).toHaveAttribute("aria-valuemin", String(Math.floor(auto.lo)));
+  await expect(high).toHaveAttribute("aria-valuemax", String(Math.ceil(auto.hi)));
 });
 
 test("fora da TC não há presets; Auto e janela/nível continuam", async ({ page }) => {
   await openAndLoad(page);
   expect(await page.evaluate(() => window.__exam.isCT())).toBe(false);
   expect(await page.evaluate(() => window.__exam.getPreset())).toBe("auto");
-  await expect(page.locator('[data-testid="exam-preset-soft"]')).toHaveCount(0);
+  await expect(page.locator(".exam-preset")).toHaveCount(0);
   await expect(page.locator('[data-testid="exam-auto"]')).toHaveCount(1);
   const w = await page.evaluate(() => window.__exam.getWindow());
-  await expect(page.locator('[data-testid="exam-width"]')).toHaveValue(String(Math.round(w.hi - w.lo)));
+  expect(Number(await page.locator('[data-testid="exam-width"]').inputValue())).toBeCloseTo(w.hi - w.lo, 2);
 });

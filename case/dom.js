@@ -2,6 +2,10 @@
 // UI helpers: structures panel, loading and error overlays.
 // Knows nothing about Three.js beyond the structure name (string) and color (hex string).
 
+import { mountWindowRange } from "./window-range.js";
+
+let examWindowRange = null;
+
 const list = document.getElementById("structures-list");
 const loadingEl = document.getElementById("loading");
 const errorEl = document.getElementById("error");
@@ -1098,11 +1102,12 @@ function examSeriesHtml(series, note) {
 }
 
 // Conteúdo da aba Exame. meta: { planes: [{ name, label, count }], subtitle,
-//   series (null com uma série só), note }.
+//   windowRange: { lo, hi }, series (null com uma série só), note }.
 // callbacks: onSeries(i), onPlaneIndex(plane, i), onPlaneVisible(plane, on),
-//            onAuto(), onBrightness(v), onContrast(v), onOption(opt, on)
+//            onAuto(), onWindowLevel(width, level), onOption(opt, on)
 export function renderExamPanel(meta, callbacks) {
   const root = document.getElementById("exam-panel");
+  const windowFieldsOpen = root.querySelector(".exam-window-details")?.open;
   root.innerHTML = `
     <div class="exam-head">
       <div class="exam-title-row">
@@ -1131,27 +1136,30 @@ export function renderExamPanel(meta, callbacks) {
           </div>
         </li>`).join("")}
     </ul>
-    <div class="exam-section-title">Imagem
-      ${meta.presets ? "" : '<button type="button" class="exam-auto" data-testid="exam-auto">Auto</button>'}
-    </div>
-    ${meta.presets ? `
-    <div class="exam-presets" role="group" aria-label="Janela da TC">
-      ${[...meta.presets, { id: "auto", label: "Auto" }].map((p) => `
-        <button type="button" class="exam-preset" data-preset="${p.id}" aria-pressed="false"
-                data-testid="exam-preset-${p.id}"${p.width ? ` title="Janela ${p.width} · nível ${p.level}"` : ""}>${p.label}</button>`).join("")}
-    </div>` : ""}
-    <div class="exam-wl">
-      <label class="exam-wl-field"><span>Janela</span>
-        <input type="number" inputmode="numeric" step="1" min="1" data-control="width" data-testid="exam-width"></label>
-      <label class="exam-wl-field"><span>Nível</span>
-        <input type="number" inputmode="numeric" step="1" data-control="level" data-testid="exam-level"></label>
-    </div>
-    <div class="exam-sliders">
-      <label class="exam-slider"><span>Brilho</span>
-        <input type="range" class="exam-range" min="0" max="100" value="50" data-control="brightness" data-testid="exam-brightness"></label>
-      <label class="exam-slider"><span>Contraste</span>
-        <input type="range" class="exam-range" min="0" max="100" value="50" data-control="contrast" data-testid="exam-contrast"></label>
-    </div>
+    <section class="exam-image-controls" aria-label="Imagem" data-testid="exam-image-controls">
+      <div class="exam-section-title">Imagem
+        <button type="button" class="exam-auto" data-testid="exam-auto" title="Ajustar a janela automaticamente">Auto</button>
+      </div>
+      <div class="exam-window" role="group" aria-label="Janela da imagem" data-testid="exam-window"
+           title="Arraste os limites ou mova o intervalo inteiro">
+        <div class="exam-window-band" aria-hidden="true"></div>
+        <div class="exam-window-handle" role="slider" tabindex="0" data-bound="lo" aria-label="Limite inferior da janela" aria-orientation="horizontal" data-testid="exam-window-low"></div>
+        <div class="exam-window-handle" role="slider" tabindex="0" data-bound="hi" aria-label="Limite superior da janela" aria-orientation="horizontal" data-testid="exam-window-high"></div>
+      </div>
+      <details class="exam-window-details"${windowFieldsOpen ? " open" : ""}>
+        <summary title="Editar janela e nível" data-testid="exam-window-details">
+          <span>Janela <span data-value="width"></span></span>
+          <span>Nível <span data-value="level"></span></span>
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m5 6 3 3 3-3"/></svg>
+        </summary>
+        <div class="exam-wl">
+          <label class="exam-wl-field"><span>Janela</span>
+            <input type="number" inputmode="decimal" step="any" min="1" data-control="width" data-testid="exam-width"></label>
+          <label class="exam-wl-field"><span>Nível</span>
+            <input type="number" step="any" data-control="level" data-testid="exam-level"></label>
+        </div>
+      </details>
+    </section>
     <div class="exam-section-title">Nos cortes</div>
     <div class="exam-switches">
       <button type="button" role="switch" class="exam-switch" data-opt="contour" aria-checked="true" data-testid="switch-contour">
@@ -1171,23 +1179,19 @@ export function renderExamPanel(meta, callbacks) {
     r.addEventListener("input", () => callbacks.onPlaneIndex(r.dataset.plane, Number(r.value) - 1));
   });
   root.querySelector(".exam-auto")?.addEventListener("click", callbacks.onAuto);
-  root.querySelectorAll(".exam-preset").forEach((b) => {
-    b.addEventListener("click", () => callbacks.onPreset(b.dataset.preset));
-  });
+  examWindowRange = mountWindowRange(root.querySelector(".exam-window"), meta.windowRange, callbacks.onWindowLevel);
   // Janela e nível digitados valem no Enter ou ao sair do campo; valor
   // inválido (vazio, janela < 1) volta ao que está na tela.
   const wIn = root.querySelector('[data-control="width"]');
   const lIn = root.querySelector('[data-control="level"]');
   const commit = () => {
-    const ok = callbacks.onWindowLevel(Number(wIn.value), Number(lIn.value));
+    const ok = callbacks.onWindowLevel(wIn.valueAsNumber, lIn.valueAsNumber);
     if (ok === false) { wIn.value = wIn.dataset.shown; lIn.value = lIn.dataset.shown; }
   };
   for (const el of [wIn, lIn]) {
     el.addEventListener("change", commit);
     el.addEventListener("keydown", (e) => { if (e.key === "Enter") el.blur(); });
   }
-  root.querySelector('[data-control="brightness"]').addEventListener("input", (e) => callbacks.onBrightness(Number(e.target.value)));
-  root.querySelector('[data-control="contrast"]').addEventListener("input", (e) => callbacks.onContrast(Number(e.target.value)));
   root.querySelectorAll(".exam-switch").forEach((s) => {
     s.addEventListener("click", () => {
       const on = s.getAttribute("aria-checked") !== "true";
@@ -1236,25 +1240,22 @@ export function setSeriesStatus(text) {
   status.textContent = text || "";
 }
 
-// Qualquer subconjunto de { brightness, contrast, width, level, preset }.
-// Janela e nível mostram a janela em uso (base + brilho/contraste).
-export function setExamControls({ brightness, contrast, width, level, preset }) {
+// A barra, o resumo e os campos usam a mesma janela da imagem.
+export function setExamControls({ width, level, range }) {
   const root = document.getElementById("exam-panel");
   if (!root) return;
-  if (brightness !== undefined) root.querySelector('[data-control="brightness"]').value = String(brightness);
-  if (contrast !== undefined) root.querySelector('[data-control="contrast"]').value = String(contrast);
   const show = (sel, v) => {
     const el = root.querySelector(sel);
     if (!el || v === undefined) return;
-    const r = String(Math.round(v));
+    const r = String(Number(v.toFixed(2)));
     el.dataset.shown = r;
     if (document.activeElement !== el) el.value = r;
   };
   show('[data-control="width"]', width);
   show('[data-control="level"]', level);
-  if (preset !== undefined) {
-    root.querySelectorAll(".exam-preset").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.preset === preset)));
-  }
+  root.querySelector('[data-value="width"]').textContent = Math.round(width).toLocaleString("pt-BR");
+  root.querySelector('[data-value="level"]').textContent = Math.round(level).toLocaleString("pt-BR");
+  examWindowRange?.setWindow({ lo: level - width / 2, hi: level + width / 2 }, range);
 }
 
 export function hideExamOption(opt) {

@@ -41,10 +41,9 @@ export function init({ world, dom, loader, hasModel, onTabChange, onLayoutChange
   const views = {};     // plano → slice-view
   const index = {};     // plano → índice atual
   const planeOn = { axial: false, coronal: false, sagittal: false };
-  let autoWin = null, win = null, brightness = 50, contrast = 50;
-  // Janela de base (brilho/contraste ajustam a partir dela): um preset de TC,
-  // a digitada ("custom") ou a automática. ct: a série está em Hounsfield.
-  let baseWin = null, customWin = null, preset = null, ct = false;
+  let autoWin = null, win = null;
+  // A barra e os campos editam a janela diretamente. ct: escala Hounsfield.
+  let customWin = null, preset = null, ct = false;
   let layout = "3d";         // "3d" | "3d+1" | "3d+3" | "quad" | "single" (celular)
   let primary = "axial";     // plano ao lado do 3D em "3d+1"
   let single = "3d";         // celular, "Uma vista": "3d" | plano
@@ -202,19 +201,14 @@ export function init({ world, dom, loader, hasModel, onTabChange, onLayoutChange
         ? Math.max(0, Math.min(l.count - 1, Math.round(ijk[axes[p]])))
         : Math.floor(l.count / 2);
     }
-    // Janela: TC ganha os presets clínicos, e o escolhido (ou a janela
-    // digitada) continua ao trocar de série — a escala Hounsfield é a mesma em
-    // todas as fases. Fora da TC, a automática da série. Brilho e contraste
-    // voltam a 50 (a base) em qualquer troca.
+    // Mantém a janela inicial da TC e a janela ajustada ao trocar de série
+    // na mesma escala Hounsfield. Fora da TC, usa a automática da série.
     autoWin = G.autoWindow(data);
     const wasCt = ct;
     ct = G.isHounsfield(data);
     if (!ct) preset = "auto";
     else if (!preset || (preset === "auto" && !wasCt)) preset = "soft";
-    brightness = 50;
-    contrast = 50;
-    baseWin = baseFor(preset);
-    win = baseWin;
+    win = baseFor(preset);
     ijkByGeometry = new WeakMap();
     segCache.clear();
 
@@ -239,8 +233,7 @@ export function init({ world, dom, loader, hasModel, onTabChange, onLayoutChange
       {
         subtitle: `${nk} imagens · ${formatMm(geo.spacing[2])} · ${ni}×${nj}`,
         planes: G.PLANES.map((p) => ({ name: p, label: G.PLANE_LABEL[p], count: layouts[p].count })),
-        // TC: presets clínicos no lugar do botão Auto (que vira um deles).
-        presets: ct ? G.CT_PRESETS : null,
+        windowRange: { lo: Math.min(autoWin.lo, win.lo), hi: Math.max(autoWin.hi, win.hi) },
         series: multi
           ? series.map((s, i) => ({
             label: s.label,
@@ -261,17 +254,14 @@ export function init({ world, dom, loader, hasModel, onTabChange, onLayoutChange
         onPlaneIndex: (p, i) => setIndex(p, i),
         onPlaneVisible: (p, on) => { eyesTouched = true; setPlaneVisible(p, on); },
         onAuto: () => setPreset("auto"),
-        onPreset: (p) => setPreset(p),
         onWindowLevel: (w, l) => setWindowLevel(w, l),
-        onBrightness: (v) => { brightness = v; updateWindow(); },
-        onContrast: (v) => { contrast = v; updateWindow(); },
         onOption: (opt, on) => {
           if (opt === "cross") { crossOn = on; for (const p of G.PLANES) views[p].setCrosshairVisible(on); }
           if (opt === "contour") { contourOn = on; invalidateAll(); }
         },
       },
     );
-    dom.setExamControls({ brightness, contrast, preset, ...G.levelOf(win) });
+    dom.setExamControls(G.levelOf(win));
     // Sem modelo não há estrutura para contornar.
     if (!hasModel) dom.hideExamOption("contour");
     dom.setExamOption("contour", contourOn);
@@ -399,30 +389,21 @@ export function init({ world, dom, loader, hasModel, onTabChange, onLayoutChange
     return G.windowFromLevel(pr.width, pr.level);
   }
 
-  // Preset (ou "auto"): vira a base, e brilho/contraste voltam ao meio.
+  // Janela inicial, automática ou personalizada; presets não aparecem na UI.
   function setPreset(p) {
     if (!geo) return;
     preset = p;
-    baseWin = baseFor(p);
-    brightness = 50;
-    contrast = 50;
-    win = baseWin;
-    dom.setExamControls({ brightness, contrast, preset, ...G.levelOf(win) });
+    win = baseFor(p);
+    dom.setExamControls({ ...G.levelOf(win), range: p === "auto" ? autoWin : undefined });
     invalidateAll();
   }
 
   // Janela e nível digitados: viram a base ("custom").
   function setWindowLevel(width, level) {
-    if (!geo || !(width >= 1) || !Number.isFinite(level)) return false;
+    if (!geo || !Number.isFinite(width) || width < 1 || !Number.isFinite(level)) return false;
     customWin = G.windowFromLevel(width, level);
     setPreset("custom");
     return true;
-  }
-
-  function updateWindow() {
-    win = G.windowFromControls(baseWin, brightness, contrast);
-    dom.setExamControls(G.levelOf(win));
-    invalidateAll();
   }
 
   // ---- Ações -------------------------------------------------------------------

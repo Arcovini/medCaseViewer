@@ -301,16 +301,6 @@ export function isHounsfield(data, step = 7) {
 export const windowFromLevel = (width, level) => ({ lo: level - width / 2, hi: level + width / 2 });
 export const levelOf = (win) => ({ width: win.hi - win.lo, level: (win.lo + win.hi) / 2 });
 
-// Brilho e contraste (0–100, 50 = a janela de base: preset, digitada ou automática) → janela.
-// Brilho sobe → centro desce (a imagem clareia). Contraste sobe → janela estreita.
-export function windowFromControls(auto, brightness, contrast) {
-  const c0 = (auto.lo + auto.hi) / 2;
-  const w0 = auto.hi - auto.lo;
-  const c = c0 - ((brightness - 50) / 50) * w0;
-  const w = w0 * Math.pow(2, -(contrast - 50) / 25);
-  return { lo: c - w / 2, hi: c + w / 2 };
-}
-
 export function voxelAt(data, dims, i, j, k) {
   const ii = Math.round(i), jj = Math.round(j), kk = Math.round(k);
   if (ii < 0 || jj < 0 || kk < 0 || ii >= dims[0] || jj >= dims[1] || kk >= dims[2]) return null;
